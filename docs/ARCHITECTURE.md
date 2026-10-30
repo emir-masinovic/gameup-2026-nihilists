@@ -11,7 +11,8 @@ The actual tracked foundation is:
 ├── README.md
 ├── project.godot
 ├── docs/
-│   └── ARCHITECTURE.md
+│   ├── ARCHITECTURE.md
+│   └── DESIGN.md
 └── features/
     └── levels/
         └── prototype/
@@ -24,4 +25,4 @@ If approved and implemented later, player files would live in features/player/, 
 
 Store genuinely shared components once in features/common/ only when cross-feature reuse warrants it. Approximately three distinct consumers is a useful guideline, not a strict requirement. Keep feature-owned files local until there is a concrete reason to share them. Do not introduce speculative managers, services, or autoloads.
 
-See [AGENTS.md](../AGENTS.md) for naming, coordination, validation, and safe Git rules. Gameplay decisions remain with Emir and Onur.
+See [AGENTS.md](../AGENTS.md) for naming, coordination, validation, and safe Git rules. See [DESIGN.md](DESIGN.md) for the provisional current direction and open decisions; gameplay decisions remain with Emir and Onur.

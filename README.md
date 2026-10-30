@@ -2,6 +2,8 @@
 
 A game development project by Emir and Onur for the GameUP Türkiye 2026 Hackathon.
 
+Our current working direction is a small 3D isometric, grid-based exploration roguelite where changing climate conditions reshape a forest environment. See the [current design direction](docs/DESIGN.md), which remains open to Onur's review and revision.
+
 
 
 ## Getting Started

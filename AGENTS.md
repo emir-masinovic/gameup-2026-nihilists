@@ -1,6 +1,6 @@
 # Working in this repository
 
-Read README.md, docs/ARCHITECTURE.md, current files, and Git status/diff before editing. Final gameplay and title are undecided. Protect human-approved decisions; ask before changing them. Do not infer a genre, mechanics, art style, levels, saving, combat, or puzzles.
+Read README.md, [docs/DESIGN.md](docs/DESIGN.md), docs/ARCHITECTURE.md, current files, and Git status/diff before editing. DESIGN.md is the authoritative current working direction, authorized for publication by Emir and open to Onur's review and revision. Protect human-approved decisions; ask before changing them. Distinguish working direction from open decisions and examples; never silently promote proposals into approved mechanics. Implement only what the current task authorizes.
 
 ## Filesystem and naming
 
