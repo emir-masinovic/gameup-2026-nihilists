@@ -1,4 +1,6 @@
 extends Node3D
+signal cell_entered(cell: Vector2i)
+var facing = Vector2i.UP
 var cell = Vector2i.ZERO
 var grid: RefCounted
 var moving = false
@@ -30,8 +32,10 @@ func try_move(direction: Vector2i) -> bool:
 	var target = cell + direction
 	if not grid.traversable(target):
 		return false
+	facing = direction
 	moving = true
 	cell = target
+	cell_entered.emit(cell)
 	$Body.rotation.y = atan2(-direction.x, -direction.y)
 	move_tween = create_tween()
 	move_tween.tween_property(self, "position", grid.world_position(cell), 0.16).set_trans(Tween.TRANS_SINE)
