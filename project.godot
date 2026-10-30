@@ -1,11 +1,36 @@
-; Engine configuration file. Edit through the Godot editor when practical.
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
 config_version=5
 
 [application]
+
 config/name="Nihilists — GameUP 2026"
-run/main_scene="res://features/levels/prototype/prototype.tscn"
+run/main_scene="res://features/menus/main_menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [rendering]
+
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+
+[autoload]
+
+SettingsManager="*res://features/settings/settings_manager.gd"
+SaveManager="*res://features/save_system/save_manager.gd"
+SceneFlow="*res://features/menus/scene_flow.gd"
+
+[display]
+
+window/size/viewport_width=1152
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+
+[audio]
+
+default_bus_layout="res://features/settings/audio_bus_layout.tres"

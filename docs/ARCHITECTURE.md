@@ -1,28 +1,72 @@
 # Feature ownership
 
-Files belong to the feature that uses them, rather than global scenes/, scripts/, audio/, or assets/ buckets. Keep scenes, matching scripts, local resources, and media together in a shallow feature directory.
+Scenes, scripts, resources, and local media belong to the feature that uses them. Keep the tree shallow; do not create global scenes/, scripts/, audio/, or assets/ buckets. Share a component only when reuse warrants it, and keep shared resources in one place. No external assets are used in this prototype.
 
-The actual tracked foundation is:
+## Current filesystem
 
 ```text
 .
-├── .gitignore
-├── AGENTS.md
-├── README.md
-├── project.godot
-├── docs/
-│   ├── ARCHITECTURE.md
-│   └── DESIGN.md
-└── features/
-    └── levels/
-        └── prototype/
-            └── prototype.tscn
+|-- .gitignore
+|-- AGENTS.md
+|-- README.md
+|-- project.godot
+|-- docs/
+|   |-- ARCHITECTURE.md
+|   `-- DESIGN.md
+|-- features/
+|   |-- menus/
+|   |   |-- main_menu.gd / main_menu.tscn
+|   |   |-- pause_menu.gd / pause_menu.tscn
+|   |   |-- options_menu.gd / options_menu.tscn
+|   |   |-- style_category_active.tres
+|   |   `-- scene_flow.gd
+|   |-- settings/
+|   |   |-- settings_manager.gd
+|   |   `-- audio_bus_layout.tres
+|   |-- save_system/save_manager.gd
+|   `-- levels/prototype/prototype.tscn
+`-- tests/
+    |-- foundation_test.gd
+    |-- desktop_test.gd
+    |-- settings_restart_test.gd
+    `-- video_desktop_test.gd
 ```
 
-prototype.tscn is an empty technical bootstrap with a status label. Its location does not approve a level structure or gameplay concept.
+Godot-generated `.gd.uid` companions belong alongside their scripts and should be committed. `.godot/` editor, import, UID, and shader caches remain ignored. The original prototype scene is retained untouched.
 
-If approved and implemented later, player files would live in features/player/, level files in features/levels/, and menus in features/menus/. A player's sprites, animations, and audio would stay with that player feature; menu audio and assets would stay with menus. These are examples, not directories or systems to create now.
+## Reusable foundation (Phase B)
 
-Store genuinely shared components once in features/common/ only when cross-feature reuse warrants it. Approximately three distinct consumers is a useful guideline, not a strict requirement. Keep feature-owned files local until there is a concrete reason to share them. Do not introduce speculative managers, services, or autoloads.
+The project starts at `main_menu.tscn`. `SceneFlow` owns scene transitions and the pause overlay; `application/run/playable_scene` selects the game scene, falling back to the original prototype when unset. Transitions always clear pause state. Pause uses an always-processing overlay on canvas layer 20, above the world HUD while the game tree and movement tweens stop. Both menu contexts instantiate the same `options_menu.tscn`. Closing nested Options returns to its parent; it does not resume the game. Options has an opaque full-screen background and a container-authored footer with Back on the left and category-only Restore Defaults on the right. A persistent selected sidebar accent replaces duplicate content headings; the settings panel has a subtly lighter background. Menu layouts are editable PackedScenes; Options builds repeated setting/binding rows from data. No editor plugin or external UI library is required.
 
-See [AGENTS.md](../AGENTS.md) for naming, coordination, validation, and safe Git rules. See [DESIGN.md](DESIGN.md) for the provisional current direction and open decisions; gameplay decisions remain with Emir and Onur.
+`SettingsManager` owns `user://settings.cfg`, applies video/audio settings, and installs the centralized movement, interaction, and pause InputMap actions. Each game action has two physical keyboard bindings. Loading validates values and rejects conflicting binding sets. Rebinding leaves built-in `ui_*` navigation actions intact. The shared Options component calls this service; it contains no movement rules. Music and SFX buses send to Master through `audio_bus_layout.tres`. Window mode, resolution, and VSync controls are disabled on Web/headless backends; resolution is also disabled while fullscreen (desktop resolution is used). Saved window sizes are constrained to the usable display area. Video adds 3D MSAA Disabled/2×/4× and shadows Off/Low/Medium/High (512/1024/2048 directional atlas sizes for enabled qualities). FXAA and TAA are not exposed in Compatibility. Existing settings files remain readable with defaults for new fields; Exit is hidden on Web. No controller rebinding is implemented.
+
+`SaveManager` independently owns version-1 `user://progression.json`. Its small API loads safe defaults, validates progression data, and replaces saves through a temporary file. Discovery identifiers, Knowledge, and upgrade identifiers are storage fields, not implemented reward or upgrade mechanics. Missing, malformed, or unsupported-version data returns defaults without overwriting the original. `run_path` is reserved for separate temporary run data; no run serialization or restoration is implemented, so Continue is deliberately disabled. Settings are never stored in progression data.
+
+These three autoloads have distinct, currently required responsibilities. Avoid adding a generic manager or serialization framework around them.
+
+## Focused validation
+
+Run with the Godot 4.7.2 executable from the repository root:
+
+```text
+godot --headless --editor --import --quit
+godot --headless --script res://tests/foundation_test.gd
+godot --headless --script res://tests/settings_restart_test.gd -- --write
+godot --headless --script res://tests/settings_restart_test.gd
+godot --script res://tests/desktop_test.gd
+godot --script res://tests/video_desktop_test.gd
+```
+
+The restart checks must run in the shown write/read order. Tests use separate test configuration/save filenames and remove them afterward; they do not overwrite normal user saves or settings. The desktop test requires a real display and temporarily toggles fullscreen/VSync without saving those changes. Set `NIHILISTS_CAPTURE_DIR` to an existing directory outside the repository to capture optional menu/world screenshots.
+
+## Standalone resolution and FPS checks
+
+Godot's embedded Game view controls its own viewport sizing (Fixed Size, Keep Aspect Ratio, or Stretch to Fit), and embedded games do not support window mode changes. This can mask native window resizing. For desktop resolution/fullscreen testing, disable **Embed Game on Next Play** in the Game view menu, or launch the project directly with the Godot executable and `--path` (without `--editor`). No embedded-view workaround changes standalone behavior. Web window mode, resolution, and VSync controls remain disabled.
+
+The standalone video test selects resolutions through Options and checks the actual native window size, configuration persistence, and footer bounds. The restart test reloads settings in a separate process. `video_desktop_test.gd` also measures real process-frame throughput and reports Godot's FPS monitor beside the selected cap and display refresh rate. It uses the menu to isolate cap behavior from world rendering cost.
+
+To compare 60, 120, and Unlimited manually, run standalone, disable VSync in Video, and compare Godot's debugger Monitors FPS reading or run the video test. Unlimited means `Engine.max_fps = 0`, not guaranteed performance. Repeat with VSync enabled: measured FPS is additionally constrained by display refresh, driver/compositor behavior, and CPU/GPU load. No public FPS overlay is added.
+
+References: [Game embedding](https://docs.godotengine.org/en/stable/tutorials/editor/game_embedding.html), [Engine.max_fps](https://docs.godotengine.org/en/stable/classes/class_engine.html#class-engine-property-max-fps).
+
+See [AGENTS.md](../AGENTS.md) for naming and Git rules and [DESIGN.md](DESIGN.md) for game direction and open decisions.

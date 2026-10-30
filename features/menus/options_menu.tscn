@@ -1,0 +1,84 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://features/menus/options_menu.gd" id="1"]
+
+[sub_resource type="StyleBoxFlat" id="Background"]
+bg_color = Color(0.035, 0.065, 0.06, 1)
+
+[sub_resource type="StyleBoxFlat" id="ContentBackground"]
+bg_color = Color(0.055, 0.085, 0.077, 1)
+
+[node name="OptionsMenu" type="PanelContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1")
+theme_override_styles/panel = SubResource("Background")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 24
+
+[node name="Rows" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="Margin/Rows"]
+layout_mode = 2
+text = "Options"
+theme_override_font_sizes/font_size = 30
+
+[node name="Columns" type="HBoxContainer" parent="Margin/Rows"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 32
+
+[node name="Sidebar" type="VBoxContainer" parent="Margin/Rows/Columns"]
+custom_minimum_size = Vector2(170, 0)
+layout_mode = 2
+
+[node name="ContentPanel" type="PanelContainer" parent="Margin/Rows/Columns"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("ContentBackground")
+
+[node name="ContentMargin" type="MarginContainer" parent="Margin/Rows/Columns/ContentPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 12
+
+[node name="Scroll" type="ScrollContainer" parent="Margin/Rows/Columns/ContentPanel/ContentMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Content" type="VBoxContainer" parent="Margin/Rows/Columns/ContentPanel/ContentMargin/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="Status" type="Label" parent="Margin/Rows"]
+layout_mode = 2
+text = ""
+
+[node name="Footer" type="HBoxContainer" parent="Margin/Rows"]
+layout_mode = 2
+
+[node name="Back" type="Button" parent="Margin/Rows/Footer"]
+custom_minimum_size = Vector2(170, 44)
+layout_mode = 2
+text = "Back"
+
+[node name="Spacer" type="Control" parent="Margin/Rows/Footer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Defaults" type="Button" parent="Margin/Rows/Footer"]
+custom_minimum_size = Vector2(190, 44)
+layout_mode = 2
+text = "Restore Defaults"

@@ -1,0 +1,18 @@
+extends Control
+var options: Control
+
+func _ready():
+	$Panel/Rows/NewGame.pressed.connect(SceneFlow.new_game)
+	$Panel/Rows/Continue.disabled = not SaveManager.has_resumable_run()
+	$Panel/Rows/Options.pressed.connect(open_options)
+	$Panel/Rows/Exit.pressed.connect(func(): get_tree().quit())
+	$Panel/Rows/Exit.visible = not OS.has_feature("web")
+	$Panel/Rows/NewGame.grab_focus()
+
+func open_options():
+	if is_instance_valid(options):
+		return
+	options = preload("res://features/menus/options_menu.tscn").instantiate()
+	add_child(options)
+	$Panel.hide()
+	options.closed.connect(func(): options.queue_free(); $Panel.show(); $Panel/Rows/Options.grab_focus())
