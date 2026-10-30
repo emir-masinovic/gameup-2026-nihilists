@@ -12,6 +12,7 @@ config_version=5
 
 config/name="Nihilists — GameUP 2026"
 run/main_scene="res://features/menus/main_menu.tscn"
+run/playable_scene="res://features/levels/forest/forest_level.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [rendering]

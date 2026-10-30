@@ -24,12 +24,24 @@ Scenes, scripts, resources, and local media belong to the feature that uses them
 |   |   |-- settings_manager.gd
 |   |   `-- audio_bus_layout.tres
 |   |-- save_system/save_manager.gd
-|   `-- levels/prototype/prototype.tscn
+|   |-- player/grid_player.gd / grid_player.tscn
+|   `-- levels/
+|       |-- prototype/prototype.tscn
+|       `-- forest/
+|           |-- forest_level.gd / forest_level.tscn
+|           |-- forest_tree.tscn
+|           |-- grid_data.gd
+|           |-- camera_orbit.gd
+|           `-- shader_grid.gdshader
 `-- tests/
     |-- foundation_test.gd
     |-- desktop_test.gd
     |-- settings_restart_test.gd
-    `-- video_desktop_test.gd
+    |-- video_desktop_test.gd
+    |-- grid_world_test.gd
+    |-- playtest_feedback_test.gd
+    |-- feedback_desktop_test.gd
+    `-- camera_grid_test.gd
 ```
 
 Godot-generated `.gd.uid` companions belong alongside their scripts and should be committed. `.godot/` editor, import, UID, and shader caches remain ignored. The original prototype scene is retained untouched.
@@ -38,11 +50,19 @@ Godot-generated `.gd.uid` companions belong alongside their scripts and should b
 
 The project starts at `main_menu.tscn`. `SceneFlow` owns scene transitions and the pause overlay; `application/run/playable_scene` selects the game scene, falling back to the original prototype when unset. Transitions always clear pause state. Pause uses an always-processing overlay on canvas layer 20, above the world HUD while the game tree and movement tweens stop. Both menu contexts instantiate the same `options_menu.tscn`. Closing nested Options returns to its parent; it does not resume the game. Options has an opaque full-screen background and a container-authored footer with Back on the left and category-only Restore Defaults on the right. A persistent selected sidebar accent replaces duplicate content headings; the settings panel has a subtly lighter background. Menu layouts are editable PackedScenes; Options builds repeated setting/binding rows from data. No editor plugin or external UI library is required.
 
-`SettingsManager` owns `user://settings.cfg`, applies video/audio settings, and installs the centralized movement, interaction, and pause InputMap actions. Each game action has two physical keyboard bindings. Loading validates values and rejects conflicting binding sets. Rebinding leaves built-in `ui_*` navigation actions intact. The shared Options component calls this service; it contains no movement rules. Music and SFX buses send to Master through `audio_bus_layout.tres`. Window mode, resolution, and VSync controls are disabled on Web/headless backends; resolution is also disabled while fullscreen (desktop resolution is used). Saved window sizes are constrained to the usable display area. Video adds 3D MSAA Disabled/2×/4× and shadows Off/Low/Medium/High (512/1024/2048 directional atlas sizes for enabled qualities). FXAA and TAA are not exposed in Compatibility. Existing settings files remain readable with defaults for new fields; Exit is hidden on Web. No controller rebinding is implemented.
+`SettingsManager` owns `user://settings.cfg`, applies video/audio settings, and installs the centralized movement, interaction, and pause InputMap actions. Each game action has two physical keyboard bindings. Loading validates values and rejects conflicting binding sets. Rebinding leaves built-in `ui_*` navigation actions intact. The shared Options component calls this service; it contains no movement rules. Music and SFX buses send to Master through `audio_bus_layout.tres`. Window mode, resolution, and VSync controls are disabled on Web/headless backends; resolution is also disabled while fullscreen (desktop resolution is used). Saved window sizes are constrained to the usable display area. Video adds 3D MSAA Disabled/2×/4× and shadows Off/Low/Medium/High (512/1024/2048 directional atlas sizes for enabled qualities). The forest subscribes to graphics changes to enable/disable its sun shadows. FXAA and TAA are not exposed in Compatibility. Existing settings files remain readable with defaults for new fields; Exit is hidden on Web. No controller rebinding is implemented.
 
 `SaveManager` independently owns version-1 `user://progression.json`. Its small API loads safe defaults, validates progression data, and replaces saves through a temporary file. Discovery identifiers, Knowledge, and upgrade identifiers are storage fields, not implemented reward or upgrade mechanics. Missing, malformed, or unsupported-version data returns defaults without overwriting the original. `run_path` is reserved for separate temporary run data; no run serialization or restoration is implemented, so Continue is deliberately disabled. Settings are never stored in progression data.
 
 These three autoloads have distinct, currently required responsibilities. Avoid adding a generic manager or serialization framework around them.
+
+## First grid world (Phase C)
+
+The Phase C `application/run/playable_scene` setting points to `forest_level.tscn`; generic scene-flow code does not depend on the forest. `grid_data.gd` owns a regular 17 × 17 grid, deterministic RNG generation version 1, passability, and cell-to-world conversion. The same seed and algorithm version reproduce the same initial cells. The level's exported seed defaults to 2026; repeated New Game currently uses that seed. A clear spawn area and central routes guarantee a valid starting position.
+
+`forest_level.gd` renders data using shared meshes/materials and a reusable tree scene. This is a bounded placeholder forest, not climate simulation. Ground tile meshes meet exactly at cell boundaries. `shader_grid.gdshader` draws thin dark boundaries in world coordinates, with derivative-based antialiasing for readable lines at different zoom levels. It adds no gaps, overlay geometry, or depth conflicts; logical coordinates are unchanged. MSAA still handles mesh silhouettes. The normal HUD only displays FOREST in the upper-right. `grid_player.gd` independently checks target cells and animates one cardinal step at a time. Tree cells block movement. `camera_orbit.gd` stays centered on the world grid using an orthographic camera. Mouse wheel zooms smoothly between sizes 24 and 56 (default 42); right-button horizontal drag orbits the center at a fixed approximately isometric elevation. Player movement does not move the target or change camera-relative input coordinates. Zooming in deliberately crops some map edges; zoom out to see the whole forest. No player FSM is needed yet.
+
+Climate simulation, vegetation health, Knowledge rewards, upgrades, death/survival rules, bonfire saving, interaction mechanics, and puzzles are not implemented. The interaction action exists only as an input foundation.
 
 ## Focused validation
 
@@ -53,11 +73,15 @@ godot --headless --editor --import --quit
 godot --headless --script res://tests/foundation_test.gd
 godot --headless --script res://tests/settings_restart_test.gd -- --write
 godot --headless --script res://tests/settings_restart_test.gd
+godot --headless --script res://tests/grid_world_test.gd
 godot --script res://tests/desktop_test.gd
+godot --headless --script res://tests/playtest_feedback_test.gd
+godot --script res://tests/feedback_desktop_test.gd
+godot --headless --script res://tests/camera_grid_test.gd
 godot --script res://tests/video_desktop_test.gd
 ```
 
-The restart checks must run in the shown write/read order. Tests use separate test configuration/save filenames and remove them afterward; they do not overwrite normal user saves or settings. The desktop test requires a real display and temporarily toggles fullscreen/VSync without saving those changes. Set `NIHILISTS_CAPTURE_DIR` to an existing directory outside the repository to capture optional menu/world screenshots.
+The restart checks must run in the shown write/read order. Tests use separate test configuration/save filenames and remove them afterward; they do not overwrite normal user saves or settings. The desktop test requires a real display and temporarily toggles fullscreen/VSync without saving those changes. Set `NIHILISTS_CAPTURE_DIR` to an existing directory outside the repository to capture optional menu/world screenshots. Grid tests can also run without `--headless` for Compatibility rendering checks.
 
 ## Standalone resolution and FPS checks
 
