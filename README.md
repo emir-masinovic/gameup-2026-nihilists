@@ -19,4 +19,4 @@ Open `project.godot` in Godot and press **F5** to run the project.
 
 We use a feature-based project structure, keeping scenes, scripts, and assets together.
 
-See [Architecture](https://chatgpt.com/c/docs/ARCHITECTURE.md) for the folder structure and [AGENTS.md](https://chatgpt.com/c/AGENTS.md) for development conventions.
+See [Architecture](docs/ARCHITECTURE.md) for the folder structure and [AGENTS.md](AGENTS.md) for development conventions.
