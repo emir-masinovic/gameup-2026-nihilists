@@ -1,0 +1,12 @@
+# Godot-generated caches and exports
+.godot/
+/export.cfg
+/export_credentials.cfg
+
+# Local editor and OS metadata
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Keep Godot .uid files and source asset .import metadata tracked.
