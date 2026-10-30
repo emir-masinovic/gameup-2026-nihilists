@@ -1,18 +1,22 @@
-# Nihilists — GameUP 2026
+# Nihilists — GameUP Türkiye 2026
 
-A collaborative Godot project for team Nihilists at the climate-focused GameUP Türkiye 2026 hackathon. The eventual game must address climate change within the event's focus areas. Final title, gameplay, genre, art style, and level structure are undecided.
+A game development project by Emir and Onur for the GameUP Türkiye 2026 Hackathon.
 
-Use **Godot 4.7.2 stable**. This foundation contains only a technical startup scene displaying “Nihilists — prototype pending”; it is not an approved game level.
 
-## Getting started
 
-```sh
+## Getting Started
+
+Clone the repository:
+```bash
 git clone https://github.com/emir-masinovic/gameup-2026-nihilists.git
-cd gameup-2026-nihilists
 ```
 
-Import project.godot in Godot 4.7.2, open the project, and press F6 to run the current scene or F5 to launch the configured startup scene. No plugins or external assets are required.
+Open `project.godot` in Godot and press **F5** to run the project.
 
-Emir covers UI, level design, visual direction, asset integration, and general systems. Onur covers player FSM, movement, dash, and gameplay mechanics once agreed by the team. Both developers use AI agents.
 
-Read [architecture](docs/ARCHITECTURE.md) and [operational rules](AGENTS.md) before editing. main is the shared branch; coordinate shared-file edits and use feature branches for larger work. Agree on the gameplay concept together before implementing it.
+
+## Project Structure
+
+We use a feature-based project structure, keeping scenes, scripts, and assets together.
+
+See [Architecture](https://chatgpt.com/c/docs/ARCHITECTURE.md) for the folder structure and [AGENTS.md](https://chatgpt.com/c/AGENTS.md) for development conventions.
