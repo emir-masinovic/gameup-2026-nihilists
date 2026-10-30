@@ -1,104 +1,65 @@
 # Feature ownership
 
-Scenes, scripts, resources, and local media belong to the feature that uses them. Keep the tree shallow; do not create global scenes/, scripts/, audio/, or assets/ buckets. Share a component only when reuse warrants it, and keep shared resources in one place. No external assets are used in this prototype.
+Keep scenes, scripts, resources, and local media with their feature. Use snake_case files and folders, PascalCase node/class names, and matching scene/script names where useful. See [AGENTS.md](../AGENTS.md) for collaboration and Git rules and [DESIGN.md](DESIGN.md) for the game direction.
 
-## Current filesystem
+## Implemented systems
 
-```text
-.
-|-- .gitignore
-|-- AGENTS.md
-|-- README.md
-|-- project.godot
-|-- docs/
-|   |-- ARCHITECTURE.md
-|   `-- DESIGN.md
-|-- features/
-|   |-- menus/
-|   |   |-- main_menu.gd / main_menu.tscn
-|   |   |-- pause_menu.gd / pause_menu.tscn
-|   |   |-- options_menu.gd / options_menu.tscn
-|   |   |-- style_category_active.tres
-|   |   `-- scene_flow.gd
-|   |-- settings/
-|   |   |-- settings_manager.gd
-|   |   `-- audio_bus_layout.tres
-|   |-- save_system/save_manager.gd
-|   |-- player/grid_player.gd / grid_player.tscn
-|   `-- levels/
-|       |-- prototype/prototype.tscn
-|       `-- forest/
-|           |-- forest_level.gd / forest_level.tscn
-|           |-- forest_tree.tscn
-|           |-- grid_data.gd
-|           |-- camera_orbit.gd
-|           `-- shader_grid.gdshader
-`-- tests/
-    |-- foundation_test.gd
-    |-- desktop_test.gd
-    |-- settings_restart_test.gd
-    |-- video_desktop_test.gd
-    |-- grid_world_test.gd
-    |-- playtest_feedback_test.gd
-    |-- feedback_desktop_test.gd
-    `-- camera_grid_test.gd
-```
+- `features/menus/`: editable Main Menu, Pause and shared sidebar Options scenes; `scene_flow.gd`; `theme_forest.tres`; licensed Alegreya Sans under `fonts/`.
+- `features/settings/`: `settings_manager.gd`, `audio_bus_layout.tres`.
+- `features/save_system/`: `save_manager.gd`.
+- `features/player/`: `grid_player.gd/.tscn`, `survival_state.gd`.
+- `features/levels/forest/`: `forest_level.gd/.tscn`, `grid_data.gd`, `climate_simulation.gd`, `forest_interactions.gd`, `forest_tree.tscn`, `camera_orbit.gd`, `shader_grid.gdshader`, `run_hud.gd/.tscn`.
+- `features/levels/prototype/prototype.tscn`: original bootstrap, retained unchanged.
+- `tests/`: foundation, mouse bindings, camera/grid, projection, desktop video, persistence, climate, progression, and gameplay integration tests.
 
-Godot-generated `.gd.uid` companions belong alongside their scripts and should be committed. `.godot/` editor, import, UID, and shader caches remain ignored. The original prototype scene is retained untouched.
+Required script/shader UID companions and font import descriptors are tracked. `.godot/` import, editor, shader and UID caches are ignored. No external world asset packs are used. Alegreya Sans Regular comes from the official Google Fonts repository (`ofl/alegreyasans`); its SIL Open Font License is included at `features/menus/fonts/OFL.txt`.
 
-## Reusable foundation (Phase B)
+## Menus, settings and scene flow
 
-The project starts at `main_menu.tscn`. `SceneFlow` owns scene transitions and the pause overlay; `application/run/playable_scene` selects the game scene, falling back to the original prototype when unset. Transitions always clear pause state. Pause uses an always-processing overlay on canvas layer 20, above the world HUD while the game tree and movement tweens stop. Both menu contexts instantiate the same `options_menu.tscn`. Closing nested Options returns to its parent; it does not resume the game. Options has an opaque full-screen background and a container-authored footer with Back on the left and category-only Restore Defaults on the right. A persistent selected sidebar accent replaces duplicate content headings; the settings panel has a subtly lighter background. Menu layouts are editable PackedScenes; Options builds repeated setting/binding rows from data. No editor plugin or external UI library is required.
+The project starts at `main_menu.tscn`; `application/run/playable_scene` selects the forest. SceneFlow owns transitions and an always-processing Pause overlay on canvas layer 20, covering the world HUD when opaque Options is open. Back closes nested Options without resuming. New Game generates a fresh run seed; direct fixed-seed tests remain reproducible.
 
-`SettingsManager` owns `user://settings.cfg`, applies video/audio settings, and installs the centralized movement, interaction, and pause InputMap actions. Each game action has two physical keyboard bindings. Loading validates values and rejects conflicting binding sets. Rebinding leaves built-in `ui_*` navigation actions intact. The shared Options component calls this service; it contains no movement rules. Music and SFX buses send to Master through `audio_bus_layout.tres`. Window mode, resolution, and VSync controls are disabled on Web/headless backends; resolution is also disabled while fullscreen (desktop resolution is used). Saved window sizes are constrained to the usable display area. Video adds 3D MSAA Disabled/2×/4× and shadows Off/Low/Medium/High (512/1024/2048 directional atlas sizes for enabled qualities). The forest subscribes to graphics changes to enable/disable its sun shadows. FXAA and TAA are not exposed in Compatibility. Existing settings files remain readable with defaults for new fields; Exit is hidden on Web. No controller rebinding is implemented.
+SettingsManager persists `user://settings.cfg`, independent of gameplay saves. It owns audio volumes, window mode/resolution, VSync, FPS cap, 3D MSAA Disabled/2x/4x, shadow quality, camera projection and bindings. Music and SFX feed Master. Video defaults reset only Video, Controls defaults reset all bindings and sensitivity, and Gameplay defaults reset projection only.
 
-`SaveManager` independently owns version-1 `user://progression.json`. Its small API loads safe defaults, validates progression data, and replaces saves through a temporary file. Discovery identifiers, Knowledge, and upgrade identifiers are storage fields, not implemented reward or upgrade mechanics. Missing, malformed, or unsupported-version data returns defaults without overwriting the original. `run_path` is reserved for separate temporary run data; no run serialization or restoration is implemented, so Continue is deliberately disabled. Settings are never stored in progression data.
+InputMap bindings use positive integers for physical keys, negative mouse indices, and zero for an empty slot. Older keyboard-only saves merge camera defaults. Two binding buttons per action capture input; the activation release cannot capture itself, Escape cancels, and conflicts are rejected across actions. Built-in menu navigation remains independent. Orbit accepts held mouse buttons; zoom accepts buttons/wheels. Mouse sensitivity is 0.002-0.020 radians/pixel (default 0.008).
 
-These three autoloads have distinct, currently required responsibilities. Avoid adding a generic manager or serialization framework around them.
+Orthographic and Perspective projections share a fixed grid-center pivot and free yaw/pitch orbit through poles. Zoom is 10-56, default 42; perspective FOV is 55 degrees with near/far planes 0.1/200. The analytic orientation frame avoids look-at pole singularities. Player grid coordinates never depend on camera orientation.
 
-## First grid world (Phase C)
+Desktop window resolutions apply only in windowed mode and clamp to the usable display. Fullscreen uses desktop resolution. Web/headless window mode, resolution and VSync controls are disabled. Compatibility does not expose FXAA or TAA.
 
-The Phase C `application/run/playable_scene` setting points to `forest_level.tscn`; generic scene-flow code does not depend on the forest. `grid_data.gd` owns a regular 17 × 17 grid, deterministic RNG generation version 1, passability, and cell-to-world conversion. The same seed and algorithm version reproduce the same initial cells. The level's exported seed defaults to 2026; repeated New Game currently uses that seed. A clear spawn area and central routes guarantee a valid starting position.
+## Climate and vegetation
 
-`forest_level.gd` renders data using shared meshes/materials and a reusable tree scene. This is a bounded placeholder forest, not climate simulation. Ground tile meshes meet exactly at cell boundaries. `shader_grid.gdshader` draws thin dark boundaries in world coordinates, with derivative-based antialiasing for readable lines at different zoom levels. It adds no gaps, overlay geometry, or depth conflicts; logical coordinates are unchanged. MSAA still handles mesh silhouettes. The normal HUD only displays FOREST in the upper-right. `grid_player.gd` independently checks target cells and animates one cardinal step at a time. Tree cells block movement. `camera_orbit.gd` stays centered on the world grid using an orthographic camera. Mouse wheel zooms smoothly between sizes 24 and 56 (default 42); rebindable orbit gestures rotate around the fixed center in continuous yaw and pitch, including underneath the board. An analytic orientation frame transports the camera up direction through poles without a look-at singularity or automatic horizon flip. Button release, focus loss, and pausing cancel active drags. Controls includes two-slot camera binding buttons and a persistent Mouse Sensitivity slider (0.002-0.020 radians per pixel; default 0.008), reset with Controls defaults. Player movement does not move the target or change camera-relative input coordinates. Zooming in deliberately crops some map edges; zoom out to see the whole forest. No player FSM is needed yet.
+GridData generation version 1 produces the bounded 17x17 world from a seeded RNG. Logical cell centers are two units apart. The objective lies on the guaranteed traversable central route. ClimateSimulation enriches the existing cells without changing initial tree placement and owns moisture, grass health, tree health/state and shade. Rendering reads these values; no shader simulates gameplay.
 
-Climate simulation, vegetation health, Knowledge rewards, upgrades, death/survival rules, bonfire saving, interaction mechanics, and puzzles are not implemented. The interaction action exists only as an input foundation.
+The level schedules one simulation second per tick. Its exported `simulation_time_scale` defaults to 1; climate ticks cap catch-up work to 30 seconds. Temperature is a 24 C baseline plus 0.025 C per elapsed second and transient weather offsets. Seeded 60-second clear/rain/cool/heat periods vary temperature and rainfall independently of the warming trend. This is a simplified greenhouse-warming game model, not an ozone or scientific climate model.
 
-## Focused validation
+Moisture/health remain within 0-1. Heat dries soil, drought and heat stress vegetation, rain/cool conditions can restore moisture and surviving vegetation. Healthy adjacent trees contribute shade proportional to health. Dead, cut and removed trees do not recover or provide shade. Repeated steps trample grass by 0.12 health each; favorable conditions allow recovery. Recovery discovery requires an actual rise after visible damage.
 
-Run with the Godot 4.7.2 executable from the repository root:
+Rendering uses 16 shared moisture/health terrain materials and four shared foliage materials, updated on simulation ticks. Grid boundaries are derivative-antialiased shader patterns on closed tile meshes, not depth-conflicting overlays. Weather adjusts sunlight color. World geometry remains procedural and bounded.
 
-```text
-godot --headless --editor --import --quit
-godot --headless --script res://tests/foundation_test.gd
-godot --headless --script res://tests/settings_restart_test.gd -- --write
-godot --headless --script res://tests/settings_restart_test.gd
-godot --headless --script res://tests/grid_world_test.gd
-godot --script res://tests/desktop_test.gd
-godot --headless --script res://tests/playtest_feedback_test.gd
-godot --script res://tests/feedback_desktop_test.gd
-godot --headless --script res://tests/camera_grid_test.gd
-godot --script res://tests/video_desktop_test.gd
-```
+## Interaction, survival and run lifecycle
 
-The restart checks must run in the shown write/read order. Tests use separate test configuration/save filenames and remove them afterward; they do not overwrite normal user saves or settings. The desktop test requires a real display and temporarily toggles fullscreen/VSync without saving those changes. Set `NIHILISTS_CAPTURE_DIR` to an existing directory outside the repository to capture optional menu/world screenshots. Grid tests can also run without `--headless` for Compatibility rendering checks.
+GridPlayer emits cell-entry events and keeps movement separate from generation. Interact beside a tree begins a 1.2-second chop; movement cancels it. The tree falls away from the player through a deterministic tween and leaves a blocked stump. A second action removes the stump and opens the cell. A fallen visual remains when its landing cell is clear; occupied/out-of-bounds landings discard that visual after the animation. Logs currently have no collision or collection mechanic. Cut tree data immediately loses shade and cannot regrow.
 
-## Standalone resolution and FPS checks
+SurvivalState owns health, heat exposure and latched death. Unfavorable heat increases exposure, shade/resistance reduce accumulation, safer conditions cool the player, and severe exposure damages health. Bonfire shelter within 2.2 cells cools and heals. Death and reaching the golden clearing open modal end states with a new-attempt button. A fresh world/model resets all temporary state. The clearing is a deliberately simple, quickly reachable prototype goal; ten-minute pacing still needs playtesting.
 
-Godot's embedded Game view controls its own viewport sizing (Fixed Size, Keep Aspect Ratio, or Stretch to Fit), and embedded games do not support window mode changes. This can mask native window resizing. For desktop resolution/fullscreen testing, disable **Embed Game on Next Play** in the Game view menu, or launch the project directly with the Godot executable and `--path` (without `--editor`). No embedded-view workaround changes standalone behavior. Web window mode, resolution, and VSync controls remain disabled.
+RunHUD is an always-processing scene for health/exposure, climate trend versus weather, concise objective, timed discovery notices, and bonfire/end-state modals. These modals pause gameplay and camera input. Interact within 1.5 cells of spawn opens bonfire progression. Escape returns from the bonfire; end states require an explicit restart/menu choice.
 
-The standalone video test selects resolutions through Options and checks the actual native window size, configuration persistence, and footer bounds. The restart test reloads settings in a separate process. `video_desktop_test.gd` also measures real process-frame throughput and reports Godot's FPS monitor beside the selected cap and display refresh rate. It uses the menu to isolate cap behavior from world rendering cost.
+## Permanent progression
 
-To compare 60, 120, and Unlimited manually, run standalone, disable VSync in Video, and compare Godot's debugger Monitors FPS reading or run the video test. Unlimited means `Engine.max_fps = 0`, not guaranteed performance. Repeat with VSync enabled: measured FPS is additionally constrained by display refresh, driver/compositor behavior, and CPU/GPU load. No public FPS overlay is added.
+SaveManager retains version-1 `user://progression.json`, validates data and atomically replaces it through a temporary file. `discover(id)` awards one Knowledge only on the first successful persisted discovery. Failed writes do not mutate the in-memory progression. Stable discoveries include healthy/dead trees, heatwaves, shade, recovery and first cutting.
 
-References: [Game embedding](https://docs.godotengine.org/en/stable/tutorials/editor/game_embedding.html), [Engine.max_fps](https://docs.godotengine.org/en/stable/classes/class_engine.html#class-engine-property-max-fps).
+`purchase_heat_resistance()` costs 3 Knowledge, is available once, persists immediately, and halves heat accumulation. Bonfire UI shows Knowledge, discovered entries and ownership. Knowledge and the upgrade survive death, success and app restart. Settings are separate, and active-run serialization is not implemented: Continue remains disabled.
 
-See [AGENTS.md](../AGENTS.md) for naming and Git rules and [DESIGN.md](DESIGN.md) for game direction and open decisions.
+## Validation and playtesting
 
-Mouse bindings share the existing InputMap action dictionary: positive integers encode physical keys, negative integers encode mouse button indices, and zero represents an empty slot. Older keyboard-only settings merge camera defaults during loading. Capture begins after a binding button activates; button release cannot bind itself. Escape cancels capture. Conflicts are checked across gameplay and camera actions; orbit requires a held mouse button, while zoom accepts mouse buttons/wheel directions. Controls defaults restore all bindings and sensitivity. Horizontal orbit retains the world yaw axis, while pitch carries the viewing up direction continuously over poles; there is no independent roll control.
+Run Godot 4.7.2 from the root with `--headless --editor --import --quit`, then `--headless --script res://tests/<name>.gd` for:
 
-## Projection and interface theme
+- `foundation_test`, `mouse_bindings_test`, `camera_grid_test`, `grid_world_test`, `playtest_feedback_test`.
+- `climate_test`, `progression_test`, `interactions_test`, `gameplay_test`, `camera_projection_test`.
+- `settings_restart_test` twice: first with `-- --write`, then without it.
 
-Gameplay Options selects Orthographic (default) or Perspective. SettingsManager persists projection separately from Controls, and Gameplay defaults reset projection only. Both projections share the free orbit pivot and use zoom sizes 10-56; perspective uses a 55-degree field of view and adjusts camera radius with zoom. Near/far planes are 0.1/200.
+`desktop_test`, `video_desktop_test`, `feedback_desktop_test` and `gameplay_desktop_test` require a real display. Set `NIHILISTS_CAPTURE_DIR` to an existing directory outside the repository for optional captures. Gameplay tests use separate save filenames. Camera invariance tests freeze the level clock so intentional climate/trampling changes are not mistaken for camera mutations.
 
-The shared forest Theme uses warm dark greens, earthy button surfaces, and Alegreya Sans Regular from the official Google Fonts repository (`ofl/alegreyasans/AlegreyaSans-Regular.ttf`). The redistributed SIL Open Font License is included in `features/menus/fonts/OFL.txt`; no paid assets are used.
+For native resolution/fullscreen testing, disable **Embed Game on Next Play** in the editor Game menu or launch with `--path` without `--editor`. Embedded Game view owns its own sizing and cannot change window mode. To compare FPS caps, run standalone with VSync off and use `video_desktop_test`; repeat with VSync on to observe display/driver limits. No permanent FPS counter is added.
+
+Browser export/playtesting, ten-minute balance, touch/controller controls, falling-log collision, audio assets, wildfires, water systems and additional biomes remain outside this batch.

@@ -9,6 +9,9 @@ func check(value: bool, message: String):
 func _initialize():
 	call_deferred("run")
 func run():
+	var test_saves = root.get_node("SaveManager")
+	test_saves.storage_path = "user://grid_world_test_progression.json"
+	test_saves.load_progression()
 	var Data = load("res://features/levels/forest/grid_data.gd")
 	var first = Data.new()
 	var second = Data.new()
@@ -97,4 +100,6 @@ func run():
 	await process_frame
 	check(not paused and current_scene.scene_file_path == flow.MAIN_MENU, "World returns to menu")
 	print("GRID WORLD: ", checks, " checks, ", failures, " failures")
+	if FileAccess.file_exists(test_saves.storage_path):
+		DirAccess.remove_absolute(test_saves.storage_path)
 	quit(0 if failures == 0 else 1)

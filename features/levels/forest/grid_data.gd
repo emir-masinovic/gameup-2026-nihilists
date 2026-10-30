@@ -4,6 +4,7 @@ const CELL_SIZE = 2.0
 const GENERATION_VERSION = 1
 var start = Vector2i(floori(SIZE * 0.5), floori(SIZE * 0.5))
 var cells: Array[Dictionary] = []
+var objective = Vector2i(8, 0)
 
 func generate(world_seed: int):
 	cells.clear()

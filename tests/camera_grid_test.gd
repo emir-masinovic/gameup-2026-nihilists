@@ -14,12 +14,16 @@ func capture(name: String):
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(OS.get_environment("NIHILISTS_CAPTURE_DIR").path_join(name + ".png"))
 func run():
+	var test_saves = root.get_node("SaveManager")
+	test_saves.storage_path = "user://camera_grid_test_progression.json"
+	test_saves.load_progression()
 	var flow = root.get_node("SceneFlow")
 	var settings = root.get_node("SettingsManager")
 	flow.new_game()
 	await process_frame
 	await process_frame
 	var world = current_scene
+	world.set_process(false)
 	var rig = world.get_node("CameraRig")
 	var camera = rig.get_node("Camera3D")
 	var grid_snapshot = world.grid.cells.duplicate(true)
@@ -29,6 +33,7 @@ func run():
 	player.try_move(Vector2i.UP)
 	await create_timer(0.25).timeout
 	check(rig.global_position.is_equal_approx(center), "Player movement does not move camera target")
+	grid_snapshot = world.grid.cells.duplicate(true)
 	var wheel = InputEventMouseButton.new()
 	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
 	wheel.pressed = true
@@ -158,4 +163,6 @@ func run():
 	await process_frame
 	await process_frame
 	print("CAMERA GRID: ", checks, " checks, ", failures, " failures")
+	if FileAccess.file_exists(test_saves.storage_path):
+		DirAccess.remove_absolute(test_saves.storage_path)
 	quit(0 if failures == 0 else 1)

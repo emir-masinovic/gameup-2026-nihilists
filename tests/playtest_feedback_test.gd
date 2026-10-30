@@ -29,7 +29,7 @@ func run():
 	check(settings.reset_category("Video") == OK, "Video reset saves")
 	check(settings.resolution == Vector2i(1152, 720) and settings.fps_limit == 60 and settings.msaa_3d == Viewport.MSAA_2X and settings.shadow_quality == 2, "Video defaults")
 	check(settings.volumes.Music == 0.21 and settings.bindings.move_north[0] == KEY_K, "Video reset preserves Audio and Controls")
-	check(settings.reset_category("Gameplay") == ERR_UNAVAILABLE, "Gameplay has no fake reset")
+	check(settings.reset_category("Gameplay") == OK, "Gameplay restores projection")
 	var legacy = ConfigFile.new()
 	legacy.set_value("audio", "Music", 0.42)
 	legacy.set_value("video", "fps_limit", 30)
@@ -74,7 +74,7 @@ func run():
 	var options = current_scene.options
 	for category in ["Gameplay", "Video", "Audio", "Controls"]:
 		options.show_category(category)
-		check(options.defaults_button.disabled == (category == "Gameplay"), "Category reset availability " + category)
+		check(not options.defaults_button.disabled, "Category reset availability " + category)
 		check(options.back_button.get_parent() == options.defaults_button.get_parent(), "Shared footer " + category)
 		check(options.back_button.size.x < options.size.x * 0.5 and options.defaults_button.size.x < options.size.x * 0.5, "Compact footer " + category)
 	options.show_category("Video")

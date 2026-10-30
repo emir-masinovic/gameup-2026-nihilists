@@ -74,3 +74,9 @@ Additional biomes, environmental hazards, tools, and more complex puzzles may be
 The game's final name, story, victory condition, specific survival mechanics, upgrade choices, and main puzzle mechanic are still being discussed.
 
 The design will evolve as we build and playtest the prototype.
+
+## Current Prototype
+
+The forest now warms over time, with short rainy, cool, and hot periods that can help vegetation recover or make exploration harder. Walking damages grass. Trees provide shade; cutting takes time, leaves a stump, and removes shelter. The bonfire offers safety and one permanent Heat Resistance upgrade for 3 Knowledge. First discoveries award 1 Knowledge each across all attempts.
+
+For now, reaching the golden clearing ends an attempt successfully. This is a temporary goal for playtesting, not the final victory condition. Camera projection can be switched between Orthographic and Perspective. Active-run saving, further upgrades, and the final pacing remain open.

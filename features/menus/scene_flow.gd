@@ -2,6 +2,7 @@ extends Node
 
 const MAIN_MENU = "res://features/menus/main_menu.tscn"
 var playable_scene: String = ProjectSettings.get_setting("application/run/playable_scene", "res://features/levels/prototype/prototype.tscn")
+var next_seed: int = 2026
 var pause_menu: Control
 var pause_layer: CanvasLayer
 
@@ -22,6 +23,7 @@ func transition(path: String) -> Error:
 	return get_tree().change_scene_to_file(path)
 
 func new_game():
+	next_seed = int((Time.get_ticks_usec() + next_seed * 1664525) % 2147483647)
 	transition(playable_scene)
 
 func main_menu():

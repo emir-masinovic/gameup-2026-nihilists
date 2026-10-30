@@ -1,0 +1,66 @@
+[gd_scene load_steps=3 format=3]
+[ext_resource type="Script" path="res://features/levels/forest/run_hud.gd" id="1"]
+[ext_resource type="Theme" path="res://features/menus/theme_forest.tres" id="2"]
+[node name="RunHUD" type="Control"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("1")
+theme = ExtResource("2")
+[node name="Stats" type="Label" parent="."]
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 700.0
+offset_bottom = 155.0
+text = "Forest climate"
+[node name="Objective" type="Label" parent="."]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -370.0
+offset_top = 60.0
+offset_right = -24.0
+offset_bottom = 150.0
+horizontal_alignment = 2
+text = "Reach the golden clearing"
+[node name="Toast" type="Label" parent="."]
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -100.0
+offset_right = 780.0
+offset_bottom = -24.0
+[node name="Timer" type="Timer" parent="Toast"]
+wait_time = 5.0
+one_shot = true
+[node name="Dim" type="ColorRect" parent="."]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.02, 0.04, 0.03, 0.85)
+[node name="Modal" type="PanelContainer" parent="."]
+visible = false
+anchor_left = 0.5
+anchor_right = 0.5
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = -270.0
+offset_right = 270.0
+offset_top = -190.0
+offset_bottom = 190.0
+[node name="Rows" type="VBoxContainer" parent="Modal"]
+theme_override_constants/separation = 12
+[node name="Title" type="Label" parent="Modal/Rows"]
+text = "Bonfire"
+[node name="Progress" type="Label" parent="Modal/Rows"]
+autowrap_mode = 2
+[node name="Upgrade" type="Button" parent="Modal/Rows"]
+text = "Heat Resistance - 3 Knowledge"
+[node name="Close" type="Button" parent="Modal/Rows"]
+text = "Return to forest"
+[node name="Next" type="Button" parent="Modal/Rows"]
+text = "New attempt"
+[node name="Menu" type="Button" parent="Modal/Rows"]
+text = "Main Menu"
+[connection signal="timeout" from="Toast/Timer" to="." method="_on_toast_timeout"]

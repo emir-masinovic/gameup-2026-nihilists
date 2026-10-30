@@ -18,6 +18,9 @@ func capture(name: String) -> Image:
 func in_view(control: Control) -> bool:
 	return root.get_visible_rect().grow(1).encloses(control.get_global_rect())
 func run():
+	var test_saves = root.get_node("SaveManager")
+	test_saves.storage_path = "user://feedback_desktop_test_progression.json"
+	test_saves.load_progression()
 	var settings = root.get_node("SettingsManager")
 	settings.storage_path = "user://feedback_desktop_settings.cfg"
 	settings.reset_defaults()
@@ -109,4 +112,6 @@ func run():
 	if FileAccess.file_exists(settings.storage_path):
 		DirAccess.remove_absolute(settings.storage_path)
 	print("FEEDBACK DESKTOP: ", checks, " checks, ", failures, " failures")
+	if FileAccess.file_exists(test_saves.storage_path):
+		DirAccess.remove_absolute(test_saves.storage_path)
 	quit(0 if failures == 0 else 1)
