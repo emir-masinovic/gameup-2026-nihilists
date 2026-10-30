@@ -64,7 +64,7 @@ func show_category(title: String):
 	category = title
 	for name in category_buttons:
 		category_buttons[name].set_pressed_no_signal(name == title)
-	defaults_button.disabled = title == "Gameplay"
+	defaults_button.disabled = false
 	waiting_action = ""
 	for child in content.get_children():
 		content.remove_child(child)
@@ -72,7 +72,15 @@ func show_category(title: String):
 	status.text = ""
 	match title:
 		"Gameplay":
-			label("Gameplay settings will appear here when available.")
+			label("Camera projection")
+			var projection = OptionButton.new()
+			projection.name = "CameraProjection"
+			var modes = ["Orthographic", "Perspective"]
+			for mode in modes:
+				projection.add_item(mode)
+			projection.select(modes.find(SettingsManager.camera_projection))
+			projection.item_selected.connect(func(index): SettingsManager.camera_projection = modes[index]; persist())
+			content.add_child(projection)
 		"Video":
 			var supported = SettingsManager.desktop_display_supported()
 			var full = CheckButton.new()

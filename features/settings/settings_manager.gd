@@ -5,6 +5,7 @@ const DEFAULT_MOUSE_SENSITIVITY = 0.008
 const MIN_MOUSE_SENSITIVITY = 0.002
 const MAX_MOUSE_SENSITIVITY = 0.02
 var mouse_sensitivity = DEFAULT_MOUSE_SENSITIVITY
+var camera_projection = "Orthographic"
 
 const DEFAULT_BINDINGS = {
 	"move_north": [KEY_W, KEY_UP], "move_south": [KEY_S, KEY_DOWN],
@@ -56,6 +57,8 @@ func load_settings():
 	msaa_3d = aa if aa is int and aa in [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X] else Viewport.MSAA_2X
 	var shadows = config.get_value("video", "shadow_quality", 2)
 	shadow_quality = shadows if shadows is int and shadows in [0, 1, 2, 3] else 2
+	var projection = config.get_value("gameplay", "camera_projection", "Orthographic")
+	camera_projection = projection if projection is String and projection in ["Orthographic", "Perspective"] else "Orthographic"
 	var sensitivity = config.get_value("controls", "mouse_sensitivity", DEFAULT_MOUSE_SENSITIVITY)
 	mouse_sensitivity = clampf(float(sensitivity), MIN_MOUSE_SENSITIVITY, MAX_MOUSE_SENSITIVITY) if (sensitivity is float or sensitivity is int) and is_finite(float(sensitivity)) else DEFAULT_MOUSE_SENSITIVITY
 	var candidate = config.get_value("controls", "bindings", {})
@@ -126,6 +129,7 @@ func save_settings() -> Error:
 	config.set_value("video", "resolution", resolution)
 	config.set_value("video", "msaa_3d", msaa_3d)
 	config.set_value("video", "shadow_quality", shadow_quality)
+	config.set_value("gameplay", "camera_projection", camera_projection)
 	config.set_value("controls", "bindings", bindings)
 	config.set_value("controls", "mouse_sensitivity", mouse_sensitivity)
 	return config.save(storage_path)
@@ -150,6 +154,8 @@ func available_resolutions() -> Array[Vector2i]:
 
 func _reset_category(category: String):
 	match category:
+		"Gameplay":
+			camera_projection = "Orthographic"
 		"Audio":
 			volumes = {"Master": 0.8, "Music": 0.8, "SFX": 0.8}
 		"Controls":
@@ -164,14 +170,14 @@ func _reset_category(category: String):
 			shadow_quality = 2
 
 func reset_category(category: String) -> Error:
-	if category not in ["Audio", "Video", "Controls"]:
+	if category not in ["Gameplay", "Audio", "Video", "Controls"]:
 		return ERR_UNAVAILABLE
 	_reset_category(category)
 	apply_settings()
 	return save_settings()
 
 func reset_defaults() -> Error:
-	for category in ["Audio", "Video", "Controls"]:
+	for category in ["Gameplay", "Audio", "Video", "Controls"]:
 		_reset_category(category)
 	apply_settings()
 	return save_settings()

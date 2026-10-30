@@ -96,3 +96,9 @@ References: [Game embedding](https://docs.godotengine.org/en/stable/tutorials/ed
 See [AGENTS.md](../AGENTS.md) for naming and Git rules and [DESIGN.md](DESIGN.md) for game direction and open decisions.
 
 Mouse bindings share the existing InputMap action dictionary: positive integers encode physical keys, negative integers encode mouse button indices, and zero represents an empty slot. Older keyboard-only settings merge camera defaults during loading. Capture begins after a binding button activates; button release cannot bind itself. Escape cancels capture. Conflicts are checked across gameplay and camera actions; orbit requires a held mouse button, while zoom accepts mouse buttons/wheel directions. Controls defaults restore all bindings and sensitivity. Horizontal orbit retains the world yaw axis, while pitch carries the viewing up direction continuously over poles; there is no independent roll control.
+
+## Projection and interface theme
+
+Gameplay Options selects Orthographic (default) or Perspective. SettingsManager persists projection separately from Controls, and Gameplay defaults reset projection only. Both projections share the free orbit pivot and use zoom sizes 10-56; perspective uses a 55-degree field of view and adjusts camera radius with zoom. Near/far planes are 0.1/200.
+
+The shared forest Theme uses warm dark greens, earthy button surfaces, and Alegreya Sans Regular from the official Google Fonts repository (`ofl/alegreyasans/AlegreyaSans-Regular.ttf`). The redistributed SIL Open Font License is included in `features/menus/fonts/OFL.txt`; no paid assets are used.

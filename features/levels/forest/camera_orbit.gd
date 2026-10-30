@@ -1,6 +1,6 @@
 extends Node3D
 
-const MIN_ZOOM = 24.0
+const MIN_ZOOM = 10.0
 const MAX_ZOOM = 56.0
 const ZOOM_FACTOR = 0.88
 var target_zoom = 42.0
@@ -12,7 +12,8 @@ var drag_button = 0
 func _ready():
 	rotation.y = target_yaw
 	$Camera3D.size = target_zoom
-	_update_camera()
+	_apply_projection()
+	SettingsManager.graphics_changed.connect(_apply_projection)
 	get_tree().root.focus_exited.connect(_cancel_drag)
 
 func _cancel_drag():
@@ -51,11 +52,18 @@ func _notification(what):
 	if what == NOTIFICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		_cancel_drag()
 
+func _apply_projection():
+	$Camera3D.projection = Camera3D.PROJECTION_PERSPECTIVE if SettingsManager.camera_projection == "Perspective" else Camera3D.PROJECTION_ORTHOGONAL
+	$Camera3D.fov = 55.0
+	$Camera3D.near = 0.1
+	$Camera3D.far = 200.0
+	_update_camera()
+
 func _update_camera():
 	# Analytic yaw/pitch frame transports the up vector through poles, with no
 	# look_at singularity, horizon snapping, or independently accumulated roll.
 	var frame = Basis(Vector3.RIGHT, -pitch)
-	$Camera3D.position = frame.z * 50.0
+	$Camera3D.position = frame.z * ($Camera3D.size * 1.4 if $Camera3D.projection == Camera3D.PROJECTION_PERSPECTIVE else 50.0)
 	$Camera3D.basis = frame
 
 func _process(delta):
