@@ -94,10 +94,10 @@ func run():
 	rig._unhandled_input(press)
 	motion.relative.y = 100000
 	rig._unhandled_input(motion)
-	check(rig.target_pitch == rig.MAX_PITCH, "Upper pitch limit")
+	check(rig.target_pitch > TAU, "Free orbit beyond upper pole")
 	motion.relative.y = -100000
 	rig._unhandled_input(motion)
-	check(rig.target_pitch == rig.MIN_PITCH, "Lower pitch limit")
+	check(rig.target_pitch < TAU, "Free orbit returns across poles")
 	rig._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
 	check(rig.drag_button == 0, "Focus loss cancels drag")
 	rig._unhandled_input(press)
@@ -114,6 +114,11 @@ func run():
 	check(settings.mouse_sensitivity == settings.DEFAULT_MOUSE_SENSITIVITY, "Controls resets sensitivity")
 	DirAccess.remove_absolute(settings.storage_path)
 	check(world.grid.cells == grid_snapshot, "Two axis orbit preserves logical world")
+	for angle in [PI * 0.5, PI, PI * 1.5, TAU, -PI * 0.5]:
+		rig.pitch = angle
+		rig._update_camera()
+		check(camera.transform.basis.is_finite() and is_equal_approx(camera.transform.basis.determinant(), 1.0), "Finite orthonormal camera at pole/underside")
+		check(camera.global_transform.basis.z.normalized().dot((camera.global_position - center).normalized()) > 0.999, "Free orbit looks at pivot")
 	rig.target_pitch = PI * 0.25
 	rig.target_zoom = 42.0
 	rig.target_yaw = PI * 0.25

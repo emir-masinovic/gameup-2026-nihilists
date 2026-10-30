@@ -32,16 +32,23 @@ func close():
 	closed.emit()
 
 func _input(event):
-	if event is InputEventKey and event.pressed and not event.echo:
-		if waiting_action != "":
-			var message = SettingsManager.rebind(waiting_action, waiting_slot, event.physical_keycode)
+	var pressed_key = event is InputEventKey and event.pressed and not event.echo
+	var pressed_mouse = event is InputEventMouseButton and event.pressed
+	if waiting_action != "" and (pressed_key or pressed_mouse):
+		# GUI buttons emit pressed on release, after _input; that release cannot bind itself.
+		if pressed_key and event.keycode == KEY_ESCAPE:
+			waiting_action = ""
+			status.text = "Binding cancelled."
+		else:
+			var code = event.physical_keycode if pressed_key else -event.button_index
+			var message = SettingsManager.rebind(waiting_action, waiting_slot, code)
 			waiting_action = ""
 			show_category("Controls")
 			status.text = "Binding saved." if message == "" else message
-			get_viewport().set_input_as_handled()
-		elif event.is_action_pressed("ui_cancel") or event.is_action_pressed("pause"):
-			close()
-			get_viewport().set_input_as_handled()
+		get_viewport().set_input_as_handled()
+	elif pressed_key and (event.is_action_pressed("ui_cancel") or event.is_action_pressed("pause")):
+		close()
+		get_viewport().set_input_as_handled()
 
 func label(text: String):
 	var node = Label.new()
@@ -134,24 +141,21 @@ func show_category(title: String):
 				content.add_child(slider)
 		"Controls":
 			for action in SettingsManager.bindings:
+				if action == "camera_orbit":
+					content.add_child(HSeparator.new())
+					label("Camera")
 				var row = HBoxContainer.new()
 				var name_label = Label.new()
-				name_label.text = action.replace("_", " ").capitalize()
+				name_label.text = {"camera_orbit": "Orbit Camera", "camera_zoom_in": "Zoom In", "camera_zoom_out": "Zoom Out"}.get(action, action.replace("_", " ").capitalize())
 				name_label.custom_minimum_size.x = 140
 				row.add_child(name_label)
 				for slot in range(2):
 					var button = Button.new()
-					button.text = OS.get_keycode_string(SettingsManager.bindings[action][slot])
+					button.text = SettingsManager.binding_text(SettingsManager.bindings[action][slot])
 					button.custom_minimum_size.x = 110
-					button.pressed.connect(func(): waiting_action = action; waiting_slot = slot; status.text = "Press a key for " + action.replace("_", " "))
+					button.pressed.connect(func(): waiting_action = action; waiting_slot = slot; status.text = "Press input for " + name_label.text + " (Esc cancels)")
 					row.add_child(button)
 				content.add_child(row)
-
-			content.add_child(HSeparator.new())
-			label("Camera")
-			label("Orbit Camera: Middle Mouse / Right Mouse")
-			label("Zoom In: Scroll Up")
-			label("Zoom Out: Scroll Down")
 			label("Mouse Sensitivity")
 			var sensitivity = HSlider.new()
 			sensitivity.name = "MouseSensitivity"

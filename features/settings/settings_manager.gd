@@ -9,7 +9,10 @@ var mouse_sensitivity = DEFAULT_MOUSE_SENSITIVITY
 const DEFAULT_BINDINGS = {
 	"move_north": [KEY_W, KEY_UP], "move_south": [KEY_S, KEY_DOWN],
 	"move_west": [KEY_A, KEY_LEFT], "move_east": [KEY_D, KEY_RIGHT],
-	"interact": [KEY_E, KEY_SPACE], "pause": [KEY_ESCAPE, KEY_P]
+	"interact": [KEY_E, KEY_SPACE], "pause": [KEY_ESCAPE, KEY_P],
+	"camera_orbit": [-MOUSE_BUTTON_MIDDLE, -MOUSE_BUTTON_RIGHT],
+	"camera_zoom_in": [-MOUSE_BUTTON_WHEEL_UP, 0],
+	"camera_zoom_out": [-MOUSE_BUTTON_WHEEL_DOWN, 0]
 }
 var storage_path = "user://settings.cfg"
 var volumes = {"Master": 0.8, "Music": 0.8, "SFX": 0.8}
@@ -56,20 +59,25 @@ func load_settings():
 	var sensitivity = config.get_value("controls", "mouse_sensitivity", DEFAULT_MOUSE_SENSITIVITY)
 	mouse_sensitivity = clampf(float(sensitivity), MIN_MOUSE_SENSITIVITY, MAX_MOUSE_SENSITIVITY) if (sensitivity is float or sensitivity is int) and is_finite(float(sensitivity)) else DEFAULT_MOUSE_SENSITIVITY
 	var candidate = config.get_value("controls", "bindings", {})
-	if candidate is Dictionary and candidate.size() == DEFAULT_BINDINGS.size():
+	if candidate is Dictionary:
+		var merged = DEFAULT_BINDINGS.duplicate(true)
+		for action in DEFAULT_BINDINGS:
+			if candidate.has(action):
+				merged[action] = candidate[action]
 		var used = {}
 		var valid = true
-		for action in DEFAULT_BINDINGS:
-			if not candidate.has(action) or not candidate[action] is Array or candidate[action].size() != 2:
+		for action in merged:
+			if not merged[action] is Array or merged[action].size() != 2:
 				valid = false
 				break
-			for key in candidate[action]:
-				if not key is int or key <= 0 or used.has(key):
+			for code in merged[action]:
+				if not code is int or not valid_code(action, code) or (code != 0 and used.has(code)):
 					valid = false
 					break
-				used[key] = true
+				if code != 0:
+					used[code] = true
 		if valid:
-			bindings = candidate.duplicate(true)
+			bindings = merged
 
 func apply_settings():
 	for bus in volumes:
@@ -97,8 +105,15 @@ func apply_settings():
 			InputMap.add_action(action)
 		InputMap.action_erase_events(action)
 		for code in bindings[action]:
-			var event = InputEventKey.new()
-			event.physical_keycode = code
+			if code == 0:
+				continue
+			var event: InputEvent
+			if code < 0:
+				event = InputEventMouseButton.new()
+				event.button_index = -code
+			else:
+				event = InputEventKey.new()
+				event.physical_keycode = code
 			InputMap.action_add_event(action, event)
 
 func save_settings() -> Error:
@@ -162,12 +177,28 @@ func reset_defaults() -> Error:
 	return save_settings()
 
 func rebind(action: String, slot: int, code: int) -> String:
-	if not bindings.has(action) or slot not in [0, 1] or code <= 0:
+	if not bindings.has(action) or slot not in [0, 1] or not valid_code(action, code):
 		return "Invalid binding."
 	for other in bindings:
 		for index in range(2):
-			if bindings[other][index] == code and (other != action or index != slot):
+			if code != 0 and bindings[other][index] == code and (other != action or index != slot):
 				return "Already assigned to " + other.replace("_", " ") + "."
 	bindings[action][slot] = code
 	apply_settings()
 	return "" if save_settings() == OK else "Could not save controls."
+
+func valid_code(action: String, code: int) -> bool:
+	if code == 0:
+		return true
+	if action == "camera_orbit":
+		return -code in [1, 2, 3, 8, 9]
+	if action.begins_with("camera_"):
+		return code < 0 and -code in range(1, 10)
+	return code > 0 or -code in range(1, 10)
+
+func binding_text(code: int) -> String:
+	if code == 0:
+		return "Unbound"
+	if code > 0:
+		return OS.get_keycode_string(code)
+	return {1: "Left Mouse", 2: "Right Mouse", 3: "Middle Mouse", 4: "Wheel Up", 5: "Wheel Down", 6: "Wheel Left", 7: "Wheel Right", 8: "Mouse 4", 9: "Mouse 5"}.get(-code, "Mouse")

@@ -3,8 +3,6 @@ extends Node3D
 const MIN_ZOOM = 24.0
 const MAX_ZOOM = 56.0
 const ZOOM_FACTOR = 0.88
-const MIN_PITCH = PI / 18.0
-const MAX_PITCH = PI * 85.0 / 180.0
 var target_zoom = 42.0
 var target_yaw = PI * 0.25
 var target_pitch = PI * 0.25
@@ -30,23 +28,23 @@ func _unhandled_input(event):
 		_cancel_drag()
 		return
 	if event is InputEventMouseButton and event.pressed:
-		if event.button_index in [MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_RIGHT]:
+		if event.is_action_pressed("camera_orbit"):
 			drag_button = event.button_index
 			get_viewport().set_input_as_handled()
-		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		elif event.is_action_pressed("camera_zoom_in"):
 			target_zoom = clampf(target_zoom * pow(ZOOM_FACTOR, maxf(event.factor, 1.0)), MIN_ZOOM, MAX_ZOOM)
 			get_viewport().set_input_as_handled()
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		elif event.is_action_pressed("camera_zoom_out"):
 			target_zoom = clampf(target_zoom / pow(ZOOM_FACTOR, maxf(event.factor, 1.0)), MIN_ZOOM, MAX_ZOOM)
 			get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion and drag_button != 0:
-		var mask = MOUSE_BUTTON_MASK_MIDDLE if drag_button == MOUSE_BUTTON_MIDDLE else MOUSE_BUTTON_MASK_RIGHT
+		var mask = 1 << (drag_button - 1)
 		if not event.button_mask & mask:
 			_cancel_drag()
 			return
 		var sensitivity = SettingsManager.mouse_sensitivity
 		target_yaw = wrapf(target_yaw - event.relative.x * sensitivity, -PI, PI)
-		target_pitch = clampf(target_pitch + event.relative.y * sensitivity, MIN_PITCH, MAX_PITCH)
+		target_pitch += event.relative.y * sensitivity
 		get_viewport().set_input_as_handled()
 
 func _notification(what):
@@ -54,8 +52,11 @@ func _notification(what):
 		_cancel_drag()
 
 func _update_camera():
-	$Camera3D.position = Vector3(0, sin(pitch), cos(pitch)) * 50.0
-	$Camera3D.look_at(global_position, Vector3.UP)
+	# Analytic yaw/pitch frame transports the up vector through poles, with no
+	# look_at singularity, horizon snapping, or independently accumulated roll.
+	var frame = Basis(Vector3.RIGHT, -pitch)
+	$Camera3D.position = frame.z * 50.0
+	$Camera3D.basis = frame
 
 func _process(delta):
 	var weight = 1.0 - exp(-10.0 * delta)
