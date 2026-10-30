@@ -54,3 +54,22 @@ func _read_json(path: String) -> Variant:
 	if parser.parse(FileAccess.get_file_as_string(path)) != OK:
 		return null
 	return parser.data
+
+func discover(id: String) -> bool:
+	if id.strip_edges().is_empty() or id in progression.discoveries:
+		return false
+	var updated = progression.duplicate(true)
+	updated.discoveries.append(id)
+	updated.knowledge += 1
+	return save_progression(updated) == OK
+
+func has_heat_resistance() -> bool:
+	return "heat_resistance" in progression.upgrades
+
+func purchase_heat_resistance() -> bool:
+	if has_heat_resistance() or progression.knowledge < 3:
+		return false
+	var updated = progression.duplicate(true)
+	updated.knowledge -= 3
+	updated.upgrades.append("heat_resistance")
+	return save_progression(updated) == OK
