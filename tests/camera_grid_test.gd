@@ -57,6 +57,10 @@ func run():
 	var motion = InputEventMouseMotion.new()
 	motion.relative = Vector2(180, 0)
 	motion.button_mask = MOUSE_BUTTON_MASK_RIGHT
+	var press = InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_RIGHT
+	press.pressed = true
+	rig._unhandled_input(press)
 	var old_yaw = rig.rotation.y
 	rig._unhandled_input(motion)
 	check(not is_equal_approx(rig.target_yaw, old_yaw), "Right drag sets orbit target")
@@ -70,6 +74,47 @@ func run():
 	check(rig.target_yaw == target_yaw, "No orbit without right button")
 	var material = world.get_node("Terrain").get_child(0).material_override
 	check(material is ShaderMaterial and material.shader.code.contains("fwidth"), "Derivative-antialiased grid material")
+	settings.storage_path = "user://camera_controls_test.cfg"
+	for button in [MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_RIGHT]:
+		press.button_index = button
+		press.pressed = true
+		rig._unhandled_input(press)
+		var before_pitch = rig.target_pitch
+		var before_yaw = rig.target_yaw
+		motion.button_mask = MOUSE_BUTTON_MASK_MIDDLE if button == MOUSE_BUTTON_MIDDLE else MOUSE_BUTTON_MASK_RIGHT
+		motion.relative = Vector2(12, 12)
+		rig._unhandled_input(motion)
+		check(rig.target_pitch > before_pitch and rig.target_yaw != before_yaw, "Both axes for mouse button " + str(button))
+		press.pressed = false
+		rig._input(press)
+		var released_yaw = rig.target_yaw
+		rig._unhandled_input(motion)
+		check(rig.target_yaw == released_yaw, "Release ends drag")
+	press.pressed = true
+	rig._unhandled_input(press)
+	motion.relative.y = 100000
+	rig._unhandled_input(motion)
+	check(rig.target_pitch == rig.MAX_PITCH, "Upper pitch limit")
+	motion.relative.y = -100000
+	rig._unhandled_input(motion)
+	check(rig.target_pitch == rig.MIN_PITCH, "Lower pitch limit")
+	rig._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	check(rig.drag_button == 0, "Focus loss cancels drag")
+	rig._unhandled_input(press)
+	settings.mouse_sensitivity = 0.015
+	motion.relative = Vector2(1, 0)
+	var sensitive_yaw = rig.target_yaw
+	rig._unhandled_input(motion)
+	check(is_equal_approx(absf(angle_difference(sensitive_yaw, rig.target_yaw)), 0.015), "Sensitivity applies immediately")
+	settings.save_settings()
+	settings.mouse_sensitivity = 0.008
+	settings.load_settings()
+	check(is_equal_approx(settings.mouse_sensitivity, 0.015), "Sensitivity reload")
+	settings.reset_category("Controls")
+	check(settings.mouse_sensitivity == settings.DEFAULT_MOUSE_SENSITIVITY, "Controls resets sensitivity")
+	DirAccess.remove_absolute(settings.storage_path)
+	check(world.grid.cells == grid_snapshot, "Two axis orbit preserves logical world")
+	rig.target_pitch = PI * 0.25
 	rig.target_zoom = 42.0
 	rig.target_yaw = PI * 0.25
 	await create_timer(0.6).timeout
@@ -83,7 +128,27 @@ func run():
 	Input.parse_input_event(input_wheel)
 	await create_timer(0.25).timeout
 	check(is_equal_approx(rig.rotation.y, paused_yaw) and is_equal_approx(camera.size, paused_size), "Camera pauses with game")
+	var paused_target = rig.target_yaw
+	rig._unhandled_input(press)
+	rig._unhandled_input(motion)
+	check(rig.target_yaw == paused_target and rig.drag_button == 0, "Pause rejects drag input")
+	flow.pause_menu.open_options()
+	await process_frame
+	var options = flow.pause_menu.options
+	options.show_category("Controls")
+	options.content.get_node("MouseSensitivity").value = 0.012
+	check(is_equal_approx(settings.mouse_sensitivity, 0.012), "Sensitivity slider applies immediately")
+	rig._unhandled_input(press)
+	check(rig.drag_button == 0, "Options rejects camera input")
+	options.back_button.pressed.emit()
+	await process_frame
+	check(paused, "Options Back retains pause")
 	flow.resume()
+	await process_frame
+	rig._unhandled_input(press)
+	check(rig.drag_button != 0, "Resume restores drag")
+	if FileAccess.file_exists(settings.storage_path):
+		DirAccess.remove_absolute(settings.storage_path)
 	flow.main_menu()
 	await process_frame
 	await process_frame

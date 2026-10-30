@@ -147,6 +147,22 @@ func show_category(title: String):
 					row.add_child(button)
 				content.add_child(row)
 
+			content.add_child(HSeparator.new())
+			label("Camera")
+			label("Orbit Camera: Middle Mouse / Right Mouse")
+			label("Zoom In: Scroll Up")
+			label("Zoom Out: Scroll Down")
+			label("Mouse Sensitivity")
+			var sensitivity = HSlider.new()
+			sensitivity.name = "MouseSensitivity"
+			sensitivity.min_value = SettingsManager.MIN_MOUSE_SENSITIVITY
+			sensitivity.max_value = SettingsManager.MAX_MOUSE_SENSITIVITY
+			sensitivity.step = 0.001
+			sensitivity.value = SettingsManager.mouse_sensitivity
+			sensitivity.custom_minimum_size = Vector2(260, 30)
+			sensitivity.value_changed.connect(func(value): SettingsManager.mouse_sensitivity = value; persist())
+			content.add_child(sensitivity)
+
 func restore_category():
 	var error = SettingsManager.reset_category(category)
 	show_category(category)

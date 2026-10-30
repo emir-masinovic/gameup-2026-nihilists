@@ -83,7 +83,7 @@ func run():
 	options.content.get_node("MSAA").item_selected.emit(2)
 	check(root.msaa_3d == Viewport.MSAA_4X, "MSAA UI applies")
 	options.show_category("Controls")
-	check(options.content.get_child_count() == 6, "Controls contains only binding table")
+	check(options.content.has_node("MouseSensitivity"), "Controls includes camera sensitivity")
 	options.close()
 	await process_frame
 	flow.new_game()

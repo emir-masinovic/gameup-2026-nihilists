@@ -1,6 +1,11 @@
 extends Node
 signal graphics_changed
 
+const DEFAULT_MOUSE_SENSITIVITY = 0.008
+const MIN_MOUSE_SENSITIVITY = 0.002
+const MAX_MOUSE_SENSITIVITY = 0.02
+var mouse_sensitivity = DEFAULT_MOUSE_SENSITIVITY
+
 const DEFAULT_BINDINGS = {
 	"move_north": [KEY_W, KEY_UP], "move_south": [KEY_S, KEY_DOWN],
 	"move_west": [KEY_A, KEY_LEFT], "move_east": [KEY_D, KEY_RIGHT],
@@ -48,6 +53,8 @@ func load_settings():
 	msaa_3d = aa if aa is int and aa in [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X] else Viewport.MSAA_2X
 	var shadows = config.get_value("video", "shadow_quality", 2)
 	shadow_quality = shadows if shadows is int and shadows in [0, 1, 2, 3] else 2
+	var sensitivity = config.get_value("controls", "mouse_sensitivity", DEFAULT_MOUSE_SENSITIVITY)
+	mouse_sensitivity = clampf(float(sensitivity), MIN_MOUSE_SENSITIVITY, MAX_MOUSE_SENSITIVITY) if (sensitivity is float or sensitivity is int) and is_finite(float(sensitivity)) else DEFAULT_MOUSE_SENSITIVITY
 	var candidate = config.get_value("controls", "bindings", {})
 	if candidate is Dictionary and candidate.size() == DEFAULT_BINDINGS.size():
 		var used = {}
@@ -105,6 +112,7 @@ func save_settings() -> Error:
 	config.set_value("video", "msaa_3d", msaa_3d)
 	config.set_value("video", "shadow_quality", shadow_quality)
 	config.set_value("controls", "bindings", bindings)
+	config.set_value("controls", "mouse_sensitivity", mouse_sensitivity)
 	return config.save(storage_path)
 
 func shadow_atlas_size() -> int:
@@ -130,6 +138,7 @@ func _reset_category(category: String):
 		"Audio":
 			volumes = {"Master": 0.8, "Music": 0.8, "SFX": 0.8}
 		"Controls":
+			mouse_sensitivity = DEFAULT_MOUSE_SENSITIVITY
 			bindings = DEFAULT_BINDINGS.duplicate(true)
 		"Video":
 			fullscreen = false
