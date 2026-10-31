@@ -132,11 +132,11 @@ func scene_checks():
 		world.trees[target].queue_free()
 		world.trees.erase(target)
 	world.decorated_cells.erase(target)
-	player.cell = Vector2i(8,5)
+	player.cell = target
 	player.position = world.grid.world_position(player.cell)
 	player.facing = Vector2i.LEFT
 	world._begin_context_action()
-	check(world.context_action.active.get("object_kind") == "prepare" and player.get_node("Body/ArmRight/Hoe").visible, "Contextual Prepare Soil starts hoe animation")
+	check(world.interactions.action_kind == "till_soil" and player.get_node("Body/ArmRight/Hoe").visible, "Contextual Prepare Soil starts hoe animation")
 	paused = true
 	world._tick_context_action(1.0)
 	check(not data.prepared, "Paused action cannot prepare soil")
@@ -145,10 +145,10 @@ func scene_checks():
 	check(data.prepared and not player.get_node("Body/ArmRight/Hoe").visible, "Preparation completes and puts away hoe")
 	world._begin_context_action()
 	world._tick_context_action(1.1)
-	check(data.tree_state == "sapling" and world.planting.seed_count == 2, "Next contextual action plants prepared soil")
+	check(data.tree_state == "seed" and world.planting.seed_count == 2, "Next contextual action plants prepared soil")
 	data.moisture = 0.0
 	world._begin_context_action()
-	check(world.context_action.active.get("object_kind") == "water_plant" and player.get_node("Body/ArmRight/Bottle").visible, "Thirsty sapling selects watering and bottle animation")
+	check(world.interactions.action_kind == "water_soil" and player.get_node("Body/ArmRight/Bottle").visible, "Thirsty sapling selects watering and bottle animation")
 	world._tick_context_action(1.0)
 	check(data.moisture == 0.5 and world.planting.water_ml == 250, "Scene watering updates shared bottle and climate moisture")
 	var pond_cell = Vector2i(7,4)
@@ -160,8 +160,8 @@ func scene_checks():
 	player.facing = Vector2i.LEFT
 	world.survival.thirst = 55.0
 	world._begin_context_action()
-	check(world.context_action.active.get("object_kind") == "water" and player.get_node("Body/ArmRight/Bottle").visible, "Valid pond contextual action animates filling without a new input")
-	world._tick_context_action(1.0)
+	check(world.interactions.action_kind == "fill_water" and player.get_node("Body/ArmRight/Bottle").visible, "Valid pond contextual action animates filling without a new input")
+	world._tick_context_action(3.0)
 	check(world.planting.water_ml == 750 and world.survival.thirst == 100.0 and pond.water_level == 1.0, "One pond action fills bottle and preserves survival drinking without draining pond")
 	player.cell = Vector2i(8,5)
 	player.position = world.grid.world_position(player.cell)
@@ -171,6 +171,8 @@ func scene_checks():
 	native.tree = true
 	native.tree_state = "healthy"
 	native.tree_health = 1.0
+	native.planted = false
+	native.seed_yield_claimed = false
 	player.facing = Vector2i.RIGHT
 	world._try_interact("chop_gather")
 	world._tick_context_action(1.3)

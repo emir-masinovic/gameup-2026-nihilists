@@ -48,7 +48,9 @@ func get_region(id: String) -> Dictionary:
 	elif id == "wetlands":
 		climate.baseline_temperature -= 2.0
 		climate.weather_cycle = ["rain", "cool", "rain", "clear"]
-	climate.configure(grid, seed_value)
+	climate.configure(grid, seed_value, _run_seed)
+	if OS.is_debug_build() and OS.get_cmdline_user_args().has("--microclimate-demo"):
+		climate.sapling_growth_rate = 4.0
 	for data in grid.cells:
 		if id == "drylands":
 			data.moisture *= 0.55
@@ -66,6 +68,8 @@ func get_region(id: String) -> Dictionary:
 		habitat.tree = false
 		habitat.tree_health = 0.0
 		habitat.tree_state = "removed"
+	if id == "forest" and OS.is_debug_build() and OS.get_cmdline_user_args().has("--ecosystem-demo"):
+		_configure_ecosystem_demo(grid, climate)
 	_ensure_water_access(grid)
 	var foraging = preload("res://features/levels/forest/ResourceForaging.gd").new()
 	foraging.configure(grid, seed_value, id)
@@ -161,6 +165,7 @@ func _ensure_water_access(grid: RefCounted):
 	while true:
 		var data = grid.cells[cell.y * grid.SIZE + cell.x]
 		if data.terrain != "water":
+			data.protected_route = true
 			data.tree = false
 			data.tree_state = "removed"
 			data.tree_health = 0.0
@@ -168,3 +173,23 @@ func _ensure_water_access(grid: RefCounted):
 		if cell.x == grid.start.x or cell.y == grid.start.y:
 			break
 		cell.x += signi(grid.start.x - cell.x)
+
+# Debug-only, deterministic initial conditions. No final visuals are assigned:
+# the normal moisture/health simulation drives drying and subsequent recovery.
+func _configure_ecosystem_demo(grid: RefCounted, climate: RefCounted):
+	climate.ecosystem_demo = true
+	climate.baseline_temperature = 28.0
+	climate.warming_limit = 0.0
+	for z in range(4,8):
+		for x in [3,4,5,6,10,11,12,13]:
+			var cell = Vector2i(x,z)
+			var data: Dictionary = grid.cells[z*grid.SIZE+x]
+			if data.terrain == "water" or cell.distance_to(grid.start) < 2.5: continue
+			var healthy = x < 8
+			data.moisture = 0.85 if healthy else 0.16
+			data.health = 1.0 if healthy else 0.3
+			data.tree = cell in [Vector2i(5,5),Vector2i(5,6),Vector2i(13,4)]
+			data.tree_health = (1.0 if healthy else 0.35) if data.tree else 0.0
+			data.tree_state = "healthy" if data.tree else "removed"
+			data.fuel = 1.0 if data.tree else 0.45
+	climate._update_weather()

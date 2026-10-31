@@ -25,10 +25,11 @@ func run():
 	check(interactions.seeds == 3, "Initial seed count is 3")
 	
 	# 2. Tree chop leaves remains, player walks onto remains and presses Space to collect 3 seeds
-	var player_pos = grid.start + Vector2i(0, 3)
+	var player_pos = Vector2i(4,5)
 	var tree_cell = player_pos + Vector2i.RIGHT
 	grid.cells[tree_cell.y * grid.SIZE + tree_cell.x].tree = true
 	grid.cells[tree_cell.y * grid.SIZE + tree_cell.x].tree_state = "healthy"
+	grid.cells[tree_cell.y * grid.SIZE + tree_cell.x].tree_health = 1.0
 	
 	check(interactions.begin(player_pos, Vector2i.RIGHT, "chop_gather"), "Begin chopping tree")
 	var cut_event = interactions.tick(2.0, player_pos)
@@ -43,6 +44,18 @@ func run():
 	check(interactions.seeds == 6, "Collecting seeds from remains yields +3 seeds (3 -> 6)")
 	check(not grid.cells[tree_cell.y * grid.SIZE + tree_cell.x].tree, "Tree remains removed after collecting seeds")
 	
+	interactions.seeds = 8
+	var remaining = grid.cells[tree_cell.y*grid.SIZE+tree_cell.x]
+	remaining.merge({"tree":true,"tree_state":"stump","pending_seeds":3},true)
+	interactions.begin(tree_cell,Vector2i.UP,"chop_gather")
+	interactions.tick(1.0,tree_cell)
+	check(interactions.seeds == 9 and remaining.pending_seeds == 2 and remaining.tree,"Partial collection preserves uncollected seeds at the cap")
+	interactions.seeds = 7
+	interactions.begin(tree_cell,Vector2i.UP,"chop_gather")
+	interactions.tick(1.0,tree_cell)
+	check(interactions.seeds == 9 and not remaining.tree,"Remaining seeds collect once and clear exhausted remains")
+	check(interactions.tick(1.0,tree_cell).is_empty(),"Completed collection cannot execute twice")
+	interactions.seeds = 6
 	# 3. Tilling ground under feet, then planting sapling consumes 1 seed
 	var plant_cell = player_pos + Vector2i.UP
 	var plant_data = grid.cells[plant_cell.y * grid.SIZE + plant_cell.x]
@@ -78,17 +91,19 @@ func run():
 	root.add_child(world)
 	world.set_process(false)
 	
-	var seeds_node = world.hud.get_node_or_null("PlayerStatus/Rows/Seeds")
+	var seeds_node = world.hud.get_node_or_null("PlayerStatus/Rows/Supplies/Seeds")
 	check(seeds_node != null, "HUD contains Seeds indicator in PlayerStatus")
 	
-	var seeds_val = world.hud.get_node_or_null("PlayerStatus/Rows/Seeds/Value")
+	var seeds_val = world.hud.get_node_or_null("PlayerStatus/Rows/Supplies/Seeds")
 	check(seeds_val != null and seeds_val.text == "3", "HUD seeds value starts at 3")
 	
 	# Set a tree directly next to player and run world interaction to verify HUD updates
-	var test_pos = world.grid.start + Vector2i(0, 3)
+	var test_pos = Vector2i(4,5)
 	var target_tree = test_pos + Vector2i.RIGHT
 	world.grid.cells[target_tree.y * world.grid.SIZE + target_tree.x].tree = true
 	world.grid.cells[target_tree.y * world.grid.SIZE + target_tree.x].tree_state = "healthy"
+	world.grid.cells[target_tree.y * world.grid.SIZE + target_tree.x].tree_health = 1.0
+	world.grid.cells[target_tree.y * world.grid.SIZE + target_tree.x].planted = false
 	world.get_node("GridPlayer").cell = test_pos
 	world.get_node("GridPlayer").facing = Vector2i.RIGHT
 	
@@ -123,6 +138,19 @@ func run():
 	var toast = world.hud.get_node("Toast")
 	check(toast.text.contains("Yeterli tohumunuz yok"), "HUD alerts player when trying to plant without seeds")
 	
+	var authoritative = world.planting.seed_count
+	world.interactions.seeds = 99
+	check(world.planting.seed_count == 9,"Interaction alias enforces the authoritative nine-seed cap")
+	world.planting.seed_count = authoritative
+	var settings = root.get_node("SettingsManager")
+	var old_map = settings.bindings.duplicate(true)
+	settings.bindings.interact = [KEY_J,0]
+	settings.bindings.chop_gather = [KEY_K,0]
+	settings.apply_settings()
+	world._update_interaction_marker()
+	check(world._binding_label("interact") == "J" and world._binding_label("chop_gather") == "K","Context prompts derive both actions from saved remaps")
+	settings.bindings = old_map
+	settings.apply_settings()
 	world.free()
 	
 	print("SEED SYSTEM TEST: ", checks, " checks, ", failures, " failures")

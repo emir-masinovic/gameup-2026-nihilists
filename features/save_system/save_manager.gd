@@ -90,3 +90,7 @@ func get_chop_multiplier() -> float:
 
 func get_fire_damage_multiplier() -> float:
 	return 0.6 if has_upgrade("fire_resilience") else 1.0
+
+# Explicit fresh-game reset; atomic save preserves the old state on write failure.
+func reset_progression() -> Error:
+	return save_progression({"discoveries":[],"knowledge":0,"upgrades":[]})

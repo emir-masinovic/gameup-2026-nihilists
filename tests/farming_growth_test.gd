@@ -25,7 +25,7 @@ func run():
 	interactions.configure(grid)
 	
 	# Select a clean cell
-	var player_pos = grid.start + Vector2i(0, 3)
+	var player_pos = Vector2i(4,5)
 	var target_cell = player_pos + Vector2i.RIGHT
 	var cell_data = grid.cells[target_cell.y * grid.SIZE + target_cell.x]
 	cell_data.tree = false
@@ -64,16 +64,17 @@ func run():
 	check(interactions.begin(on_cell, Vector2i.UP), "Water again to satisfy remaining water")
 	interactions.tick(1.0, on_cell)
 	check(cell_data.water_needed == 0.0, "Water needed fully satisfied (0.0)")
-	check(cell_data.tree_state == "sapling", "Seed germinated into sapling")
+	climate.tick(1.0)
+	check(cell_data.tree_state == "sapling", "Climate validates seed germination after watering")
 	
 	# 4. Harvesting / clearing sapling with hoe from adjacent cell
 	cell_data.moisture = 0.8
-	check(interactions.begin(player_pos, Vector2i.RIGHT), "Player facing sapling clears it with hoe")
+	check(interactions.begin(player_pos, Vector2i.RIGHT, "interact"), "Player facing sapling clears it with hoe")
 	check(interactions.action_kind == "harvest_crop", "Action is harvest_crop (clearing with hoe)")
 	var harvest_evt = interactions.tick(1.0, player_pos)
 	check(harvest_evt.kind == "harvest_crop", "Harvest event finished")
 	check(cell_data.tree == false, "Sapling cleared from cell")
-	check(interactions.seeds == 3, "Clearing sapling refunds seed (2 -> 3)")
+	check(interactions.seeds == 2, "Clearing saplings cannot farm renewable seed refunds")
 	
 	# 5. Full ForestLevel visual test
 	var flow = root.get_node("SceneFlow")
@@ -109,7 +110,7 @@ func run():
 	check(not bottle_node.visible, "Bottle hidden after watering")
 	
 	# Test world tilling, stepping onto tilled cell, planting, and indicator creation
-	var world_player_pos = world.grid.start + Vector2i(0, 3)
+	var world_player_pos = Vector2i(4,5)
 	var world_target = world_player_pos + Vector2i.RIGHT
 	var world_cell_data = world.grid.cells[world_target.y * world.grid.SIZE + world_target.x]
 	world_cell_data.tree = false

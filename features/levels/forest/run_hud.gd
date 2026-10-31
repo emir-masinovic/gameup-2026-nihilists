@@ -1,4 +1,5 @@
 extends Control
+signal perks_closed
 var world: Node
 var modal_kind = ""
 var field_notes = "Survey the forest."
@@ -8,18 +9,18 @@ var current_fire_hazard = 0.0
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	$Modal/Rows/Close.pressed.connect(close_modal)
-	$Modal/Rows/Next.pressed.connect(func(): close_modal(); SceneFlow.new_game())
+	$Modal/Rows/Next.pressed.connect(func(): close_modal(); SceneFlow.retry_game())
 	$Modal/Rows/Menu.pressed.connect(func(): close_modal(); SceneFlow.main_menu())
 	$Modal/Rows/QuickChop.pressed.connect(func(): _purchase("quick_chop"))
 	$Modal/Rows/FireResilience.pressed.connect(func(): _purchase("fire_resilience"))
 	$Modal/Rows/Upgrade.pressed.connect(func():
 		if SaveManager.purchase_heat_resistance():
 			notify("Heat Resistance purchased permanently")
-		show_modal("bonfire"))
+		show_modal(modal_kind))
 
 func _input(event):
 	if $Modal.visible and event.is_action_pressed("pause"):
-		if modal_kind == "bonfire":
+		if modal_kind in ["bonfire","perks"]:
 			close_modal()
 		get_viewport().set_input_as_handled()
 
@@ -32,32 +33,35 @@ func show_modal(kind: String):
 	$Modal.show()
 	$Dim.show()
 	get_tree().paused = true
-	$Modal/Rows/Title.text = {"bonfire": "Bonfire - safe shelter", "death": "The forest claimed this attempt", "success": "Wetlands refuge reached"}[kind]
+	$Modal/Rows/Title.text = {"bonfire": "Bonfire - safe shelter", "death": "The forest claimed this attempt", "success": "Wetlands refuge reached", "perks":"Perks"}[kind]
 	$Modal/Rows/Progress.text = "Knowledge: %d | Discoveries: %d\nHeat Resistance: %s" % [SaveManager.progression.knowledge, SaveManager.progression.discoveries.size(), "Owned" if SaveManager.has_heat_resistance() else "Not purchased"]
 	var names: PackedStringArray = []
 	for id in SaveManager.progression.discoveries:
 		names.append(id.get_slice(".", 1).replace("_", " ").capitalize())
-	$Modal/Rows/Progress.text += "\nField notes: " + field_notes
+	if not field_notes.is_empty(): $Modal/Rows/Progress.text += "\nField notes: " + field_notes
 	$Modal/Rows/Progress.tooltip_text = "Discovered: " + (", ".join(names) if not names.is_empty() else "Explore to find something new")
 	for pair in [["QuickChop", "quick_chop", "Quick Chop"], ["FireResilience", "fire_resilience", "Fire Resilience"]]:
 		var button = get_node("Modal/Rows/" + pair[0])
-		button.visible = kind == "bonfire"
+		button.visible = kind in ["bonfire","perks"]
 		button.disabled = SaveManager.has_upgrade(pair[1]) or SaveManager.progression.knowledge < SaveManager.upgrade_cost(pair[1])
 		button.text = pair[2] + (" - Owned" if SaveManager.has_upgrade(pair[1]) else " - %d Knowledge" % SaveManager.upgrade_cost(pair[1]))
-	$Modal/Rows/Upgrade.visible = kind == "bonfire"
+	$Modal/Rows/Upgrade.visible = kind in ["bonfire","perks"]
 	$Modal/Rows/Upgrade.disabled = SaveManager.has_heat_resistance() or SaveManager.progression.knowledge < 3
-	$Modal/Rows/Close.visible = kind == "bonfire"
-	$Modal/Rows/Next.visible = kind != "bonfire"
-	if kind == "bonfire":
+	$Modal/Rows/Close.visible = kind in ["bonfire","perks"]
+	$Modal/Rows/Close.text = "Back to Pause" if kind == "perks" else "Return to forest"
+	$Modal/Rows/Next.visible = kind not in ["bonfire","perks"]
+	if kind in ["bonfire","perks"]:
 		$Modal/Rows/Close.grab_focus()
 	else:
 		$Modal/Rows/Next.grab_focus()
 
 func close_modal():
+	var from_pause = modal_kind == "perks"
 	$Modal.hide()
 	$Dim.hide()
-	get_tree().paused = false
+	get_tree().paused = from_pause
 	modal_kind = ""
+	if from_pause: perks_closed.emit()
 
 func _on_toast_timeout():
 	$Toast.text = ""
@@ -88,7 +92,7 @@ func damage_feedback(damaged: bool):
 func _purchase(id: String):
 	if SaveManager.purchase_upgrade(id):
 		notify("Permanent upgrade purchased")
-	show_modal("bonfire")
+	show_modal(modal_kind)
 
 func set_environment_context(fire_hazard: float, notes: String, ready: bool):
 	current_fire_hazard = fire_hazard
@@ -128,3 +132,8 @@ func update_interaction(target: Dictionary, progress: float, active: bool, bindi
 
 func update_seeds(count: int):
 	$PlayerStatus/Rows/Supplies/Seeds.text = str(count)
+
+func set_wind(state: Dictionary):
+	var direction: Vector2 = state.direction
+	var sector = posmod(roundi(atan2(direction.x,-direction.y)/(PI/4.0)),8)
+	$WorldStatus/Rows/Knowledge/Wind.text = "Wind %s %d%%" % [["N","NE","E","SE","S","SW","W","NW"][sector],roundi(state.strength*100.0)]

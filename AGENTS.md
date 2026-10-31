@@ -18,4 +18,12 @@ Prefer editor-authored Godot scenes where practical. Keep AI changes small, focu
 
 Use Godot 4.7.2. Validate project import, affected entry scenes, and resource references after relevant changes. Check the final diff and status; do not track .godot/ caches, credentials, or incidental output. Keep checks focused and report failures honestly.
 
-main is the shared initial branch. Use separate feature branches for larger edits. Inspect branch, HEAD, remotes, and working tree before Git changes. Preserve unrelated work. Never reset, clean, force-push, or reconcile unexpected history automatically. Fetch/check remote state before a normal push; stop on unexpected changes, authentication failures, or branch protection. Commit only reviewed task files. The initial foundation contains no gameplay.
+The permanent team workflow is **working branches → development → main**.
+
+- Emir develops on the permanent `emir-codex` branch. Onur develops on his own working branch; do not assume an existing historical feature branch is disposable.
+- Reuse permanent working branches for small changes; a new feature branch is not required for every change. Keep small logical commits and integrate frequently.
+- Submit tested working-branch changes through PRs into `development`, the shared integration/testing branch. After integrated testing and human acceptance, promote `development` to stable `main` through a separate PR.
+- Periodically fetch and synchronize working branches with `development`. Fast-forward when possible; otherwise use a reviewed normal merge without rewriting history. On shared-history synchronization PRs, preserve ancestry with merge commits rather than squash/rebase.
+- Inspect branch, HEAD, remotes and working-tree changes before Git operations. Never force-push shared branches, discard another developer's work, reset/clean away human edits, or reconcile unexpected divergence automatically. Stop and report conflicts, unexpected changes, authentication failures or branch protection.
+- Commit only reviewed task files. Preserve the user-owned uncommitted `project.godot` edit unless explicitly authorized to include it. Publishing and merging still require the task's authorization; branch synchronization is not blanket permission to push or merge.
+- Preserve `feature/microclimate-balance` and its paused analysis; it is not permission to implement microclimate or alter gameplay.
