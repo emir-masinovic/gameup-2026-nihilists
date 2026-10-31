@@ -36,14 +36,15 @@ func run():
 	check(player.cell == world.grid.start and world.grid.traversable(player.cell), "Actual player spawn")
 	check(world.get_node("Terrain").get_child_count() == 289, "Bounded rendered map")
 	check(world.get_node("Vegetation").get_child_count() > 0, "Forest populated")
-	check(world.get_node("CameraRig/Camera3D").projection == Camera3D.PROJECTION_ORTHOGONAL, "Orthographic camera")
+	check(world.get_node("CameraRig/Camera3D").projection == (Camera3D.PROJECTION_ORTHOGONAL if root.get_node("SettingsManager").camera_projection == "Orthographic" else Camera3D.PROJECTION_PERSPECTIVE), "Configured camera projection")
 	check(not player.try_move(Vector2i(1, 1)), "Reject diagonal movement")
 	var start = player.cell
+	var mapped_north = player.screen_direction_to_grid(Vector2i.UP)
 	Input.action_press("move_north")
 	await process_frame
 	await process_frame
 	Input.action_release("move_north")
-	check(player.cell == start + Vector2i.UP, "InputMap action moves player")
+	check(player.cell == start + mapped_north, "InputMap action moves player relative to camera")
 	check(not player.try_move(Vector2i.RIGHT), "Reject overlapping step")
 	flow.open_pause()
 	var paused_position = player.position
@@ -75,6 +76,7 @@ func run():
 	settings.apply_settings()
 	player.cell = world.grid.start
 	player.position = world.grid.world_position(player.cell)
+	var mapped_south = player.screen_direction_to_grid(Vector2i.DOWN)
 	var key = InputEventKey.new()
 	key.physical_keycode = KEY_K
 	key.pressed = true
@@ -83,7 +85,7 @@ func run():
 	await process_frame
 	key.pressed = false
 	Input.parse_input_event(key)
-	check(player.cell == world.grid.start + Vector2i.DOWN, "Remapped physical key moves player")
+	check(player.cell == world.grid.start + mapped_south, "Remapped physical key moves player relative to camera")
 	await create_timer(0.25).timeout
 	settings.bindings = old_bindings
 	settings.apply_settings()
