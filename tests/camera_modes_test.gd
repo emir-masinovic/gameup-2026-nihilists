@@ -62,6 +62,18 @@ func run():
 	rig.configure_targets(center, player)
 	var cells = world.grid.cells.duplicate(true)
 	check(rig.mode == "Follow Player" and rig.global_position.is_equal_approx(player.global_position), "Fresh settings follow the actual player")
+	rig.configure_targets(center,player,{"mode":"Follow Player","zoom":1.0})
+	check(rig.target_zoom == 5.0,"Follow mode allows twice as close orthographic zoom")
+	for projection in ["Orthographic","Perspective"]:
+		settings.camera_projection = projection
+		rig._apply_projection()
+		var camera = rig.get_node("Camera3D")
+		check(camera.position.length() > 6.9 and is_equal_approx(camera.near,0.1),"Close follow camera retains safe distance and near plane in "+projection)
+	rig.set_mode("Board Center")
+	check(rig.target_zoom == 10.0 and rig.get_node("Camera3D").size == 10.0,"Board Center keeps its original minimum zoom")
+	rig.set_mode("Follow Player")
+	settings.camera_projection = "Orthographic"
+	rig._apply_projection()
 	check(settings.CAMERA_MODES == ["Follow Player", "Board Center"], "Only two public modes remain")
 	var cycle = InputEventKey.new()
 	cycle.physical_keycode = KEY_C

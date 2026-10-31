@@ -3,6 +3,7 @@ signal mode_changed(mode: String)
 
 const CAMERA_MODES = ["Follow Player", "Board Center"]
 const MIN_ZOOM = 10.0
+const FOLLOW_MIN_ZOOM = 5.0
 const MAX_ZOOM = 56.0
 const ZOOM_FACTOR = 0.88
 var target_zoom = 42.0
@@ -38,8 +39,8 @@ func configure_targets(center: Vector3, player: Node3D, restore: Dictionary = {}
 		rotation.y = restore.get("yaw", target_yaw)
 		target_pitch = restore.get("target_pitch", restore.get("pitch", target_pitch))
 		pitch = restore.get("pitch", target_pitch)
-		target_zoom = clampf(restore.get("target_zoom", restore.get("zoom", target_zoom)), MIN_ZOOM, MAX_ZOOM)
-		$Camera3D.size = clampf(restore.get("zoom", target_zoom), MIN_ZOOM, MAX_ZOOM)
+		target_zoom = clampf(restore.get("target_zoom", restore.get("zoom", target_zoom)), _minimum_zoom(), MAX_ZOOM)
+		$Camera3D.size = clampf(restore.get("zoom", target_zoom), _minimum_zoom(), MAX_ZOOM)
 	global_position = _target_position()
 	_cancel_drag()
 	_update_camera()
@@ -53,6 +54,8 @@ func set_mode(value: String):
 	if value not in CAMERA_MODES or value == mode:
 		return
 	mode = value
+	target_zoom = clampf(target_zoom,_minimum_zoom(),MAX_ZOOM)
+	$Camera3D.size = clampf($Camera3D.size,_minimum_zoom(),MAX_ZOOM)
 	_cancel_drag()
 	mode_changed.emit(mode)
 
@@ -88,10 +91,10 @@ func _unhandled_input(event):
 			drag_button = event.button_index
 			get_viewport().set_input_as_handled()
 		elif event.is_action_pressed("camera_zoom_in"):
-			target_zoom = clampf(target_zoom * pow(ZOOM_FACTOR, maxf(event.factor, 1.0)), MIN_ZOOM, MAX_ZOOM)
+			target_zoom = clampf(target_zoom * pow(ZOOM_FACTOR, maxf(event.factor, 1.0)), _minimum_zoom(), MAX_ZOOM)
 			get_viewport().set_input_as_handled()
 		elif event.is_action_pressed("camera_zoom_out"):
-			target_zoom = clampf(target_zoom / pow(ZOOM_FACTOR, maxf(event.factor, 1.0)), MIN_ZOOM, MAX_ZOOM)
+			target_zoom = clampf(target_zoom / pow(ZOOM_FACTOR, maxf(event.factor, 1.0)), _minimum_zoom(), MAX_ZOOM)
 			get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion and drag_button != 0:
 		var mask = 1 << (drag_button - 1)
@@ -127,3 +130,6 @@ func _process(delta):
 	pitch = lerpf(pitch, target_pitch, weight)
 	$Camera3D.size = lerpf($Camera3D.size, target_zoom, weight)
 	_update_camera()
+
+func _minimum_zoom() -> float:
+	return FOLLOW_MIN_ZOOM if mode == "Follow Player" else MIN_ZOOM
