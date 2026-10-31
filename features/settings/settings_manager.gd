@@ -7,7 +7,7 @@ const MIN_MOUSE_SENSITIVITY = 0.002
 const MAX_MOUSE_SENSITIVITY = 0.02
 var mouse_sensitivity = DEFAULT_MOUSE_SENSITIVITY
 var camera_projection = "Orthographic"
-const CAMERA_MODES = ["Follow Player", "Board Center"]
+const CAMERA_MODES = ["Follow Player", "Board Center", "Free Camera"]
 var camera_mode = "Follow Player"
 
 const DEFAULT_BINDINGS = {
@@ -112,12 +112,16 @@ func apply_settings():
 		var mode_changed = DisplayServer.window_get_mode() != desired_mode
 		if mode_changed:
 			DisplayServer.window_set_mode(desired_mode)
-		if not fullscreen and (mode_changed or _applied_resolution != resolution):
+		if not fullscreen:
 			var usable = DisplayServer.screen_get_usable_rect()
 			var size_value = resolution.min(usable.size)
-			DisplayServer.window_set_size(size_value)
-			DisplayServer.window_set_position(usable.position + (usable.size - size_value) / 2)
-			_applied_resolution = resolution
+			# A native/editor resize can invalidate the cached requested size.
+			# Use Window so Godot's size property and the native window agree.
+			var window = get_tree().root
+			if mode_changed or _applied_resolution != resolution or window.size != size_value or DisplayServer.window_get_size() != size_value:
+				window.size = size_value
+				window.position = usable.position + (usable.size - size_value) / 2
+				_applied_resolution = resolution
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED)
 	get_tree().root.msaa_3d = msaa_3d
 	if _applied_shadow != shadow_quality:

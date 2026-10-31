@@ -30,12 +30,20 @@ func transition(path: String) -> Error:
 	return get_tree().change_scene_to_file(path)
 
 func new_game():
+	var error = SaveManager.reset_progression()
+	if error != OK:
+		push_error("Could not start a fresh game: progression reset failed")
+		return error
+	return retry_game()
+
+# A new attempt within the same save retains earned progression.
+func retry_game():
 	run_regions = null
 	region_arrival_from = ""
 	camera_state.clear()
 	region_transitioning = false
 	next_seed = int((Time.get_ticks_usec() + next_seed * 1664525) % 2147483647)
-	transition(playable_scene)
+	return transition(playable_scene)
 
 func main_menu():
 	run_regions = null

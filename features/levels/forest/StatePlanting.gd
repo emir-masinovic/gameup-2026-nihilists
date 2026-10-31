@@ -2,7 +2,7 @@ extends RefCounted
 # Run-local inventory; vegetation lives in each region's authoritative GridData.
 const INITIAL_SEEDS = 3
 const MAX_SEEDS = 9
-const GROWTH_SECONDS = 240.0
+const GROWTH_SECONDS = 120.0
 const MAX_WATER_ML = 1000
 const WATER_PER_POUR = 250
 const WATER_PER_FILL = 500
@@ -71,6 +71,8 @@ func plant(grid: RefCounted, cell: Vector2i, occupied: bool = false) -> bool:
 	data.tree_state = "sapling"
 	data.tree_health = 0.35
 	data.planted = true
+	data.natural = false
+	data.regeneration_credit = 0.0
 	data.growth_age = 0.0
 	data.growth_discovered = false
 	data.fuel = 0.15
@@ -92,3 +94,26 @@ func collect_seed(grid: RefCounted, event: Dictionary) -> int:
 	seed_count += amount
 	data.pending_seeds = int(data.get("pending_seeds", 0)) - amount
 	return amount
+
+static func growth_stage(age: float) -> int:
+	return 0 if age < GROWTH_SECONDS * 0.25 else 1 if age < GROWTH_SECONDS * 0.625 else 2
+
+# Integrated directional interaction entry points; inventory and crop writes live here.
+func plant_seed(grid: RefCounted, cell: Vector2i) -> bool:
+	if not plant(grid,cell): return false
+	var data: Dictionary = grid.cells[cell.y*grid.SIZE+cell.x]
+	data.tree_state = "seed"
+	data.tree_health = 0.1
+	data.water_needed = 1.0
+	return true
+
+func water_crop(grid: RefCounted, cell: Vector2i) -> bool:
+	if not grid.in_bounds(cell) or water_ml < WATER_PER_POUR: return false
+	var data: Dictionary = grid.cells[cell.y*grid.SIZE+cell.x]
+	if not data.tree or data.tree_state not in ["seed","sapling"] or data.burning or data.burned: return false
+	water_ml -= WATER_PER_POUR
+	data.moisture = minf(1.0,data.moisture+0.5)
+	data.health = 1.0
+	data.trampled = 0.0
+	if data.tree_state == "seed": data.water_needed = maxf(0.0,data.get("water_needed",1.0)-0.5)
+	return true

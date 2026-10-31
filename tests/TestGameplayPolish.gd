@@ -9,6 +9,32 @@ func check(value: bool, message: String):
 		push_error(message)
 func _initialize(): call_deferred("run")
 func run():
+	var simulations = []
+	for intensity in [0.0,0.25,1.0]:
+		var grid = load("res://features/levels/forest/grid_data.gd").new()
+		grid.generate(2026)
+		var climate = load("res://features/levels/forest/climate_simulation.gd").new()
+		climate.configure(grid,2026)
+		climate.bonfire_intensity = intensity
+		climate.weather_override = "clear"
+		climate.ignition_chance = 0.0
+		for second in range(60): climate.tick(1.0)
+		simulations.append(climate)
+	var camp = simulations[0]._grid.start
+	var index = camp.y*17+camp.x
+	check(simulations[2].temperature_at(camp) > simulations[1].temperature_at(camp) and simulations[1].temperature_at(camp) > simulations[0].temperature_at(camp), "Camp soil heat scales with intensity")
+	check(simulations[2]._grid.cells[index].moisture < simulations[1]._grid.cells[index].moisture and simulations[1]._grid.cells[index].moisture < simulations[0]._grid.cells[index].moisture, "Camp gradually dries local soil by intensity")
+	check(simulations[2]._grid.cells[0].moisture == simulations[0]._grid.cells[0].moisture, "Camp does not affect distant soil")
+	check(simulations[2].bonfire_influence_at(Vector2i(-1,-1)) == 0.0, "Camp influence excludes invalid cells")
+	for i in range(simulations[2]._grid.cells.size()):
+		if simulations[2]._grid.cells[i].terrain == "water":
+			check(simulations[2].bonfire_influence_at(Vector2i(i%17,i/17)) == 0.0, "Camp soil effect excludes water")
+	var moisture = simulations[2]._grid.cells[index].moisture
+	simulations[2].weather_override = "rain"
+	simulations[2].bonfire_intensity = 0.1
+	for second in range(30): simulations[2].tick(1.0)
+	check(simulations[2]._grid.cells[index].moisture > moisture and not simulations[2]._grid.cells[index].burning, "Rain recovers camp soil without introducing ignition")
+
 	var exposed = Survival.new()
 	var strong = Survival.new()
 	var weak = Survival.new()
@@ -30,7 +56,9 @@ func run():
 	var original_progression = save.progression
 	save.progression = original_progression.duplicate(true)
 	var flow = root.get_node("SceneFlow")
-	flow.run_regions = null
+	flow.run_regions = load("res://features/levels/forest/RunRegions.gd").new()
+	flow.run_regions.configure(2026)
+	flow.run_regions.get_region("forest").camp_enabled = true # Explicit reusable camp regression.
 	flow.next_seed = 2026
 	change_scene_to_file("res://features/levels/forest/forest_level.tscn")
 	await process_frame
@@ -61,25 +89,37 @@ func run():
 	data.burned = false
 	data.terrain = "soil"
 	data.prepared = true
+	data.tilled = true
 	world.decorated_cells.erase(target)
 	var player = world.get_node("GridPlayer")
-	player.cell = Vector2i(8,5)
+	player.cell = target
 	player.position = world.grid.world_position(player.cell)
 	player.facing = Vector2i.RIGHT
 	world._update_interaction_marker()
-	# A custom candidate list is unnecessary: the existing selector owns its tie-breaks.
+	# Planting targets the prepared cell underfoot; facing remains relevant to adjacent objects.
 	player.facing = Vector2i.LEFT
 	world._update_interaction_marker()
-	check(world.selected_interaction.cell == target and world.interaction_marker.mesh is TorusMesh and world.interaction_marker.visible, "Selected planting soil uses the shared readable interaction ring")
+	check(world.selected_interaction.get("cell",Vector2i(-1,-1)) == target and world.interaction_marker.mesh is TorusMesh and world.interaction_marker.visible, "Selected planting soil uses the shared readable interaction ring")
 	if DisplayServer.get_name() != "headless" and OS.has_environment("NIHILISTS_CAPTURE_DIR"):
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(OS.get_environment("NIHILISTS_CAPTURE_DIR").path_join("planting-ring.png"))
 	world.terrain_renderer.update_state(world.grid)
-	check(world.terrain_renderer.batches[18].multimesh.visible_instance_count > 0 and world.terrain_renderer.batches[18].material_override.get_shader_parameter("terrain_color") == Color("554636"), "Generated soil has a shared brown terrain material independent of highlighting")
+	check(world.terrain_renderer.batches[18].multimesh.visible_instance_count + world.terrain_renderer.batches[19].multimesh.visible_instance_count > 0 and world.terrain_renderer.batches[18].material_override.get_shader_parameter("terrain_color") == Color("554636"), "Generated soil has a shared brown terrain material independent of highlighting")
 	check(world.hud.get_node("Context").get_theme_stylebox("normal") is StyleBoxFlat, "Interaction caption has a dark padded background")
+	data.moisture = 0.8
+	world.terrain_renderer.update_state(world.grid)
+	var wet_tiles: int = world.terrain_renderer.batches[19].multimesh.visible_instance_count
+	var dry_tiles: int = world.terrain_renderer.batches[18].multimesh.visible_instance_count
+	data.moisture = 0.1
+	world.terrain_renderer.update_state(world.grid)
+	check(world.terrain_renderer.batches[19].multimesh.visible_instance_count == wet_tiles-1 and world.terrain_renderer.batches[18].multimesh.visible_instance_count == dry_tiles+1, "Soil moisture selects distinct wet/dry brown materials without changing plantability")
+	data.moisture = 0.8
+
+	world.ground_cover.update_state(world.grid)
 	for batch in world.ground_cover.batches:
-		for index in batch.indices:
-			check(world.grid.cells[index].terrain != "soil", "Grass/shrub decoration leaves soil patches bare")
+		for j in range(batch.indices.size()):
+			if world.grid.cells[batch.indices[j]].terrain == "soil":
+				check(batch.targets[j] == 0.0, "Allocated cover stays hidden when a cell becomes authored soil")
 	data.burning = true
 	world._update_interaction_marker()
 	check(not world.interaction_marker.visible or not world.interaction_marker.position.is_equal_approx(world.grid.world_position(target) + Vector3(0,0.12,0)), "Invalid planting clears its ring immediately")
@@ -101,6 +141,14 @@ func run():
 		var panel = world.hud.get_node("PlayerStatus")
 		var supplies = world.hud.get_node("PlayerStatus/Rows/Supplies")
 		var caption = world.hud.get_node("Context")
+		var environment = world.hud.get_node("WorldStatus")
+		var wind = world.hud.get_node("WorldStatus/Rows/Knowledge/Wind")
+		check(wind.get_global_rect().end.x <= environment.get_global_rect().end.x and environment.get_global_rect().position.x >= 0.0 and environment.size.y < 150.0, "Wind fits existing compact environment panel at " + str(size_value))
+		world.hud.set_wind({"direction":Vector2(0,-1),"strength":0.5})
+		check(wind.text == "Wind N 50%", "Wind HUD uses world north and normalized strength")
+		world.hud.set_wind({"direction":Vector2(1,0),"strength":0.75})
+		check(wind.text == "Wind E 75%", "Wind HUD uses world east")
+		world._update_wind(0.0)
 		check(caption.visible and caption.get_global_rect().position.y >= 0.0 and caption.get_global_rect().end.y <= size_value.y and caption.size.y < 64.0, "Padded interaction caption stays readable inside viewport at " + str(size_value))
 		check(panel.get_global_rect().end.x < size_value.x and panel.size.y < 200.0 and supplies.get_global_rect().end.x <= panel.get_global_rect().end.x, "Compact resources fit HUD at " + str(size_value))
 		check(supplies.get_node("Food").text == "64" and supplies.get_node("Water").text == "72" and supplies.get_node("Seeds").text == str(world.planting.seed_count), "Numeric resource values update")

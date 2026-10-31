@@ -82,25 +82,32 @@ func tick(seconds: float, temperature: float, shade: float, safe: bool, heat_res
 			else:
 				drying = float(rates.camp_drying) * camp
 		wetness = clampf(wetness + (rain_gain - drying) * step, 0.0, 100.0)
+		var wet_fraction = wetness / 100.0
+		var warming = hot_air * float(rates.heat_per_degree) * (1.0 - shelter * 0.8)
+		if heat_resistance:
+			warming *= 0.5
+		var cooling = maxf(16.0 + wet_fraction * 8.0 - ambient, 0.0) * float(rates.cold_per_degree) * (1.0 + wind * 0.75)
+		# Evaporation helps in heat, while wet clothes raise the cold threshold.
+		var evaporation = wet_fraction * float(rates.wet_cooling) * (1.0 + wind)
+		# Mild-weather rain should shed excess heat without constant cooling far
+		# below comfort. Colder air retains the existing cold-exposure danger.
+		var response = clampf((body_temperature - 36.3) / 0.7, 0.0, 1.5)
+		var temperate = clampf((ambient - 12.0) / 6.0, 0.0, 1.0) * clampf((30.0 - ambient) / 4.0, 0.0, 1.0)
+		cooling *= lerpf(1.0, response, temperate)
+		evaporation *= lerpf(1.0, response, temperate)
+		var thermal_change = warming - cooling - evaporation + fire * 0.04
+		thermal_change -= (body_temperature - NORMAL_BODY_TEMPERATURE) * float(rates.temperature_relaxation)
+		if is_zero_approx(warming + cooling + evaporation + fire):
+			body_temperature = move_toward(body_temperature, NORMAL_BODY_TEMPERATURE, float(rates.comfortable_recovery) * step)
+		else:
+			body_temperature = clampf(body_temperature + thermal_change * step, 25.0, 45.0)
+		# Environment always contributes, even beside an almost-extinguished fire.
+		# Retain the accepted camp comfort response, scaled by actual intensity.
 		if safe and camp > 0.0:
 			body_temperature = move_toward(body_temperature, NORMAL_BODY_TEMPERATURE, float(rates.camp_temperature_recovery) * camp * step)
-		else:
-			var wet_fraction = wetness / 100.0
-			var warming = hot_air * float(rates.heat_per_degree) * (1.0 - shelter * 0.8)
-			if heat_resistance:
-				warming *= 0.5
-			var cooling = maxf(16.0 + wet_fraction * 8.0 - ambient, 0.0) * float(rates.cold_per_degree) * (1.0 + wind * 0.75)
-			# Evaporation helps in heat, while wet clothes raise the cold threshold.
-			var evaporation = wet_fraction * float(rates.wet_cooling) * (1.0 + wind)
-			var thermal_change = warming - cooling - evaporation + fire * 0.04
-			thermal_change -= (body_temperature - NORMAL_BODY_TEMPERATURE) * float(rates.temperature_relaxation)
-			if is_zero_approx(warming + cooling + evaporation + fire):
-				body_temperature = move_toward(body_temperature, NORMAL_BODY_TEMPERATURE, float(rates.comfortable_recovery) * step)
-			else:
-				body_temperature = clampf(body_temperature + thermal_change * step, 25.0, 45.0)
-			var severity = maxf(body_temperature - float(rates.hot_danger), float(rates.cold_danger) - body_temperature)
-			if severity >= 0.0:
-				damage((float(rates.temperature_damage) + severity * float(rates.temperature_severity)) * step)
+		var severity = maxf(body_temperature - float(rates.hot_danger), float(rates.cold_danger) - body_temperature)
+		if severity >= 0.0:
+			damage((float(rates.temperature_damage) + severity * float(rates.temperature_severity)) * step)
 		if safe and not dead:
 			health = minf(100.0, health + float(rates.camp_healing) * step)
 		# Depleted reserves cause gradual damage; camp does not refill food/water.
