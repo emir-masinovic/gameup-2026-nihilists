@@ -112,3 +112,6 @@ func update_interaction(target: Dictionary, progress: float, active: bool, bindi
 		return
 	var description = str(target.get("action", "Interact")) if target.get("available", true) else str(target.get("reason", "Unavailable"))
 	$Context.text = "%s — [%s] %s%s" % [target.get("name", "Object"), binding, description, "..." if active else ""]
+
+func update_seeds(count: int):
+	$PlayerStatus/Rows/Seeds.text = "Seeds %d" % count

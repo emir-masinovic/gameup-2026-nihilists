@@ -1,5 +1,6 @@
 extends Node3D
 const GridData = preload("res://features/levels/forest/grid_data.gd")
+const SAPLING = preload("res://features/levels/forest/VisualSapling.tscn")
 const TREE = preload("res://features/levels/forest/nature/nature_tree.tscn")
 const NatureProps = preload("res://features/levels/forest/nature/nature_visuals.gd")
 signal audio_cue(cue: String, at: Vector3)
@@ -44,6 +45,8 @@ var foraging: RefCounted
 var forage_visuals: Node3D
 var selected_interaction = {}
 var custom_interactables: Array = []
+var planting: RefCounted
+var decorated_cells = {}
 var wet_indicator: MeshInstance3D
 
 
@@ -62,6 +65,7 @@ func _ready():
 	climate = region_state.climate
 	cut_cells = region_state.cut_cells
 	foraging = region_state.foraging
+	planting = regions.planting
 	survival = regions.survival
 	objectives = regions.objectives
 	objectives.regional_mode = true
@@ -88,8 +92,8 @@ func _ready():
 			var cell = Vector2i(x, z)
 			var data = grid.cells[z * grid.SIZE + x]
 			if data.tree:
-				var tree = NatureProps.instantiate_stump() if data.tree_state == "stump" else TREE.instantiate()
-				if data.tree_state != "stump":
+				var tree = _vegetation_visual(data)
+				if data.tree_state != "stump" and not tree.has_method("update_growth"):
 					tree.variant = data.get("variant", 0) % 2
 				tree.position = grid.world_position(cell)
 				tree.rotation.y = data.rotation
@@ -270,6 +274,8 @@ func _end_run(kind: String):
 func _finish_interaction(event: Dictionary):
 	var cell: Vector2i = event.cell
 	if event.kind == "tree_cut":
+		var gained: int = planting.collect_seed(grid, event)
+		if gained > 0: hud.notify("Collected a seed from healthy tree")
 		cut_cells[cell] = true
 		_discover("interaction.first_tree_cut", "Tree cut: less shade and less fuel")
 		audio_cue.emit("tree_fall", grid.world_position(cell))
@@ -327,6 +333,18 @@ func _refresh_visuals():
 				recovery_seen = true
 				_discover("flora.recovery", "Vegetation recovers in favorable weather")
 		var cell = Vector2i(i % grid.SIZE, floori(float(i) / grid.SIZE))
+		if data.tree and data.get("planted", false) and data.tree_state != "stump":
+			var young: bool = data.get("growth_age", 0.0) < planting.GROWTH_SECONDS
+			if trees.has(cell) and trees[cell].has_method("update_growth") != young:
+				trees[cell].queue_free()
+				trees.erase(cell)
+			if not trees.has(cell):
+				register_vegetation_visual(cell, _vegetation_visual(data))
+			if young:
+				trees[cell].update_growth(data)
+			elif not data.get("growth_discovered", false):
+				data.growth_discovered = true
+				_discover("flora.planted_growth", "A planted tree matured: new shade and habitat")
 		if trees.has(cell) and data.tree_state in ["healthy", "dead"]:
 			if trees[cell].has_method("set_health"):
 				trees[cell].set_health(data.tree_health, data.tree_state == "dead", data.moisture, data.get("burned", false))
@@ -347,6 +365,7 @@ func _update_hud():
 	hud.update_status(survival.health, survival.exposure, climate.temperature, climate.weather, climate.warming_pressure(), SaveManager.progression.knowledge, safe, interactions.target.x >= 0)
 	hud.set_environment_context(climate.fire_at($GridPlayer.cell), objectives.summary(), objectives.ready_for_clearing())
 	hud.set_region(regions.region_name(region_id))
+	hud.update_seeds(planting.seed_count)
 	hud.update_survival(survival, climate.shade_at($GridPlayer.cell), _binding_label("eat"))
 	if wet_indicator != null:
 		wet_indicator.visible = survival.wetness >= 10.0
@@ -485,6 +504,7 @@ func _create_kenney_props():
 		if data.tree or data.get("terrain", "grass") == "water" or cell.distance_to(grid.start) < 2.5 or cell == grid.objective or data.shade < 0.32 or data.shade > 0.36:
 			continue
 		var prop = models[i % 2].instantiate()
+		decorated_cells[cell] = true
 		prop.name = "DecorativeRock%d" % i
 		prop.position = grid.world_position(cell) + Vector3(0.45, 0, 0.35)
 		prop.rotation.y = data.rotation
@@ -608,6 +628,9 @@ func _interaction_candidates() -> Array:
 			candidates.append(_descriptor(cell, "log", "Fallen Log", "Clear", 1.2 * SaveManager.get_chop_multiplier(), not burning, "Wood is burning" if burning else ""))
 		elif data.tree:
 			candidates.append(_descriptor(cell, "tree", "Stump" if data.tree_state == "stump" else "Tree", "Remove" if data.tree_state == "stump" else "Chop", 1.2 * SaveManager.get_chop_multiplier(), not burning, "Tree is burning" if burning else ""))
+		elif cell != player and data.terrain == "soil":
+			var availability: Dictionary = planting.availability(grid, cell, _planting_occupied(cell))
+			candidates.append(_descriptor(cell, "plant", "Bare Soil", "Plant Seed", 1.0, availability.available, availability.reason))
 	candidates.append_array(custom_interactables)
 	return candidates
 
@@ -637,6 +660,10 @@ func _tick_context_action(delta: float):
 		return
 	var active: Dictionary = context_action.active
 	var kind: String = active.get("object_kind", "custom")
+	if kind == "plant":
+		var availability: Dictionary = planting.availability(grid, active.cell, _planting_occupied(active.cell))
+		active.available = availability.available
+		active.reason = availability.reason
 	if kind in ["berries", "water", "tree", "log"]:
 		var data = grid.cells[active.cell.y * grid.SIZE + active.cell.x]
 		if kind == "berries":
@@ -660,6 +687,10 @@ func _tick_context_action(delta: float):
 		return
 	if kind in ["tree", "log"]:
 		if not tree_event.is_empty(): _finish_interaction(tree_event)
+	elif kind == "plant":
+		if planting.plant(grid, result.cell, _planting_occupied(result.cell)):
+			_discover("interaction.first_planting", "First seed planted: moisture and temperature support growth")
+			hud.notify("Seed planted: seek moist soil for steady growth")
 	elif kind == "bonfire":
 		hud.show_modal("bonfire")
 	elif kind == "berries":
@@ -677,8 +708,7 @@ func _tick_context_action(delta: float):
 	_refresh_visuals()
 	_update_hud()
 
-# Small extension points: no planting action, seed inventory or player visual
-# implementation is supplied here. External consumers own their logical state.
+# Feature-owned extension points for additional contextual objects and visuals.
 func register_interactable(descriptor: Dictionary) -> bool:
 	if not descriptor.get("id") is String or descriptor.id.strip_edges().is_empty() or not descriptor.get("cell") is Vector2i or not grid.in_bounds(descriptor.cell):
 		return false
@@ -710,3 +740,18 @@ func _create_wet_indicator():
 	wet_indicator.position.y = 0.08
 	wet_indicator.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	$GridPlayer.add_child(wet_indicator)
+
+func _vegetation_visual(data: Dictionary) -> Node3D:
+	if data.tree_state == "stump": return NatureProps.instantiate_stump()
+	if data.get("planted", false) and data.get("growth_age", 0.0) < planting.GROWTH_SECONDS:
+		var sprout = SAPLING.instantiate()
+		return sprout
+	var visual = TREE.instantiate()
+	visual.variant = data.get("variant", 0) % 2
+	return visual
+
+func _planting_occupied(cell: Vector2i) -> bool:
+	if cell == $GridPlayer.cell or decorated_cells.has(cell): return true
+	for descriptor in custom_interactables:
+		if descriptor.cell == cell: return true
+	return false

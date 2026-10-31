@@ -61,6 +61,7 @@ func tick(delta: float, player: Vector2i) -> Dictionary:
 		cell.tree_state = "removed"
 		cell.fuel = 0.0
 	else:
+		event.seed_eligible = cell.get("tree_state", "healthy") == "healthy" and cell.get("tree_health", 1.0) >= 0.66 and not cell.get("planted", false)
 		cell.tree_state = "stump"
 		cell.tree_health = 0.0
 		# A cut cell is a practical break in fuel; the displaced wood blocks its landing.

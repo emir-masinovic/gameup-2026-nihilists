@@ -96,6 +96,7 @@ func _update_animation(delta: float):
 				_arm_left.rotation.x = -leg_angle * 0.75
 				_arm_left.rotation.z = 0.06
 			if _arm_right:
+				_arm_right.rotation.y = 0.0
 				_arm_right.rotation.x = leg_angle * 0.75
 				_arm_right.rotation.z = -0.06
 		else:
@@ -209,6 +210,7 @@ func _update_animation(delta: float):
 			_arm_left.rotation.x = lerpf(_arm_left.rotation.x, 0.0, blend)
 			_arm_left.rotation.z = lerpf(_arm_left.rotation.z, 0.08, blend)
 		if _arm_right:
+			_arm_right.rotation.y = lerpf(_arm_right.rotation.y, 0.0, blend)
 			_arm_right.rotation.x = lerpf(_arm_right.rotation.x, 0.0, blend)
 			_arm_right.rotation.z = lerpf(_arm_right.rotation.z, -0.08, blend)
 		_body.rotation.x = lerpf(_body.rotation.x, 0.0, blend)

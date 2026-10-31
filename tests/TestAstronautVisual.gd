@@ -29,6 +29,8 @@ func run():
 	check(body.get_node("ArmRight/Axe").visible and body.is_chopping, "Chop visual exposes axe")
 	check(player.cell == origin + Vector2i.UP, "Chopping visual cannot move player")
 	body.stop_chopping()
+	body._update_animation(1.0 / 12.0)
+	check(is_zero_approx(body.get_node("ArmRight").rotation.y), "Idle restores arm twist after chopping")
 	check(not body.get_node("ArmRight/Axe").visible, "Cancelled/completed chop hides axe")
 	player.queue_free()
 	await process_frame

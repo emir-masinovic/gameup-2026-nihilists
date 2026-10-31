@@ -106,6 +106,19 @@ func _simulate(seconds: float):
 		data.health = clampf(data.health + (recovery * (1.0 - data.trampled) - stress) * seconds, 0.0, 1.0)
 		if data.get("burned", false):
 			data.health = minf(data.health, data.burn_recovery)
+		if data.tree and data.tree_state == "sapling":
+			var local_temperature = temperature - shades[i] * 4.0
+			var favorable = data.moisture > 0.35 and local_temperature >= 8.0 and local_temperature <= 34.0 and not data.get("burning", false) and not data.get("burned", false)
+			if favorable:
+				data.growth_age += seconds
+				data.tree_health = minf(1.0, data.tree_health + 0.002 * seconds)
+			else:
+				data.tree_health = maxf(0.0, data.tree_health - (stress + (0.003 if local_temperature < 3.0 else 0.0)) * seconds)
+			if data.tree_health <= 0.0:
+				data.tree_state = "dead"
+			elif data.growth_age >= preload("res://features/levels/forest/StatePlanting.gd").GROWTH_SECONDS:
+				data.tree_state = "healthy"
+				data.fuel = 1.0
 		if data.tree and data.tree_state == "healthy":
 			data.tree_health = clampf(data.tree_health + (recovery * 0.6 - stress * 0.6) * seconds, 0.0, 1.0)
 			if data.tree_health <= 0.0:
@@ -146,6 +159,9 @@ func _simulate_fire(seconds: float):
 				data.health = 0.0
 				data.burn_recovery = 0.0
 				data.log = false
+				if data.tree and data.get("planted", false):
+					data.tree_health = 0.0
+					data.tree_state = "dead"
 			continue
 		if weather == "rain":
 			continue

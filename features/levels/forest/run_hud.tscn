@@ -96,6 +96,10 @@ text = "Berries 0"
 theme_override_font_sizes/font_size = 16
 autowrap_mode = 2
 tooltip_text = "Harvest red berry bushes, then Eat to restore food reserves."
+[node name="Seeds" type="Label" parent="PlayerStatus/Rows"]
+text = "Seeds 3"
+theme_override_font_sizes/font_size = 16
+tooltip_text = "Plant on empty soil with Interact. Healthy original trees may yield one seed; carry up to 9."
 [node name="Wetness" type="Label" parent="PlayerStatus/Rows"]
 visible = false
 text = "Wet 0%"
