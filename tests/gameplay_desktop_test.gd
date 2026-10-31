@@ -17,7 +17,7 @@ func run():
 	await process_frame
 	var world = current_scene
 	await create_timer(3.0).timeout
-	print("WORLD DESKTOP fps=", Performance.get_monitor(Performance.TIME_FPS), " draw_calls=", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " nodes=", get_node_count())
+	print("WORLD DESKTOP fps=", Performance.get_monitor(Performance.TIME_FPS), " draw_calls=", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " nodes=", get_node_count(), " static_memory_mib=", snappedf(Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0, 0.1))
 	await capture("living_forest_initial")
 	world.set_process(false)
 	var started = Time.get_ticks_usec()
@@ -27,6 +27,26 @@ func run():
 	world._update_hud()
 	print("SIMULATION: 360 one-second ticks ms=", (Time.get_ticks_usec() - started) / 1000.0)
 	await capture("living_forest_warmed")
+	var captured_rain = false
+	var captured_fire = false
+	for second in range(600):
+		world.climate.tick(1.0)
+		if world.climate.weather == "rain" and not captured_rain:
+			world._refresh_visuals()
+			world._update_hud()
+			await capture("ecosystem_rain")
+			captured_rain = true
+		var burning = false
+		for data in world.grid.cells:
+			burning = burning or data.burning
+		if burning and not captured_fire:
+			world._refresh_visuals()
+			world._update_hud()
+			await capture("ecosystem_wildfire")
+			captured_fire = true
+		if captured_rain and captured_fire:
+			break
+	print("ECOSYSTEM DESKTOP rain=", captured_rain, " wildfire=", captured_fire)
 	world.hud.show_modal("bonfire")
 	await capture("bonfire_progression")
 	world.hud.close_modal()

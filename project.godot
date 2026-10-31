@@ -12,12 +12,13 @@ config_version=5
 
 config/name="Nihilists — GameUP 2026"
 run/main_scene="res://features/menus/main_menu.tscn"
-config/features=PackedStringArray("4.7", "GL Compatibility")
 run/playable_scene="res://features/levels/forest/forest_level.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
 
-[audio]
+[rendering]
 
-default_bus_layout="res://features/settings/audio_bus_layout.tres"
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
 
 [autoload]
 
@@ -27,14 +28,10 @@ SceneFlow="*res://features/menus/scene_flow.gd"
 
 [display]
 
+window/size/viewport_width=1152
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 
-[dotnet]
+[audio]
 
-project/assembly_name="Nihilists — GameUP 2026"
-
-[rendering]
-
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
+default_bus_layout="res://features/settings/audio_bus_layout.tres"
