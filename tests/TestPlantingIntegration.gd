@@ -18,6 +18,7 @@ func soil(grid: RefCounted, cell: Vector2i) -> Dictionary:
 	data.tree_health = 0.0
 	data.log = false
 	data.berry_bush = false
+	data.prepared = true
 	data.terrain = "soil"
 	data.burned = false
 	data.burning = false
@@ -42,6 +43,7 @@ func run():
 	check(not planting.plant(grid,cell), "Even dried ponds cannot be planted")
 	data.terrain = "grass"
 	check(not planting.plant(grid,cell), "Require bare soil")
+	data.prepared = true
 	data.terrain = "soil"
 	check(not planting.plant(grid,cell,true), "Reject player, decoration or registered occupancy")
 	for reserved in [grid.start,grid.objective,Vector2i(0,8),Vector2i(1,8),Vector2i(15,8),Vector2i(16,8)]:
@@ -69,7 +71,7 @@ func run():
 	check(data.tree_state == "healthy" and data.fuel == 1.0, "Mature planted tree joins existing vegetation/fuel states")
 	check(climate.shade_at(cell+Vector2i.UP) > 0.0, "Grown tree provides neighboring shade")
 	var event = {"cell":cell,"kind":"tree_cut","seed_eligible":true}
-	check(planting.collect_seed(grid,event) == 0, "Planted trees cannot create seed profit")
+	check(planting.record_seed_drop(grid,event) == 0, "Planted trees cannot create seed profit")
 	var other = Vector2i(4,5)
 	var dry = soil(grid,other)
 	check(planting.plant(grid,other), "Second seed plants")
@@ -91,10 +93,10 @@ func run():
 	var original = Vector2i(3,5)
 	soil(grid,original)
 	var original_event = {"cell":original,"kind":"tree_cut","seed_eligible":true}
-	check(planting.collect_seed(grid,original_event) == 1, "Original healthy tree yields one seed")
-	check(planting.collect_seed(grid,original_event) == 0, "Repeated tree event cannot farm inventory")
+	check(planting.record_seed_drop(grid,original_event) == 1 and planting.collect_seed(grid,{"kind":"collect_seeds","cell":original}) == 1, "Original healthy tree drops one collectible seed")
+	check(planting.record_seed_drop(grid,original_event) == 0, "Repeated tree event cannot farm inventory")
 	planting.seed_count = 9
-	check(planting.collect_seed(grid,{"cell":Vector2i(3,6),"kind":"tree_cut","seed_eligible":true}) == 0 and planting.seed_count == 9, "Inventory has finite cap")
+	check(planting.record_seed_drop(grid,{"cell":Vector2i(3,6),"kind":"tree_cut","seed_eligible":true}) == 1 and planting.collect_seed(grid,{"cell":Vector2i(3,6),"kind":"collect_seeds"}) == 0 and planting.seed_count == 9, "Inventory has finite cap and retains uncollected drop")
 	var cutter = preload("res://features/levels/forest/forest_interactions.gd").new()
 	cutter.configure(grid)
 	var native = soil(grid,Vector2i(2,4))

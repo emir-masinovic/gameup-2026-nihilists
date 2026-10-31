@@ -32,6 +32,13 @@ func run():
 	body._update_animation(1.0 / 12.0)
 	check(is_zero_approx(body.get_node("ArmRight").rotation.y), "Idle restores arm twist after chopping")
 	check(not body.get_node("ArmRight/Axe").visible, "Cancelled/completed chop hides axe")
+	for action in ["tilling","filling_water","watering","gathering"]:
+		body.call("start_"+action,player.global_position + Vector3(2,0,0))
+		body._update_animation(0.2)
+		check(body.get("is_"+action), "Visual-only farming pose starts: "+action)
+		check(player.cell == origin + Vector2i.UP, "Farming pose never changes logical cell")
+		body.stop_farming()
+		check(not body.get_node("ArmRight/Hoe").visible and not body.get_node("ArmRight/Bottle").visible, "Stopping action hides farming tools")
 	player.queue_free()
 	await process_frame
 	print("ASTRONAUT VISUAL: hop, limbs, turn, chop and unchanged grid controller; failures=", failures)

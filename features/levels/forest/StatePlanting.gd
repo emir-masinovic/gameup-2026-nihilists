@@ -3,9 +3,13 @@ extends RefCounted
 const INITIAL_SEEDS = 3
 const MAX_SEEDS = 9
 const GROWTH_SECONDS = 240.0
+const MAX_WATER_ML = 1000
+const WATER_PER_POUR = 250
+const WATER_PER_FILL = 500
+var water_ml = 500
 var seed_count = INITIAL_SEEDS
 
-func availability(grid: RefCounted, cell: Vector2i, occupied: bool = false) -> Dictionary:
+func soil_availability(grid: RefCounted, cell: Vector2i, occupied: bool = false) -> Dictionary:
 	var reason = ""
 	if not grid.in_bounds(cell):
 		reason = "Outside the forest"
@@ -21,9 +25,43 @@ func availability(grid: RefCounted, cell: Vector2i, occupied: bool = false) -> D
 			reason = "Soil is burning"
 		elif data.get("burned", false):
 			reason = "Charred soil is not ready for planting"
-		elif seed_count <= 0:
-			reason = "No seeds remaining"
 	return {"available": reason.is_empty(), "reason": reason}
+
+func availability(grid: RefCounted, cell: Vector2i, occupied: bool = false) -> Dictionary:
+	var result = soil_availability(grid, cell, occupied)
+	if result.available and not grid.cells[cell.y * grid.SIZE + cell.x].get("prepared", false):
+		result = {"available": false, "reason": "Prepare soil first"}
+	if result.available and seed_count <= 0:
+		result = {"available": false, "reason": "No seeds remaining"}
+	return result
+
+func prepare(grid: RefCounted, cell: Vector2i, occupied: bool = false) -> bool:
+	if not soil_availability(grid, cell, occupied).available: return false
+	var data: Dictionary = grid.cells[cell.y * grid.SIZE + cell.x]
+	if data.get("prepared", false): return false
+	data.prepared = true
+	return true
+
+func water_availability(grid: RefCounted, cell: Vector2i) -> Dictionary:
+	if not grid.in_bounds(cell): return {"available": false, "reason": "Outside forest"}
+	var data: Dictionary = grid.cells[cell.y * grid.SIZE + cell.x]
+	var valid: bool = data.tree and data.get("planted", false) and data.tree_state == "sapling" and not data.get("burning", false) and not data.get("burned", false) and data.moisture < 0.65
+	return {"available": valid and water_ml >= WATER_PER_POUR, "reason": "Refill bottle at a pond" if valid and water_ml < WATER_PER_POUR else "Plant does not need water"}
+
+func water_plant(grid: RefCounted, cell: Vector2i) -> bool:
+	if not water_availability(grid, cell).available: return false
+	water_ml -= WATER_PER_POUR
+	var data: Dictionary = grid.cells[cell.y * grid.SIZE + cell.x]
+	data.moisture = minf(1.0, data.moisture + 0.5)
+	return true
+
+func fill_bottle(grid: RefCounted, cell: Vector2i) -> int:
+	if not grid.in_bounds(cell): return 0
+	var data: Dictionary = grid.cells[cell.y * grid.SIZE + cell.x]
+	if data.terrain != "water" or data.get("water_level", 0.0) <= 0.1: return 0
+	var filled = mini(WATER_PER_FILL, MAX_WATER_ML - water_ml)
+	water_ml += filled
+	return filled
 
 func plant(grid: RefCounted, cell: Vector2i, occupied: bool = false) -> bool:
 	if not availability(grid, cell, occupied).available: return false
@@ -38,12 +76,19 @@ func plant(grid: RefCounted, cell: Vector2i, occupied: bool = false) -> bool:
 	data.fuel = 0.15
 	return true
 
-func collect_seed(grid: RefCounted, event: Dictionary) -> int:
+func record_seed_drop(grid: RefCounted, event: Dictionary) -> int:
 	if event.get("kind", "") != "tree_cut" or not event.get("seed_eligible", false): return 0
 	var data: Dictionary = grid.cells[event.cell.y * grid.SIZE + event.cell.x]
 	if data.get("seed_yield_claimed", false) or data.get("planted", false): return 0
-	# Claim even at capacity: neither stumps nor repeated events can farm seeds.
 	data.seed_yield_claimed = true
-	var before = seed_count
-	seed_count = mini(seed_count + 1, MAX_SEEDS)
-	return seed_count - before
+	data.pending_seeds = 1
+	return 1
+
+func collect_seed(grid: RefCounted, event: Dictionary) -> int:
+	if event.get("kind", "") != "collect_seeds": return 0
+	var data: Dictionary = grid.cells[event.cell.y * grid.SIZE + event.cell.x]
+	if data.get("burning", false): return 0
+	var amount = mini(int(data.get("pending_seeds", 0)), MAX_SEEDS - seed_count)
+	seed_count += amount
+	data.pending_seeds = int(data.get("pending_seeds", 0)) - amount
+	return amount

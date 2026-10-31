@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=3]
+[gd_scene load_steps=35 format=3]
 
 [ext_resource type="Script" path="res://features/player/VisualAstronaut.gd" id="Visual"]
 
@@ -99,33 +99,91 @@ material = SubResource("SuitDark")
 size = Vector3(0.15, 0.11, 0.22)
 
 [sub_resource type="StandardMaterial3D" id="AxeHandleMat"]
-albedo_color = Color(0.32, 0.22, 0.16, 1)
+albedo_color = Color(0.48, 0.32, 0.19, 1)
 roughness = 0.65
 
 [sub_resource type="StandardMaterial3D" id="AxeMetalMat"]
 albedo_color = Color(0.72, 0.76, 0.8, 1)
-metallic = 0.85
-roughness = 0.25
+metallic = 0.35
+roughness = 0.55
 
 [sub_resource type="StandardMaterial3D" id="AxeBladeMat"]
 albedo_color = Color(0.9, 0.95, 1, 1)
-metallic = 0.95
-roughness = 0.12
+metallic = 0.3
+roughness = 0.4
 
 [sub_resource type="CylinderMesh" id="AxeHandleMesh"]
 material = SubResource("AxeHandleMat")
 top_radius = 0.02
 bottom_radius = 0.024
-height = 0.46
+height = 0.8
 radial_segments = 6
 
 [sub_resource type="BoxMesh" id="AxeHeadMesh"]
 material = SubResource("AxeMetalMat")
-size = Vector3(0.04, 0.13, 0.11)
+size = Vector3(0.14, 0.22, 0.26)
 
 [sub_resource type="BoxMesh" id="AxeBladeMesh"]
 material = SubResource("AxeBladeMat")
-size = Vector3(0.012, 0.15, 0.04)
+size = Vector3(0.07, 0.25, 0.12)
+
+[sub_resource type="StandardMaterial3D" id="HoeHandleMat"]
+albedo_color = Color(0.6, 0.44, 0.3, 1)
+roughness = 0.6
+
+[sub_resource type="CylinderMesh" id="HoeHandleMesh"]
+material = SubResource("HoeHandleMat")
+top_radius = 0.026
+bottom_radius = 0.03
+height = 0.95
+radial_segments = 6
+
+[sub_resource type="BoxMesh" id="HoeNeckMesh"]
+material = SubResource("AxeMetalMat")
+size = Vector3(0.06, 0.14, 0.16)
+
+[sub_resource type="BoxMesh" id="HoeBladeMesh"]
+material = SubResource("AxeBladeMat")
+size = Vector3(0.24, 0.025, 0.18)
+
+[sub_resource type="StandardMaterial3D" id="BottleGlassMat"]
+transparency = 1
+albedo_color = Color(0.25, 0.72, 0.95, 0.65)
+roughness = 0.15
+metallic = 0.35
+
+[sub_resource type="StandardMaterial3D" id="BottleCapMat"]
+albedo_color = Color(0.85, 0.75, 0.35, 1)
+metallic = 0.8
+roughness = 0.3
+
+[sub_resource type="StandardMaterial3D" id="BottleWaterMat"]
+albedo_color = Color(0.12, 0.55, 0.92, 0.9)
+roughness = 0.1
+emission_enabled = true
+emission = Color(0.1, 0.45, 0.75, 1)
+emission_energy_multiplier = 0.3
+
+[sub_resource type="CylinderMesh" id="BottleBodyMesh"]
+material = SubResource("BottleGlassMat")
+top_radius = 0.05
+bottom_radius = 0.055
+height = 0.16
+radial_segments = 8
+
+[sub_resource type="CylinderMesh" id="BottleCapMesh"]
+material = SubResource("BottleCapMat")
+top_radius = 0.03
+bottom_radius = 0.032
+height = 0.04
+radial_segments = 6
+
+[sub_resource type="CylinderMesh" id="BottleWaterMesh"]
+material = SubResource("BottleWaterMat")
+top_radius = 0.042
+bottom_radius = 0.046
+height = 0.12
+radial_segments = 6
 
 [node name="Body" type="Node3D"]
 script = ExtResource("Visual")
@@ -193,19 +251,19 @@ position = Vector3(0, -0.25, 0)
 mesh = SubResource("GloveMesh")
 
 [node name="Axe" type="Node3D" parent="ArmRight"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, -0.25, -0.06)
 visible = false
 
 [node name="AxeHandle" type="MeshInstance3D" parent="ArmRight/Axe"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.065, -0.04)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, -0.04)
 mesh = SubResource("AxeHandleMesh")
 
 [node name="AxeHead" type="MeshInstance3D" parent="ArmRight/Axe"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.22, -0.08)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.63, -0.1)
 mesh = SubResource("AxeHeadMesh")
 
 [node name="AxeBlade" type="MeshInstance3D" parent="ArmRight/Axe"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.22, -0.13)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.63, -0.25)
 mesh = SubResource("AxeBladeMesh")
 
 [node name="LegLeft" type="Node3D" parent="."]
@@ -229,3 +287,34 @@ mesh = SubResource("LegMesh")
 [node name="Boot" type="MeshInstance3D" parent="LegRight"]
 position = Vector3(0, -0.26, -0.03)
 mesh = SubResource("BootMesh")
+[node name="Hoe" type="Node3D" parent="ArmRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
+visible = false
+
+[node name="HoeHandle" type="MeshInstance3D" parent="ArmRight/Hoe"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, -0.06)
+mesh = SubResource("HoeHandleMesh")
+
+[node name="HoeNeck" type="MeshInstance3D" parent="ArmRight/Hoe"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.52, -0.12)
+mesh = SubResource("HoeNeckMesh")
+
+[node name="HoeBlade" type="MeshInstance3D" parent="ArmRight/Hoe"]
+transform = Transform3D(1, 0, 0, 0, 0.866, -0.5, 0, 0.5, 0.866, 0, 0.50, -0.20)
+mesh = SubResource("HoeBladeMesh")
+
+[node name="Bottle" type="Node3D" parent="ArmRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, 0)
+visible = false
+
+[node name="BottleBody" type="MeshInstance3D" parent="ArmRight/Bottle"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.06, -0.06)
+mesh = SubResource("BottleBodyMesh")
+
+[node name="BottleCap" type="MeshInstance3D" parent="ArmRight/Bottle"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, -0.06)
+mesh = SubResource("BottleCapMesh")
+
+[node name="BottleWater" type="MeshInstance3D" parent="ArmRight/Bottle"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.07, -0.06)
+mesh = SubResource("BottleWaterMesh")
