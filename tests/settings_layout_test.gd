@@ -17,6 +17,7 @@ func run():
 	menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	await process_frame
 	var projection = menu.content.get_node("CameraProjectionRow/CameraProjection")
+	check(projection.get_theme_constant("separation") == 12, "Projection spacing")
 	check(projection.get_child_count() == 2, "Projection has two segments")
 	projection.get_node("Perspective").button_pressed = true
 	projection.get_node("Perspective").pressed.emit()
@@ -26,6 +27,30 @@ func run():
 	menu.show_category("Video")
 	await process_frame
 	await process_frame
+	var resolution = menu.content.get_node("ResolutionRow/Resolution")
+	var cap_input = menu.content.get_node("FPSLimitRow/FPSLimit")
+	check(resolution.size.x >= 180 and resolution.size.x <= 220, "Resolution compact width")
+	check(cap_input.size.x >= 100 and cap_input.size.x <= 120, "FPS compact width")
+	check(cap_input.tooltip_text == "0 = Unlimited", "Exact FPS tooltip")
+	for child in menu.content.get_children():
+		check(not (child is Label and child.text.begins_with("0 = Unlimited")), "No permanent FPS helper")
+	for name in ["Fullscreen", "VSync"]:
+		var checkbox = menu.content.get_node(name + "Row/" + name)
+		check(checkbox.get_theme_icon("unchecked").resource_path.ends_with("checkbox_unchecked.svg"), "Visible unchecked icon")
+		check(checkbox.get_theme_icon("checked").resource_path.ends_with("checkbox_checked.svg"), "Visible checked icon")
+	if DisplayServer.get_name() != "headless":
+		var sync = menu.content.get_node("VSyncRow/VSync")
+		var was_enabled = sync.button_pressed
+		var mouse = InputEventMouseButton.new()
+		mouse.button_index = MOUSE_BUTTON_LEFT
+		mouse.position = sync.get_global_rect().get_center()
+		mouse.pressed = true
+		Input.parse_input_event(mouse)
+		await process_frame
+		mouse.pressed = false
+		Input.parse_input_event(mouse)
+		await process_frame
+		check(sync.button_pressed != was_enabled and settings.vsync == sync.button_pressed, "Mouse checkbox click applies setting")
 	var x = menu.content.get_node("ResolutionRow/Resolution").global_position.x
 	for name in ["Fullscreen", "VSync", "Resolution", "MSAA", "Shadows", "FPSLimit"]:
 		var control = menu.content.get_node(name + "Row/" + name)
@@ -65,6 +90,7 @@ func run():
 	menu.restore_category()
 	check(settings.fps_limit == 60 and settings.msaa_3d == 1 and settings.shadow_quality == 2, "Video defaults restored")
 	menu.show_category("Controls")
+	check(menu.content.get_parent().get_theme_constant("margin_right") == 12, "Controls scrollbar padding")
 	await process_frame
 	await process_frame
 	var primary_x = menu.content.get_node("Bindingmove_north/Primary").global_position.x
@@ -78,5 +104,26 @@ func run():
 	check(menu.content.get_node("MouseSensitivity").get_index() > menu.content.get_node("Bindingcamera_zoom_out").get_index(), "Sensitivity follows bindings")
 	menu.queue_free()
 	DirAccess.remove_absolute(settings.storage_path)
+	menu.queue_free()
+	await process_frame
+	var flow = root.get_node("SceneFlow")
+	flow.main_menu()
+	await process_frame
+	await process_frame
+	check(root.gui_get_focus_owner() == null, "Main menu initially unfocused")
+	var key = InputEventKey.new()
+	key.keycode = KEY_TAB
+	key.physical_keycode = KEY_TAB
+	key.pressed = true
+	Input.parse_input_event(key)
+	await process_frame
+	await process_frame
+	check(root.gui_get_focus_owner() != null, "Tab enters visible keyboard focus")
+	root.gui_release_focus()
+	key.keycode = KEY_DOWN
+	key.physical_keycode = KEY_DOWN
+	Input.parse_input_event(key)
+	await process_frame
+	check(root.gui_get_focus_owner() != null, "Arrow enters keyboard focus")
 	print("SETTINGS LAYOUT: ", checks, " checks, ", failures, " failures")
 	quit(0 if failures == 0 else 1)

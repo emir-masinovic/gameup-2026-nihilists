@@ -60,7 +60,11 @@ theme_override_constants/margin_bottom = 12
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="Content" type="VBoxContainer" parent="Margin/Rows/Columns/ContentPanel/ContentMargin/Scroll"]
+[node name="ContentPadding" type="MarginContainer" parent="Margin/Rows/Columns/ContentPanel/ContentMargin/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Content" type="VBoxContainer" parent="Margin/Rows/Columns/ContentPanel/ContentMargin/Scroll/ContentPadding"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 12

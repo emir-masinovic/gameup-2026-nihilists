@@ -5,7 +5,7 @@ var waiting_slot = 0
 var category = "Gameplay"
 var category_buttons = {}
 var category_group = ButtonGroup.new()
-@onready var content = $Margin/Rows/Columns/ContentPanel/ContentMargin/Scroll/Content
+@onready var content = $Margin/Rows/Columns/ContentPanel/ContentMargin/Scroll/ContentPadding/Content
 @onready var status = $Margin/Rows/Status
 @onready var back_button = $Margin/Rows/Footer/Back
 @onready var defaults_button = $Margin/Rows/Footer/Defaults
@@ -72,6 +72,9 @@ func setting_row(title: String, control: Control, control_name: String) -> HBoxC
 	row.add_child(caption)
 	control.name = control_name
 	control.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN if control is CheckBox else Control.SIZE_EXPAND_FILL
+	if control_name in ["Resolution", "FPSLimit"]:
+		control.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		control.custom_minimum_size.x = 200 if control_name == "Resolution" else 110
 	row.add_child(control)
 	content.add_child(row)
 	return row
@@ -133,6 +136,7 @@ func commit_fps(field: LineEdit):
 
 func show_category(title: String):
 	category = title
+	content.get_parent().add_theme_constant_override("margin_right", 12 if title == "Controls" else 0)
 	for name in category_buttons:
 		category_buttons[name].set_pressed_no_signal(name == title)
 	defaults_button.disabled = false
@@ -144,7 +148,9 @@ func show_category(title: String):
 	match title:
 		"Gameplay":
 			var modes = ["Orthographic", "Perspective"]
-			setting_row("Camera projection", segmented_control(modes, modes.find(SettingsManager.camera_projection), func(index): SettingsManager.camera_projection = modes[index]; persist()), "CameraProjection")
+			var projection = segmented_control(modes, modes.find(SettingsManager.camera_projection), func(index): SettingsManager.camera_projection = modes[index]; persist())
+			projection.add_theme_constant_override("separation", 12)
+			setting_row("Camera projection", projection, "CameraProjection")
 		"Video":
 			var supported = SettingsManager.desktop_display_supported()
 			var full = compact_checkbox()
@@ -175,11 +181,10 @@ func show_category(title: String):
 			var fps = LineEdit.new()
 			fps.text = str(SettingsManager.fps_limit)
 			fps.placeholder_text = "0 = Unlimited"
-			fps.tooltip_text = "Whole number from 0 to 1000. 0 = Unlimited. Press Enter to save."
+			fps.tooltip_text = "0 = Unlimited"
 			fps.text_submitted.connect(func(_text): commit_fps(fps))
 			fps.focus_exited.connect(func(): commit_fps(fps))
 			setting_row("FPS limit", fps, "FPSLimit")
-			label("0 = Unlimited · Enter a whole number up to 1000.")
 			if not supported:
 				label("Window mode and VSync are controlled by the browser or display backend.")
 		"Audio":
@@ -217,6 +222,8 @@ func restore_category():
 
 func compact_checkbox() -> CheckBox:
 	var checkbox = CheckBox.new()
+	checkbox.add_theme_icon_override("checked", load("res://features/menus/icons/checkbox_checked.svg"))
+	checkbox.add_theme_icon_override("unchecked", load("res://features/menus/icons/checkbox_unchecked.svg"))
 	for style in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
 		checkbox.add_theme_stylebox_override(style, StyleBoxEmpty.new())
 	return checkbox
