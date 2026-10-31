@@ -68,6 +68,7 @@ func _ready():
 	world_seed = regions.seed_for(region_id)
 	grid = region_state.grid
 	climate = region_state.climate
+	climate.bonfire_intensity = region_state.get("bonfire_intensity", 1.0)
 	cut_cells = region_state.cut_cells
 	foraging = region_state.foraging
 	planting = regions.planting
@@ -839,6 +840,7 @@ func _tick_bonfire(seconds: float):
 	var exposure = 1.0 - climate.shade_at(grid.start) * 0.85
 	intensity = clampf(intensity + (-0.02 * exposure if climate.weather == "rain" else 0.04) * seconds, 0.0, 1.0)
 	region_state.bonfire_intensity = intensity
+	climate.bonfire_intensity = intensity
 	_update_bonfire_visuals()
 
 func _update_bonfire_visuals():

@@ -57,7 +57,7 @@ func run():
 		palette.append(ShaderMaterial.new())
 	renderer.configure(grid, palette, StandardMaterial3D.new(), ShaderMaterial.new())
 	check(renderer.rendered_cell_count() == grid.cells.size(), "Every cell retains a solid bed under optional water")
-	check(renderer.batches.size() == 18, "Water and climate terrain retain bounded shared batches")
+	check(renderer.batches.size() == 20, "Climate, water, charred and dry/wet authored soil retain twenty shared batches")
 	for batch in renderer.batches:
 		check(batch.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "Coplanar terrain receives shadows without casting self-shadow acne")
 		check(batch.custom_aabb.size.x == grid.SIZE * grid.CELL_SIZE, "Initially empty climate batches retain bounded full-grid culling bounds")

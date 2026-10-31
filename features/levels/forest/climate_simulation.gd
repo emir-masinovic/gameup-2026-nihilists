@@ -13,6 +13,7 @@ var ignition_interval = 30.0
 var ignition_chance = 0.65
 var spread_chance = 0.025
 var fuel_consumption = 0.055
+var bonfire_intensity = 0.0 # Synced from the region; affects soil only.
 var ecosystem_demo = false # Debug weather schedule; all effects still use simulation rules.
 var sapling_growth_rate = 1.0 # Debug-only acceleration affects plants, not simulation time.
 var elapsed = 0.0
@@ -85,9 +86,10 @@ func _simulate(seconds: float):
 		var data: Dictionary = _grid.cells[i]
 		var cell = Vector2i(i % _grid.SIZE, floori(float(i) / _grid.SIZE))
 		var terrain: String = data.get("terrain", "grass")
-		var local_temperature = temperature - shades[i] * 4.0
+		var camp = bonfire_influence_at(cell)
+		var local_temperature = temperature - shades[i] * 4.0 + camp * 3.5
 		var exposure = 1.0 - shades[i] * 0.7
-		var drying = (0.0015 + maxf(local_temperature - 20.0, 0.0) * 0.00035) * exposure
+		var drying = (0.0015 + maxf(local_temperature - 20.0, 0.0) * 0.00035) * exposure + camp * 0.003
 		var rain = 0.015 if weather == "rain" else (0.0015 if weather == "cool" else 0.0)
 		var retention = 0.65 if terrain == "soil" else 1.0
 		var water_help = 0.0
@@ -236,4 +238,12 @@ func cell_conditions(cell: Vector2i) -> Dictionary:
 		"canopy": shade_at(cell), "fire_hazard": fire_at(cell)}
 
 func temperature_at(cell: Vector2i) -> float:
-	return temperature - shade_at(cell) * 4.0
+	return temperature - shade_at(cell) * 4.0 + bonfire_influence_at(cell) * 3.5
+
+# The rendered fire is offset within the camp tile. No ignition or player damage.
+func bonfire_influence_at(cell: Vector2i) -> float:
+	if not _grid.in_bounds(cell): return 0.0
+	if _grid.cells[cell.y*_grid.SIZE+cell.x].terrain == "water": return 0.0
+	var fire = _grid.world_position(_grid.start) + Vector3(0.6,0,0.6)
+	var distance = _grid.world_position(cell).distance_to(fire)
+	return (1.0-smoothstep(0.3,3.2,distance))*clampf(bonfire_intensity,0.0,1.0)

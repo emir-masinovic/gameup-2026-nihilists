@@ -9,6 +9,32 @@ func check(value: bool, message: String):
 		push_error(message)
 func _initialize(): call_deferred("run")
 func run():
+	var simulations = []
+	for intensity in [0.0,0.25,1.0]:
+		var grid = load("res://features/levels/forest/grid_data.gd").new()
+		grid.generate(2026)
+		var climate = load("res://features/levels/forest/climate_simulation.gd").new()
+		climate.configure(grid,2026)
+		climate.bonfire_intensity = intensity
+		climate.weather_override = "clear"
+		climate.ignition_chance = 0.0
+		for second in range(60): climate.tick(1.0)
+		simulations.append(climate)
+	var camp = simulations[0]._grid.start
+	var index = camp.y*17+camp.x
+	check(simulations[2].temperature_at(camp) > simulations[1].temperature_at(camp) and simulations[1].temperature_at(camp) > simulations[0].temperature_at(camp), "Camp soil heat scales with intensity")
+	check(simulations[2]._grid.cells[index].moisture < simulations[1]._grid.cells[index].moisture and simulations[1]._grid.cells[index].moisture < simulations[0]._grid.cells[index].moisture, "Camp gradually dries local soil by intensity")
+	check(simulations[2]._grid.cells[0].moisture == simulations[0]._grid.cells[0].moisture, "Camp does not affect distant soil")
+	check(simulations[2].bonfire_influence_at(Vector2i(-1,-1)) == 0.0, "Camp influence excludes invalid cells")
+	for i in range(simulations[2]._grid.cells.size()):
+		if simulations[2]._grid.cells[i].terrain == "water":
+			check(simulations[2].bonfire_influence_at(Vector2i(i%17,i/17)) == 0.0, "Camp soil effect excludes water")
+	var moisture = simulations[2]._grid.cells[index].moisture
+	simulations[2].weather_override = "rain"
+	simulations[2].bonfire_intensity = 0.1
+	for second in range(30): simulations[2].tick(1.0)
+	check(simulations[2]._grid.cells[index].moisture > moisture and not simulations[2]._grid.cells[index].burning, "Rain recovers camp soil without introducing ignition")
+
 	var exposed = Survival.new()
 	var strong = Survival.new()
 	var weak = Survival.new()
