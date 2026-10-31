@@ -593,7 +593,7 @@ func _create_region_markers():
 	planting_tile = PlaneMesh.new()
 	planting_tile.size = Vector2.ONE * grid.CELL_SIZE
 	planting_material = StandardMaterial3D.new()
-	planting_material.albedo_color = Color(1.0, 0.82, 0.35, 0.32)
+	planting_material.albedo_color = Color(0.25, 0.85, 1.0, 0.48)
 	planting_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	planting_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	interaction_marker.mesh = ring
