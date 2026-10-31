@@ -80,3 +80,13 @@ The design will evolve as we build and playtest the prototype.
 The forest now warms over time, with short rainy, cool, and hot periods that can help vegetation recover or make exploration harder. Walking damages grass. Trees provide shade; cutting takes time, leaves a stump, and removes shelter. The bonfire offers safety and one permanent Heat Resistance upgrade for 3 Knowledge. First discoveries award 1 Knowledge each across all attempts.
 
 For now, reaching the golden clearing ends an attempt successfully. This is a temporary goal for playtesting, not the final victory condition. Camera projection can be switched between Orthographic and Perspective. Active-run saving, further upgrades, and the final pacing remain open.
+
+## Climate and ecosystem demonstration
+
+Normal planted-tree maturity now requires 120 accumulated favorable seconds, with visible stages at 0, 30 and 75 seconds. Moisture and suitable local temperature remain required; dry/hot patches can fail even with shorter maturity. Mature health recovery is scaled to preserve comparable canopy strength.
+
+Healthy mature trees cool their own cell and four cardinal neighbors by up to approximately 3.6°C combined, using existing canopy. Ground drying and recovery use local temperature; loss of a tree removes shelter immediately but changes soil moisture and health gradually. Rain and watering help surviving plants; dead trees do not resurrect. Degraded grass yellows/browns and recovers from actual conditions, while authored plantable soil stays distinct brown with wet/dry variants.
+
+Environmental body heat exchange remains continuous at camp, with intensity-scaled camp comfort recovery, existing drying/healing, and mild-weather wet cooling tapered near comfort. Cold exposure remains dangerous. Player survival retains its existing canopy response and regional ambient temperature: local ground cooling is not added as a duplicate player bonus.
+
+The selected interaction caption reports ground temperature and soil moisture. Debug builds may launch with `-- --microclimate-demo` for four-times sapling growth (30 favorable seconds); weather, drought stress, survival and the normal balance are not accelerated. There is no restoration victory condition or new progression system. These simplified gameplay rules require manual balance review.
