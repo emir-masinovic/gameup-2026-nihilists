@@ -8,7 +8,7 @@ var current_fire_hazard = 0.0
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	$Modal/Rows/Close.pressed.connect(close_modal)
-	$Modal/Rows/Next.pressed.connect(func(): close_modal(); SceneFlow.new_game())
+	$Modal/Rows/Next.pressed.connect(func(): close_modal(); SceneFlow.retry_game())
 	$Modal/Rows/Menu.pressed.connect(func(): close_modal(); SceneFlow.main_menu())
 	$Modal/Rows/QuickChop.pressed.connect(func(): _purchase("quick_chop"))
 	$Modal/Rows/FireResilience.pressed.connect(func(): _purchase("fire_resilience"))
@@ -37,7 +37,7 @@ func show_modal(kind: String):
 	var names: PackedStringArray = []
 	for id in SaveManager.progression.discoveries:
 		names.append(id.get_slice(".", 1).replace("_", " ").capitalize())
-	$Modal/Rows/Progress.text += "\nField notes: " + field_notes
+	if not field_notes.is_empty(): $Modal/Rows/Progress.text += "\nField notes: " + field_notes
 	$Modal/Rows/Progress.tooltip_text = "Discovered: " + (", ".join(names) if not names.is_empty() else "Explore to find something new")
 	for pair in [["QuickChop", "quick_chop", "Quick Chop"], ["FireResilience", "fire_resilience", "Fire Resilience"]]:
 		var button = get_node("Modal/Rows/" + pair[0])

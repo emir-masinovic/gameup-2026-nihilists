@@ -40,8 +40,6 @@ var region_state = {}
 var transitioning = false
 var interaction_ring: TorusMesh
 var interaction_marker: MeshInstance3D
-var habitat_marker: MeshInstance3D
-var previous_objective = ""
 var context_action = preload("res://features/levels/forest/InteractionContext.gd").new()
 var foraging: RefCounted
 var forage_visuals: Node3D
@@ -159,7 +157,7 @@ func _ready():
 	listener.make_current()
 	SceneFlow.sounds.attach_world(self)
 	_create_wet_indicator()
-	hud.notify(regions.region_name(region_id) + ": " + objectives.summary())
+	hud.notify(regions.region_name(region_id))
 	_update_lighting()
 	_refresh_visuals()
 	_update_hud()
@@ -263,12 +261,6 @@ func _on_cell_entered(cell: Vector2i):
 				var dead = data.tree_state == "dead"
 				_discover("flora.dead_tree" if dead else "flora.healthy_tree", "Dead tree" if dead else "Healthy tree")
 	_update_hud()
-	if cell == grid.objective:
-		if objectives.ready_for_clearing() and region_id == "wetlands":
-			_discover("landmark.refuge", "Forest refuge reached")
-			call_deferred("_end_run", "success")
-		else:
-			hud.notify(objectives.summary())
 
 func _discover(id: String, title: String):
 	if SaveManager.discover(id):
@@ -393,17 +385,13 @@ func _update_hud():
 	var safe = $GridPlayer.cell.distance_to(grid.start) <= 2.2
 	hud.update_status(survival.health, survival.exposure, climate.temperature, climate.weather, climate.warming_pressure(), SaveManager.progression.knowledge, safe, interactions.target.x >= 0)
 	_update_wind(tick_accumulator)
-	hud.set_environment_context(climate.fire_at($GridPlayer.cell), objectives.summary(), objectives.ready_for_clearing())
+	hud.set_environment_context(climate.fire_at($GridPlayer.cell), "", false)
 	hud.set_region(regions.region_name(region_id))
 	hud.update_seeds(planting.seed_count)
 	hud.update_survival(survival, climate.shade_at($GridPlayer.cell), _binding_label("eat"))
 	if wet_indicator != null:
 		wet_indicator.visible = survival.wetness >= 10.0
 		wet_indicator.scale = Vector3.ONE * (0.8 + survival.wetness / 200.0)
-	if previous_objective != objectives.summary():
-		if not previous_objective.is_empty():
-			hud.notify(objectives.summary())
-		previous_objective = objectives.summary()
 	# Keep the caption authoritative after legacy status/context updates.
 	_update_interaction_marker()
 
@@ -460,22 +448,6 @@ func _create_landmarks():
 	warmth.omni_range = 3.5
 	warmth.shadow_enabled = false
 	fire.add_child(warmth)
-	var glow = StandardMaterial3D.new()
-	glow.albedo_color = Color("ffc25b")
-	glow.emission_enabled = true
-	glow.emission = Color("d45e24")
-	var clearing = MeshInstance3D.new()
-	var marker = CylinderMesh.new()
-	marker.top_radius = 0.9
-	marker.bottom_radius = 0.9
-	marker.height = 0.08
-	marker.radial_segments = 12
-	clearing.mesh = marker
-	clearing.material_override = glow
-	clearing.position = grid.world_position(grid.objective) + Vector3(0, 0.05, 0)
-	clearing.visible = region_id == "wetlands"
-	add_child(clearing)
-
 	# Crossed logs make the procedural fire recognizable without asset packs.
 	var wood = StandardMaterial3D.new()
 	wood.albedo_color = Color("493325")
@@ -488,17 +460,6 @@ func _create_landmarks():
 		log_node.position = fire.position + Vector3(0, 0.14, 0)
 		log_node.rotation.y = angle
 		add_child(log_node)
-	var landmark = MeshInstance3D.new()
-	var stone = SphereMesh.new()
-	stone.radius = 0.55
-	stone.height = 1.3
-	stone.radial_segments = 6
-	stone.rings = 3
-	landmark.mesh = stone
-	landmark.material_override = glow
-	landmark.position = clearing.position + Vector3(0, 0.6, 0)
-	landmark.visible = region_id == "wetlands"
-	add_child(landmark)
 
 # Presentation has its own clock: no changes to seeded climate or logical cells.
 # The one light stays above the scene at night as cool moonlight, keeping shadows
@@ -602,12 +563,6 @@ func _create_region_markers():
 		var destination: String = regions.exit_destination(region_id, cell)
 		if not destination.is_empty():
 			_trail_marker(cell, "To " + regions.region_name(destination), Color("c8b977"))
-	if region_id == "wetlands":
-		habitat_marker = _trail_marker(Vector2i(8,5), "Recovering habitat", Color("86c9b3"))
-		var habitat_ring = TorusMesh.new()
-		habitat_ring.inner_radius = 0.78
-		habitat_ring.outer_radius = 0.85
-		habitat_marker.mesh = habitat_ring
 	interaction_marker = MeshInstance3D.new()
 	var ring = TorusMesh.new()
 	ring.inner_radius = 0.66
