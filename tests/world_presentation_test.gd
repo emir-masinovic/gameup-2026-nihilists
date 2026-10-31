@@ -31,7 +31,7 @@ func run():
 	for ground in world.terrain_renderer.batches:
 		check(ground.material_override == world.water_material or ground.material_override == world.charred_material or ground in [world.terrain_renderer.batches[18],world.terrain_renderer.batches[19]] or (ground.material_override is ShaderMaterial and ground.material_override in world.palette), "Every tile reuses the shared terrain palette")
 	var cover = world.ground_cover
-	check(cover.get_child_count() == 5 and cover.batches[0].indices.size() <= world.grid.cells.size()*4, "Abundant cover and cracks stay in five bounded draw batches")
+	check(cover.get_child_count() == 5 and cover.batches[0].indices.size() <= world.grid.cells.size()*11, "Abundant cover and cracks stay in five bounded draw batches")
 	var test_cell = Vector2i(7,5)
 	var ground_data: Dictionary = world.grid.cells[test_cell.y*world.grid.SIZE+test_cell.x]
 	var saved_ground: Dictionary = ground_data.duplicate(true)
@@ -63,6 +63,35 @@ func run():
 	check(grass_batch.renderer.multimesh.mesh.get_faces().size() == 54, "Grass uses three rooted segmented blades, eighteen triangles per tuft")
 	check(grass_batch.renderer.multimesh.mesh.get_aabb().position.y == 0.0, "Grass roots sit exactly on the ground")
 	check(grass_batch.renderer.material_override.get_shader_parameter("wind_height") == 0.5, "Wind bend height matches blade geometry")
+	var slot = grass_batch.indices.find(test_cell.y*17+test_cell.x)
+	for blocker in ["log","berry_bush","tree"]:
+		ground_data[blocker] = true
+		cover.update_state(world.grid)
+		check(grass_batch.targets[slot] == 0.0,"Grass clears occupied " + blocker + " cells")
+		ground_data.clear()
+		ground_data.merge(saved_ground)
+	cover.update_state(world.grid)
+	var state_before = world.grid.cells.duplicate(true)
+	var wind = world.climate.wind_state(0.25,world.regions.elapsed)
+	var next_wind = world.climate.wind_state(0.26,world.regions.elapsed)
+	check(is_equal_approx(wind.direction.length(),1.0) and wind.strength >= 0.0 and wind.strength <= 1.0, "Wind exposes unit world direction and normalized intensity")
+	check(wind.direction.distance_to(next_wind.direction) < 0.001 and absf(wind.strength-next_wind.strength) < 0.01, "Wind changes continuously, without abrupt direction or strength jumps")
+	check(world.climate.wind_state(0.25,world.regions.elapsed) == wind and world.grid.cells == state_before, "Wind sampling is deterministic and leaves gameplay state untouched")
+	world._update_wind(0.25)
+	check(grass_batch.renderer.material_override.get_shader_parameter("wind_direction") == wind.direction and grass_batch.renderer.material_override.get_shader_parameter("wind_strength") == wind.strength, "Grass consumes the actual shared wind sample")
+	var tree_script = load("res://features/levels/forest/nature/nature_tree.gd")
+	check(tree_script._foliage_materials[0].get_shader_parameter("wind_direction") == wind.direction and tree_script._foliage_materials[0].get_shader_parameter("wind_time") == wind.time, "Tree foliage shares grass wind direction and clock")
+	var forbidden_count = 0
+	for j in range(grass_batch.indices.size()):
+		var i = grass_batch.indices[j]
+		var cell = Vector2i(i%17,i/17)
+		var data = world.grid.cells[i]
+		if data.tree or data.get("log",false) or data.get("berry_bush",false) or cell == world.grid.start or world.decorated_cells.has(cell):
+			forbidden_count += 1
+			if grass_batch.targets[j] != 0.0: check(false,"Occupied objects must not grow grass")
+	check(forbidden_count > 0,"Occupied-cell grass exclusion was exercised")
+	var wetlands = world.regions.get_region("wetlands")
+	check(wetlands.climate.wind_state(0.25,world.regions.elapsed) == wind,"Regional travel keeps the shared run wind continuous")
 	var distinct_offsets = {}
 	var per_cell = {}
 	for j in range(grass_batch.indices.size()):

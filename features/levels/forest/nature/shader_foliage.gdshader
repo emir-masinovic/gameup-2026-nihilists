@@ -8,6 +8,9 @@ uniform bool instance_health = false;
 varying float vitality;
 uniform float sway = 0.025;
 uniform float wind_height = 1.6;
+uniform vec2 wind_direction = vec2(0.8,0.6);
+uniform float wind_strength = 0.55;
+uniform float wind_time = 0.0;
 void vertex() {
     vitality = INSTANCE_CUSTOM.r;
     leaf_position = VERTEX;
@@ -17,12 +20,13 @@ void vertex() {
     if (instance_health) { VERTEX.y *= 0.4 + vitality * 0.6; }
     // A shared travelling field, with only a small seeded local phase offset.
     float phase = instance_health ? INSTANCE_CUSTOM.g * 0.45 : 0.0;
-    float wave = sin(TIME * 1.65 - dot(world.xz, vec2(0.35, 0.26)) + phase);
-    float gust = 0.65 + 0.35 * sin(TIME * 0.43 - dot(world.xz, vec2(0.08, 0.06)));
-    vec3 direction = vec3(0.8, 0.0, 0.6);
+    float along_wind = dot(world.xz, wind_direction);
+    float wave = sin(wind_time * 1.65 - along_wind * 0.44 + phase);
+    float gust = 0.75 + 0.25 * sin(wind_time * 0.43 - along_wind * 0.1);
+    vec3 direction = vec3(wind_direction.x, 0.0, wind_direction.y);
     vec3 local_direction = vec3(dot(normalize(MODEL_MATRIX[0].xyz), direction), 0.0,
                                 dot(normalize(MODEL_MATRIX[2].xyz), direction));
-    VERTEX += local_direction * (0.35 + wave * 0.65) * gust * sway * height * height * vigor;
+    VERTEX += local_direction * (0.6 + wave * 0.4) * gust * wind_strength * 1.8 * sway * height * height * vigor;
 }
 void fragment() {
     if (bare) { discard; }

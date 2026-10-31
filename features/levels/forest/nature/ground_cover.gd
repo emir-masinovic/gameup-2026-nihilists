@@ -1,5 +1,7 @@
 extends Node3D
 const Visuals = preload("res://features/levels/forest/nature/nature_visuals.gd")
+const GRASS_DENSITY = {"minimum":3,"maximum":11}
+var occupied_cells: Dictionary = {}
 var batches: Array[Dictionary] = []
 var cracks: MultiMeshInstance3D
 var _crack_batches: Array[Dictionary] = []
@@ -9,7 +11,8 @@ var _grid: RefCounted
 var _crack_sizes: Array[float] = []
 var _crack_targets: Array[float] = []
 
-func configure(grid: RefCounted):
+func configure(grid: RefCounted, occupied: Dictionary = {}):
+	occupied_cells = occupied
 	_grid = grid
 	_appearance_seed = int(grid.cells[0].rotation*10000.0)
 	_noise.seed = _appearance_seed
@@ -44,7 +47,7 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 		if not shrubs or (cell.tree and cell.shade > 0.8):
 			var position = Vector2i(i%grid.SIZE,floori(float(i)/grid.SIZE))
 			var cluster = (_noise.get_noise_2d(position.x,position.y)+1.0)*0.5
-			for slot in range(1 if shrubs else clampi(1+int(cluster*5.0),1,4)): indices.append(i)
+			for slot in range(1 if shrubs else clampi(GRASS_DENSITY.minimum+int(cluster*10.0),GRASS_DENSITY.minimum,GRASS_DENSITY.maximum)): indices.append(i)
 	var renderer = MultiMeshInstance3D.new()
 	renderer.name = "Shrubs" if shrubs else "Grass"
 	renderer.multimesh = MultiMesh.new()
@@ -54,7 +57,7 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	renderer.multimesh.instance_count = indices.size()
 	renderer.material_override = source.material.duplicate()
 	renderer.material_override.set_shader_parameter("instance_health", true)
-	renderer.material_override.set_shader_parameter("sway",0.035 if shrubs else 0.11)
+	renderer.material_override.set_shader_parameter("sway",0.045 if shrubs else 0.24)
 	renderer.material_override.set_shader_parameter("wind_height",0.3 if shrubs else 0.5)
 	renderer.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(renderer)
@@ -71,7 +74,7 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 		last_cell = i
 		var key = i*37+slot*101+_appearance_seed
 		var anchor = Vector2(_sample(i*17)-0.5,_sample(i*29)-0.5)*0.65
-		offsets.append(Vector3(clampf(anchor.x+(_sample(key)-0.5)*1.3,-0.78,0.78),0,clampf(anchor.y+(_sample(key+13)-0.5)*1.3,-0.78,0.78)))
+		offsets.append(Vector3(clampf(anchor.x+(_sample(key)-0.5)*1.8,-0.94,0.94),0,clampf(anchor.y+(_sample(key+13)-0.5)*1.8,-0.94,0.94)))
 		rotations.append(_sample(key+31)*TAU)
 		variations.append(0.7+_sample(key+47)*0.65)
 	batches.append({"renderer": renderer, "indices": indices, "source": source.transform, "sizes":sizes, "targets":sizes.duplicate(), "vitality":sizes.duplicate(), "shrubs":shrubs,"offsets":offsets,"rotations":rotations,"variations":variations})
@@ -83,9 +86,14 @@ func update_state(grid: RefCounted):
 			var i = batch.indices[j]
 			var data = grid.cells[i]
 			var vitality = minf(data.get("health", 1.0), data.get("moisture", 1.0) * 1.65)
-			var visible_patch = data.terrain == "grass" and not data.get("burning", false) and (not data.get("burned", false) or data.get("burn_recovery", 0.0) >= 0.2)
-			var threshold = 0.12 + fposmod(float(i*13+j*7)*0.618034,1.0)*0.62
-			var coverage = smoothstep(threshold-0.12,threshold+0.12,vitality)
+			var cell = Vector2i(i%grid.SIZE,floori(float(i)/grid.SIZE))
+			var occupied = occupied_cells.has(cell) or cell == grid.start or data.tree or data.get("log",false) or data.get("berry_bush",false)
+			var allowed = (data.tree and data.get("tree_state","healthy") != "stump" and not data.get("log",false)) if batch.shrubs else not occupied
+			var visible_patch = allowed and data.terrain == "grass" and not data.get("burning", false) and (not data.get("burned", false) or data.get("burn_recovery", 0.0) >= 0.2)
+			var threshold = 0.1 + fposmod(float(i*13+j*7)*0.618034,1.0)*0.8
+			# A small founding shoot precedes the denser surrounding cluster.
+			if j == 0 or batch.indices[j-1] != i: threshold = 0.08 + _sample(i+83)*0.04
+			var coverage = smoothstep(threshold-0.08,threshold+0.08,vitality*vitality)
 			batch.targets[j] = (0.65+vitality*0.65)*coverage*batch.variations[j] if visible_patch else 0.0
 			batch.vitality[j] = vitality
 			batch.renderer.multimesh.set_instance_custom_data(j, Color(vitality, _sample(i*37+j), vitality, 1))
@@ -187,3 +195,10 @@ func _grass_tuft() -> ArrayMesh:
 				mesh.set_normal(direction)
 				mesh.add_vertex(point)
 	return mesh.commit()
+
+func set_wind(state: Dictionary):
+	for batch in batches:
+		var material = batch.renderer.material_override
+		material.set_shader_parameter("wind_direction",state.direction)
+		material.set_shader_parameter("wind_strength",state.strength)
+		material.set_shader_parameter("wind_time",state.time)

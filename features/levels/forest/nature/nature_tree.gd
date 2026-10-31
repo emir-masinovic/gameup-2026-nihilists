@@ -106,3 +106,10 @@ func set_health(health: float, dead: bool, moisture: float = 1.0, burned: bool =
     _state = next_state
     for entry in _leaf_surfaces:
         (entry.mesh as MeshInstance3D).set_surface_override_material(entry.surface, _recovery_materials[_state-1] if _recovering else _foliage_materials[_state])
+
+static func set_wind(state: Dictionary) -> void:
+    _ensure_materials()
+    for material in _foliage_materials + _recovery_materials:
+        material.set_shader_parameter("wind_direction",state.direction)
+        material.set_shader_parameter("wind_strength",state.strength)
+        material.set_shader_parameter("wind_time",state.time)

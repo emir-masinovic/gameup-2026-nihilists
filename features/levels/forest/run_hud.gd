@@ -120,3 +120,8 @@ func update_interaction(target: Dictionary, progress: float, active: bool, bindi
 
 func update_seeds(count: int):
 	$PlayerStatus/Rows/Supplies/Seeds.text = str(count)
+
+func set_wind(state: Dictionary):
+	var direction: Vector2 = state.direction
+	var sector = posmod(roundi(atan2(direction.x,-direction.y)/(PI/4.0)),8)
+	$WorldStatus/Rows/Knowledge/Wind.text = "Wind %s %d%%" % [["N","NE","E","SE","S","SW","W","NW"][sector],roundi(state.strength*100.0)]

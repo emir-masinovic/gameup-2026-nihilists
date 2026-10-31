@@ -25,11 +25,13 @@ var weather_cycle: Array = WEATHER_CYCLE.duplicate()
 var tick_count = 0
 var _grid: RefCounted
 var _weather_offset = 0
+var _wind_phase = 0.0
 var _fire_rng = RandomNumberGenerator.new()
 var _next_ignition = 120.0
 
-func configure(grid: RefCounted, world_seed: int):
+func configure(grid: RefCounted, world_seed: int, wind_seed: int = -1):
 	_grid = grid
+	_wind_phase = float(posmod(world_seed if wind_seed < 0 else wind_seed,10007))/10007.0*TAU
 	elapsed = 0.0
 	tick_count = 0
 	_next_ignition = maxf(ignition_delay, 1.0)
@@ -247,3 +249,12 @@ func bonfire_influence_at(cell: Vector2i) -> float:
 	var fire = _grid.world_position(_grid.start) + Vector3(0.6,0,0.6)
 	var distance = _grid.world_position(cell).distance_to(fire)
 	return (1.0-smoothstep(0.3,3.2,distance))*clampf(bonfire_intensity,0.0,1.0)
+
+# Stable presentation API for future hazards. Direction means travel TOWARDS,
+# world X east / Z south. Strength is normalized, not calibrated metres/second.
+# Pure sampling: no RNG consumption, moisture, survival or hazard side effects.
+func wind_state(fractional_seconds: float = 0.0, run_seconds: float = -1.0) -> Dictionary:
+	var time = (elapsed if run_seconds < 0.0 else run_seconds) + clampf(fractional_seconds,0.0,1.0)
+	var angle = _wind_phase + 0.55*sin(time*0.009+_wind_phase)
+	var strength = 0.55 + 0.17*sin(time*0.055+_wind_phase) + 0.08*sin(time*0.17+_wind_phase)
+	return {"direction":Vector2(cos(angle),sin(angle)),"strength":strength,"time":time}

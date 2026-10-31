@@ -148,7 +148,7 @@ func _ready():
 	effects.configure(grid, world_seed, flame_material)
 	ground_cover = preload("res://features/levels/forest/nature/ground_cover.gd").new()
 	add_child(ground_cover)
-	ground_cover.configure(grid)
+	ground_cover.configure(grid,decorated_cells)
 	forage_visuals = preload("res://features/levels/forest/VisualForaging.gd").new()
 	add_child(forage_visuals)
 	forage_visuals.configure(grid)
@@ -387,6 +387,7 @@ func _refresh_visuals():
 func _update_hud():
 	var safe = $GridPlayer.cell.distance_to(grid.start) <= 2.2
 	hud.update_status(survival.health, survival.exposure, climate.temperature, climate.weather, climate.warming_pressure(), SaveManager.progression.knowledge, safe, interactions.target.x >= 0)
+	_update_wind(tick_accumulator)
 	hud.set_environment_context(climate.fire_at($GridPlayer.cell), objectives.summary(), objectives.ready_for_clearing())
 	hud.set_region(regions.region_name(region_id))
 	hud.update_seeds(planting.seed_count)
@@ -500,6 +501,7 @@ func _create_landmarks():
 func _advance_presentation(delta: float):
 	if not is_finite(delta) or delta <= 0.0:
 		return
+	_update_wind(tick_accumulator + delta * simulation_time_scale)
 	presentation_elapsed += delta
 	if has_node("Bonfire/Warmth"):
 		$Bonfire/Warmth.light_energy = (0.45 + sin(presentation_elapsed * 6.0) * 0.06) * region_state.get("bonfire_intensity", 1.0)
@@ -851,3 +853,9 @@ func _update_bonfire_visuals():
 		flame.scale = Vector3.ONE * (1.0 if i == 1 else 0.72) * lerpf(0.25, 1.0, intensity)
 	$Bonfire/Smoke.emitting = intensity > 0.0
 	$Bonfire/Warmth.light_energy = 0.5 * intensity
+
+func _update_wind(fractional_seconds: float):
+	var state = climate.wind_state(fractional_seconds,regions.elapsed)
+	if ground_cover != null: ground_cover.set_wind(state)
+	preload("res://features/levels/forest/nature/nature_tree.gd").set_wind(state)
+	if hud != null: hud.set_wind(state)
