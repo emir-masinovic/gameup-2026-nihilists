@@ -1,5 +1,7 @@
 extends Node3D
+signal mode_changed(mode: String)
 
+const CAMERA_MODES = ["Follow Player", "Board Center"]
 const MIN_ZOOM = 10.0
 const MAX_ZOOM = 56.0
 const ZOOM_FACTOR = 0.88
@@ -8,13 +10,62 @@ var target_yaw = PI * 0.25
 var target_pitch = PI * 0.25
 var pitch = PI * 0.25
 var drag_button = 0
+var mode = "Follow Player"
+var board_center = Vector3.ZERO
+var player_target: Node3D
+var _last_default = "Follow Player"
 
 func _ready():
+	board_center = global_position
+	_last_default = SettingsManager.camera_mode
+	mode = _last_default
 	rotation.y = target_yaw
 	$Camera3D.size = target_zoom
 	_apply_projection()
-	SettingsManager.graphics_changed.connect(_apply_projection)
+	SettingsManager.graphics_changed.connect(_settings_changed)
 	get_tree().root.focus_exited.connect(_cancel_drag)
+
+# Region arrivals resolve the new player/board target immediately, retaining
+# orbit and zoom without carrying the old region position.
+func configure_targets(center: Vector3, player: Node3D, restore: Dictionary = {}):
+	board_center = center
+	player_target = player
+	if not restore.is_empty():
+		mode = restore.get("mode", mode)
+		if mode not in CAMERA_MODES:
+			mode = "Follow Player"
+		target_yaw = restore.get("target_yaw", restore.get("yaw", target_yaw))
+		rotation.y = restore.get("yaw", target_yaw)
+		target_pitch = restore.get("target_pitch", restore.get("pitch", target_pitch))
+		pitch = restore.get("pitch", target_pitch)
+		target_zoom = clampf(restore.get("target_zoom", restore.get("zoom", target_zoom)), MIN_ZOOM, MAX_ZOOM)
+		$Camera3D.size = clampf(restore.get("zoom", target_zoom), MIN_ZOOM, MAX_ZOOM)
+	global_position = _target_position()
+	_cancel_drag()
+	_update_camera()
+
+func get_transition_state() -> Dictionary:
+	return {"mode": mode, "yaw": rotation.y, "target_yaw": target_yaw,
+		"pitch": pitch, "target_pitch": target_pitch, "zoom": $Camera3D.size,
+		"target_zoom": target_zoom}
+
+func set_mode(value: String):
+	if value not in CAMERA_MODES or value == mode:
+		return
+	mode = value
+	_cancel_drag()
+	mode_changed.emit(mode)
+
+func _target_position() -> Vector3:
+	if mode == "Follow Player" and is_instance_valid(player_target):
+		return player_target.global_position
+	return board_center
+
+func _settings_changed():
+	if _last_default != SettingsManager.camera_mode:
+		_last_default = SettingsManager.camera_mode
+		set_mode(_last_default)
+	_apply_projection()
 
 func _cancel_drag():
 	drag_button = 0
@@ -27,6 +78,10 @@ func _input(event):
 func _unhandled_input(event):
 	if get_tree().paused or not get_tree().root.has_focus():
 		_cancel_drag()
+		return
+	if event.is_action_pressed("camera_mode_cycle") and not event.is_echo():
+		set_mode(CAMERA_MODES[(CAMERA_MODES.find(mode) + 1) % CAMERA_MODES.size()])
+		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventMouseButton and event.pressed:
 		if event.is_action_pressed("camera_orbit"):
@@ -60,14 +115,14 @@ func _apply_projection():
 	_update_camera()
 
 func _update_camera():
-	# Analytic yaw/pitch frame transports the up vector through poles, with no
-	# look_at singularity, horizon snapping, or independently accumulated roll.
+	# Analytic yaw/pitch frame transports up through poles without horizon snaps.
 	var frame = Basis(Vector3.RIGHT, -pitch)
 	$Camera3D.position = frame.z * ($Camera3D.size * 1.4 if $Camera3D.projection == Camera3D.PROJECTION_PERSPECTIVE else 50.0)
 	$Camera3D.basis = frame
 
 func _process(delta):
 	var weight = 1.0 - exp(-10.0 * delta)
+	global_position = global_position.lerp(_target_position(), weight)
 	rotation.y = lerp_angle(rotation.y, target_yaw, weight)
 	pitch = lerpf(pitch, target_pitch, weight)
 	$Camera3D.size = lerpf($Camera3D.size, target_zoom, weight)

@@ -21,7 +21,7 @@ func run():
 	var hud = world.hud
 	hud.update_status(64, 32, 30, "rain", 2.5, 7, false, false)
 	check(hud.get_node("PlayerStatus/Rows/Health/Bar").value == 64, "Health bar")
-	check(hud.get_node("PlayerStatus/Rows/Heat/Bar").value == 32, "Heat bar")
+	check(is_equal_approx(hud.get_node("PlayerStatus/Rows/Heat/Bar").value, snappedf(37.0 + 32.0 / 30.0, 0.1)), "Legacy exposure renders as one body-temperature state")
 	check(hud.get_node("WorldStatus/Rows/Climate/Icon").weather == "rain", "Weather icon")
 	check(hud.get_node("WorldStatus/Rows/Knowledge/Value").text == "7 Knowledge", "Knowledge display")
 	check(not hud.has_node("Stats") and not hud.has_node("Objective"), "No debug or quest block")

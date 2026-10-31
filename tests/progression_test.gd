@@ -67,8 +67,9 @@ func run() -> void:
 	var shaded = SURVIVAL_SCRIPT.new()
 	shaded.tick(15.0, 50.0, 1.0, false, false)
 	check(shaded.exposure < ordinary.exposure, "Shade protects against heat")
-	ordinary.tick(8.0, 50.0, 0.0, false, false)
-	check(ordinary.health < 100.0 and not ordinary.dead, "Danger exposure damages living player")
+	for second in range(130):
+		ordinary.tick(1.0, 50.0, 0.0, false, false)
+	check(ordinary.health < 100.0 and not ordinary.dead, "Sustained overheating damages a living player after a warning period")
 	var before_rest = ordinary.health
 	ordinary.tick(5.0, 50.0, 0.0, true, false)
 	check(ordinary.health > before_rest and ordinary.exposure < 60.0, "Safe bonfire cools and restores health")
@@ -77,7 +78,8 @@ func run() -> void:
 	ordinary.exposure = 50.0
 	ordinary.tick(5.0, 20.0, 0.0, false, false)
 	check(ordinary.exposure < 50.0, "Cool weather reduces exposure")
-	ordinary.tick(300.0, 50.0, 0.0, false, false)
+	for second in range(300):
+		ordinary.tick(1.0, 50.0, 0.0, false, false)
 	check(ordinary.dead and ordinary.health == 0.0, "Prolonged heat causes death")
 	ordinary.tick(300.0, 20.0, 1.0, true, true)
 	check(ordinary.dead and ordinary.health == 0.0, "Safe area cannot resurrect dead run")
@@ -87,8 +89,8 @@ func run() -> void:
 		var temperature = 24.0 + float(elapsed) * 0.025
 		ramp_run.tick(1.0, temperature, 0.0, false, false)
 		ramp_resistant.tick(1.0, temperature, 0.0, false, true)
-	check(ramp_run.health < 100.0, "Unshaded climate ramp threatens health within eight minutes")
-	check(ramp_resistant.health > ramp_run.health, "Resistance delays damage during climate ramp")
+	check(ramp_run.body_temperature > 37.0, "Unshaded climate ramp creates gradual thermal pressure")
+	check(ramp_resistant.body_temperature < ramp_run.body_temperature, "Resistance reduces body warming during the same climate ramp")
 	var next_run = SURVIVAL_SCRIPT.new()
 	check(not next_run.dead and next_run.health == 100.0 and next_run.exposure == 0.0, "New survival instance starts healthy")
 	next_run.tick(-1.0, 50.0, 0.0, false, false)

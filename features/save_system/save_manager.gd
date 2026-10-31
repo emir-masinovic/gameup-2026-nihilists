@@ -1,6 +1,7 @@
 extends Node
 
 const VERSION = 1
+const UPGRADE_COSTS = {"heat_resistance": 3, "quick_chop": 2, "fire_resilience": 2}
 var storage_path = "user://progression.json"
 var run_path = "user://run.json"
 var progression = {"discoveries": [], "knowledge": 0, "upgrades": []}
@@ -63,13 +64,29 @@ func discover(id: String) -> bool:
 	updated.knowledge += 1
 	return save_progression(updated) == OK
 
-func has_heat_resistance() -> bool:
-	return "heat_resistance" in progression.upgrades
+func has_upgrade(id: String) -> bool:
+	return id in progression.upgrades
 
-func purchase_heat_resistance() -> bool:
-	if has_heat_resistance() or progression.knowledge < 3:
+func upgrade_cost(id: String) -> int:
+	return UPGRADE_COSTS.get(id, -1)
+
+func purchase_upgrade(id: String) -> bool:
+	var cost = upgrade_cost(id)
+	if cost < 0 or has_upgrade(id) or progression.knowledge < cost:
 		return false
 	var updated = progression.duplicate(true)
-	updated.knowledge -= 3
-	updated.upgrades.append("heat_resistance")
+	updated.knowledge -= cost
+	updated.upgrades.append(id)
 	return save_progression(updated) == OK
+
+func has_heat_resistance() -> bool:
+	return has_upgrade("heat_resistance")
+
+func purchase_heat_resistance() -> bool:
+	return purchase_upgrade("heat_resistance")
+
+func get_chop_multiplier() -> float:
+	return 0.65 if has_upgrade("quick_chop") else 1.0
+
+func get_fire_damage_multiplier() -> float:
+	return 0.6 if has_upgrade("fire_resilience") else 1.0

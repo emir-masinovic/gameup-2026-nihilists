@@ -1,0 +1,74 @@
+[
+  {
+    "file": "back_001.ogg",
+    "format": "Ogg Vorbis",
+    "bytes": 6997,
+    "sha256": "07db973f79f6ae0f2edc34561e7592e24d0577455919fb602cb8ecc0da991dcf",
+    "sample_rate": 44100,
+    "channels": 1,
+    "duration_seconds": 0.0639
+  },
+  {
+    "file": "confirmation_001.ogg",
+    "format": "Ogg Vorbis",
+    "bytes": 8968,
+    "sha256": "063564703b6094d70718a3e787a55cc9141611e4ecd6b6637f8828f79b4a8c3a",
+    "sample_rate": 44100,
+    "channels": 1,
+    "duration_seconds": 0.2898
+  },
+  {
+    "file": "footstep_grass_000.ogg",
+    "format": "Ogg Vorbis",
+    "bytes": 8290,
+    "sha256": "9d49497777405d78d7cf7f2888e28277f3a23192300cfd1d79d54876b20f479f",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.7776
+  },
+  {
+    "file": "footstep_grass_001.ogg",
+    "format": "Ogg Vorbis",
+    "bytes": 8313,
+    "sha256": "fb28781bd22b2eefdc14077f1adf5c94d7fe9c3a130194633b55f3e0d39d9f04",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.6736
+  },
+  {
+    "file": "footstep_grass_002.ogg",
+    "format": "Ogg Vorbis",
+    "bytes": 8278,
+    "sha256": "73a520139f5be716a403bfe9c80e0e94d1e61d8e9de04a354b336392164b53dc",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.6924
+  },
+  {
+    "file": "impactWood_heavy_000.ogg",
+    "format": "Ogg Vorbis",
+    "bytes": 6233,
+    "sha256": "15ff82332f342c30e469215539e1cc57e11b221aa2cf7e11e811d313a9927f3d",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.313
+  },
+  {
+    "file": "impactWood_medium_000.ogg",
+    "format": "Ogg Vorbis",
+    "bytes": 6575,
+    "sha256": "1723a9fd25103ed41af06054814e84e65f4a772bac86ab2dc927da93d9592ff5",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.3327
+  },
+  {
+    "file": "pluck_001.ogg",
+    "format": "Ogg Vorbis",
+    "bytes": 6317,
+    "sha256": "be97ec4893a02d6eccfb678daa76c83e34cb2583b834ec2593d2641def739fa4",
+    "sample_rate": 44100,
+    "channels": 2,
+    "duration_seconds": 0.1024
+  }
+]
