@@ -27,6 +27,7 @@ var recovery_seen = false
 var rain_particles: CPUParticles3D
 var heat_particles: CPUParticles3D
 var water_splash: CPUParticles3D
+var wood_chips: CPUParticles3D
 
 func _ready():
 	if not OS.get_cmdline_user_args().has("--fixed-seed"):
@@ -38,6 +39,7 @@ func _ready():
 	$HUD.add_child(hud)
 	hud.world = self
 	$GridPlayer.cell_entered.connect(_on_cell_entered)
+	$GridPlayer.chop_impact.connect(_on_chop_impact)
 	for health_bin in range(4):
 		for moisture_bin in range(4):
 			var mat = ShaderMaterial.new()
@@ -100,6 +102,7 @@ func _ready():
 	_create_kenney_props()
 	_create_weather_effects()
 	_create_water_splash()
+	_create_wood_chips()
 	_update_lighting()
 	_refresh_visuals()
 	_update_weather_effects()
@@ -115,7 +118,10 @@ func _process(delta):
 	_advance_presentation(delta)
 	var event = interactions.tick(delta, $GridPlayer.cell)
 	if not event.is_empty():
+		$GridPlayer.stop_chopping()
 		_finish_interaction(event)
+	elif interactions.target.x < 0 and $GridPlayer.is_chopping:
+		$GridPlayer.stop_chopping()
 	tick_accumulator += delta * simulation_time_scale
 	if tick_accumulator >= 1.0:
 		tick_accumulator -= 1.0
@@ -150,8 +156,13 @@ func _unhandled_input(event):
 		elif interactions.action_kind == "stump_removed":
 			msg = "Removing stump... moving cancels the action"
 		hud.notify(msg)
+		if interactions.action_kind in ["tree_cut", "stump_removed"]:
+			$GridPlayer.start_chopping(grid.world_position(interactions.target))
 	else:
-		hud.notify("Face an adjacent tree, stump, or clear ground to interact")
+		if interactions.last_error == "no_seeds":
+			hud.notify("Yeterli tohumunuz yok! Ağaç keserek tohum toplayabilirsiniz.")
+		else:
+			hud.notify("Face an adjacent tree, stump, or clear ground to interact")
 	get_viewport().set_input_as_handled()
 
 func _on_cell_entered(cell: Vector2i):
@@ -186,9 +197,11 @@ func _end_run(kind: String):
 	hud.show_modal(kind)
 
 func _finish_interaction(event: Dictionary):
+	$GridPlayer.stop_chopping()
 	var cell: Vector2i = event.cell
 	if event.kind == "tree_cut":
 		_discover("interaction.first_tree_cut", "Tree cut: shade is lost")
+		hud.notify("Tree cut (+3 Seeds)! A stump remains.")
 		if trees.has(cell):
 			var falling = trees[cell]
 			trees.erase(cell)
@@ -224,13 +237,14 @@ func _finish_interaction(event: Dictionary):
 			water_splash.restart()
 	elif event.kind == "plant_sapling":
 		_discover("interaction.plant_sapling", "Sapling planted: will grow into a shade-giving tree")
-		hud.notify("Sapling planted! Keep it moist to help it grow.")
+		hud.notify("Sapling planted (-1 Seed)! Keep it moist to help it grow.")
 		var sapling = SAPLING.instantiate()
 		sapling.position = grid.world_position(cell)
 		sapling.scale = Vector3.ONE * 0.8
 		$Vegetation.add_child(sapling)
 		trees[cell] = sapling
 	_refresh_visuals()
+	_update_hud()
 
 func _refresh_visuals():
 	for i in range(grid.cells.size()):
@@ -278,7 +292,7 @@ func _refresh_visuals():
 
 func _update_hud():
 	var safe = $GridPlayer.cell.distance_to(grid.start) <= 2.2
-	hud.update_status(survival.health, survival.exposure, climate.temperature, climate.weather, climate.elapsed * 0.025, SaveManager.progression.knowledge, safe, interactions.target.x >= 0)
+	hud.update_status(survival.health, survival.exposure, climate.temperature, climate.weather, climate.elapsed * 0.025, SaveManager.progression.knowledge, safe, interactions.target.x >= 0, interactions.seeds)
 
 func _create_landmarks():
 	var fire = Node3D.new()
@@ -463,6 +477,44 @@ func _create_water_splash():
 	drop.material = water_mat
 	water_splash.mesh = drop
 	add_child(water_splash)
+
+func _create_wood_chips():
+	wood_chips = CPUParticles3D.new()
+	wood_chips.name = "WoodChips"
+	wood_chips.emitting = false
+	wood_chips.one_shot = true
+	wood_chips.explosiveness = 0.95
+	wood_chips.amount = 20
+	wood_chips.lifetime = 0.45
+	wood_chips.direction = Vector3(0, 1, 0)
+	wood_chips.spread = 65.0
+	wood_chips.initial_velocity_min = 2.0
+	wood_chips.initial_velocity_max = 4.2
+	wood_chips.gravity = Vector3(0, -9.8, 0)
+	
+	var chip_mat = StandardMaterial3D.new()
+	chip_mat.albedo_color = Color(0.82, 0.66, 0.45)
+	chip_mat.roughness = 0.9
+	
+	var chip = BoxMesh.new()
+	chip.size = Vector3(0.045, 0.045, 0.045)
+	chip.material = chip_mat
+	wood_chips.mesh = chip
+	add_child(wood_chips)
+
+func _on_chop_impact(impact_pos: Vector3):
+	if wood_chips != null:
+		wood_chips.position = impact_pos
+		wood_chips.restart()
+	if interactions.target.x >= 0 and trees.has(interactions.target):
+		var tree_node = trees[interactions.target]
+		if tree_node != null and is_instance_valid(tree_node):
+			var orig_pos = grid.world_position(interactions.target)
+			var hit_dir = Vector3(interactions.target.x - $GridPlayer.cell.x, 0, interactions.target.y - $GridPlayer.cell.y).normalized()
+			var tween = tree_node.create_tween()
+			tween.tween_property(tree_node, "position", orig_pos + hit_dir * 0.07, 0.04)
+			tween.tween_property(tree_node, "position", orig_pos - hit_dir * 0.03, 0.05)
+			tween.tween_property(tree_node, "position", orig_pos, 0.06)
 
 func _update_weather_effects():
 	if rain_particles != null:

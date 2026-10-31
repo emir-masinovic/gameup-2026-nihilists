@@ -51,11 +51,13 @@ func close_modal():
 func _on_toast_timeout():
 	$Toast.text = ""
 
-func update_status(health: float, exposure: float, temperature: float, weather: String, trend: float, knowledge: int, safe: bool, chopping: bool):
+func update_status(health: float, exposure: float, temperature: float, weather: String, trend: float, knowledge: int, safe: bool, chopping: bool, seeds: int = 0):
 	$PlayerStatus/Rows/Health/Bar.value = health
 	$PlayerStatus/Rows/Health/Value.text = str(roundi(health))
 	$PlayerStatus/Rows/Heat/Bar.value = exposure
 	$PlayerStatus/Rows/Heat/Value.text = str(roundi(exposure))
+	if has_node("PlayerStatus/Rows/Seeds/Value"):
+		$PlayerStatus/Rows/Seeds/Value.text = str(seeds)
 	$WorldStatus/Rows/Climate/Value.text = "%.1f C | %s" % [temperature, weather.capitalize()]
 	$WorldStatus/Rows/Climate/Icon.set_weather(weather)
 	$WorldStatus/Rows/Trend.text = "+%.1f C warming" % trend

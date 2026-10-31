@@ -10,7 +10,7 @@ Keep scenes, scripts, resources, and local media with their feature. Use snake_c
 - `features/player/`: `grid_player.gd/.tscn`, `survival_state.gd`.
 - `features/levels/forest/`: `forest_level.gd/.tscn`, `grid_data.gd`, `climate_simulation.gd`, `forest_interactions.gd`, `forest_tree.tscn`, `forest_sapling.tscn`, `camera_orbit.gd`, `shader_grid.gdshader`, `run_hud.gd/.tscn`.
 - `features/levels/prototype/prototype.tscn`: original bootstrap, retained unchanged.
-- `tests/`: foundation, mouse bindings, camera/grid, projection, desktop video, persistence, climate, progression, eco_restoration, water_climate, and gameplay integration tests.
+- `tests/`: foundation, mouse bindings, camera/grid, projection, desktop video, persistence, climate, progression, eco_restoration, water_climate, tree_chop_facing, seed_system, and gameplay integration tests.
 
 Required script/shader UID companions and font import descriptors are tracked. `.godot/` import, editor, shader and UID caches are ignored. Ten sparse decorative rocks use two small Kenney Nature Kit GLBs under `features/levels/forest/props/`; source originals stay in central-assets. The included CC0 license and ATTRIBUTION.md record provenance. Models use embedded materials, have no external textures or gameplay collision, and do not change grid passability or simulation seeds. Procedural trees remain to preserve foliage-state and falling-pivot behavior. Alegreya Sans Regular comes from the official Google Fonts repository (`ofl/alegreyasans`); its SIL Open Font License is included at `features/menus/fonts/OFL.txt`.
 
@@ -48,15 +48,24 @@ Rendering uses 16 shared moisture/health terrain materials and four shared folia
 
 ## Interaction, survival and run lifecycle
 
-GridPlayer emits cell-entry events and keeps movement separate from generation. Interact beside a tree begins a 1.2-second chop; movement cancels it. The tree falls away from the player through a deterministic tween and leaves a blocked stump. A second action removes the stump and opens the cell. A fallen visual remains when its landing cell is clear; occupied/out-of-bounds landings discard that visual after the animation. Logs currently have no collision or collection mechanic. Cut tree data immediately loses shade and cannot regrow.
+GridPlayer emits cell-entry events and keeps movement separate from generation. To interact with a tree or stump, the player must be in an adjacent cell AND directly facing it (`player + facing`). Facing away prevents accidental chopping.
+
+Chopping animation, kinetics and seed economy:
+- When chopping begins, a low-poly axe with a polished dark handle and metallic blade is drawn in the astronaut's right hand.
+- The astronaut raises the axe high over their shoulder while coiling their torso back in an athletic wind-up, then delivers an explosive downward swing leaning aggressively forward toward the tree trunk.
+- On blade impact with the trunk, wood chip particles (`WoodChips`) burst outward, the tree trunk visibly shakes from the hit, and an impact shudder passes through the astronaut before resetting into the next strike.
+- The 1.2-second chop executes two complete strikes before the tree cleanly falls away from the player through a deterministic tween and leaves a blocked stump. A second facing action removes the stump and opens the cell.
+- Each tree cut awards +3 Seeds to the player's inventory (`seeds += 3`).
+- Movement cancels active chopping immediately and stows the axe away.
 
 Facing clear open ground enables ecological restoration:
 - If soil is dry (moisture < 0.45) or damaged (health < 0.75), interacting triggers a 0.8-second watering action that fully replenishes soil moisture, heals trampled grass, and spawns water spray particles.
-- If soil is healthy and moist, interacting initiates a 1.0-second sapling planting action, planting a growing sprout that can mature into a shade-giving tree.
+- If soil is healthy and moist, interacting initiates a 1.0-second sapling planting action if the player possesses seeds (`seeds > 0`). Planting consumes 1 seed (`seeds -= 1`).
+- If 0 seeds remain, planting cannot initiate, and the HUD notifies the player that they do not have enough seeds ("Yeterli tohumunuz yok! Ağaç keserek tohum toplayabilirsiniz.").
 
 SurvivalState owns health, heat exposure and latched death. Unfavorable heat increases exposure, shade/resistance reduce accumulation, safer conditions cool the player, and severe exposure damages health. Bonfire shelter within 2.2 cells cools and heals. Death and reaching the golden clearing open modal end states with a new-attempt button. A fresh world/model resets all temporary state. The clearing is a deliberately simple, quickly reachable prototype goal; ten-minute pacing still needs playtesting.
 
-RunHUD is an always-processing scene with compact upper-left health/heat bars and original drawn icons, and upper-right temperature/weather, long-term trend and Knowledge. The regular HUD has no quest/distance counter or instructional block. A contextual bonfire prompt appears only in shelter, and discoveries use temporary notices. Bonfire/end-state modals remain separate. These modals pause gameplay and camera input. Interact within 1.5 cells of spawn opens bonfire progression. Escape returns from the bonfire; end states require an explicit restart/menu choice.
+RunHUD is an always-processing scene with compact upper-left health/heat bars and a dedicated Seeds indicator with a custom seedling sprout icon (`sprout`), and upper-right temperature/weather, long-term trend and Knowledge. The regular HUD has no quest/distance counter or instructional block. A contextual bonfire prompt appears only in shelter, and discoveries use temporary notices. Bonfire/end-state modals remain separate. These modals pause gameplay and camera input. Interact within 1.5 cells of spawn opens bonfire progression. Escape returns from the bonfire; end states require an explicit restart/menu choice.
 
 ## Permanent progression
 
@@ -70,7 +79,7 @@ Run Godot 4.7.2 from the root with `--headless --editor --import --quit`, then `
 
 - `foundation_test`, `mouse_bindings_test`, `camera_grid_test`, `grid_world_test`, `playtest_feedback_test`.
 - `climate_test`, `progression_test`, `interactions_test`, `gameplay_test`, `camera_projection_test`.
-- `movement_camera_test`, `settings_layout_test`, `world_presentation_test`, `hud_polish_test`, `eco_restoration_test`, `water_climate_test`.
+- `movement_camera_test`, `settings_layout_test`, `world_presentation_test`, `hud_polish_test`, `eco_restoration_test`, `water_climate_test`, `tree_chop_facing_test`, `seed_system_test`.
 - `settings_restart_test` twice: first with `-- --write`, then without it.
 
 `desktop_test`, `video_desktop_test`, `feedback_desktop_test`, `gameplay_desktop_test` and `polish_desktop_test` require a real display. The polish capture test covers day/night shadows Off/High, flame movement and imported decorative props. Set `NIHILISTS_CAPTURE_DIR` to an existing directory outside the repository for optional captures. Gameplay tests use separate save filenames. Camera invariance tests freeze the level clock so intentional climate/trampling changes are not mistaken for camera mutations.
