@@ -60,6 +60,7 @@ func run():
 	data.burning = false
 	data.burned = false
 	data.terrain = "soil"
+	data.prepared = true
 	world.decorated_cells.erase(target)
 	var player = world.get_node("GridPlayer")
 	player.cell = Vector2i(8,5)

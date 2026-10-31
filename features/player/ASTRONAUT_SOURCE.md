@@ -7,3 +7,5 @@ Source files: `features/player/grid_player.tscn` and visual portions of `grid_pl
 The sprout geometry in `../levels/forest/VisualSapling.tscn` also comes from Onur’s `forest_sapling.tscn` at the same commit. Planting is adapted to our contextual actions, run-local inventory and climate model; no watering or source controller is imported.
 
 Hoe/bottle meshes and tilling, filling, watering and gathering animation poses are selectively adapted from Onur’s `d347d2a`; all animation remains inside VisualAstronaut, outside GridPlayer.
+
+`../levels/forest/VisualSeedDrop.tscn` adapts Onur’s `forest_seed.tscn` at `d347d2a` as a collectible, with the sprout hidden and a lighter seed shell.
