@@ -92,6 +92,22 @@ func run():
 	check(forbidden_count > 0,"Occupied-cell grass exclusion was exercised")
 	var wetlands = world.regions.get_region("wetlands")
 	check(wetlands.climate.wind_state(0.25,world.regions.elapsed) == wind,"Regional travel keeps the shared run wind continuous")
+	cover._process(1.0)
+	check(grass_batch.pending.is_empty(),"Settled grass has no pending instance-buffer updates")
+	cover.update_state(world.grid)
+	check(grass_batch.pending.is_empty(),"Unchanged soil does not requeue thousands of grass transforms")
+	var unaffected = 0
+	while grass_batch.indices[unaffected] == test_cell.y*17+test_cell.x: unaffected += 1
+	var unchanged_transform = grass_batch.renderer.multimesh.get_instance_transform(unaffected)
+	ground_data.health = 0.4
+	cover.update_state(world.grid)
+	check(not grass_batch.pending.is_empty() and grass_batch.pending.size() < 40,"Local soil changes only queue the affected grass cell")
+	cover._process(0.016)
+	check(grass_batch.renderer.multimesh.get_instance_transform(unaffected) == unchanged_transform,"Growth animation leaves unrelated instance buffers untouched")
+	ground_data.clear()
+	ground_data.merge(saved_ground)
+	cover.update_state(world.grid)
+	cover._process(1.0)
 	var diagonal_phase = Vector2.ZERO
 	for offset in grass_batch.offsets:
 		diagonal_phase += Vector2.from_angle(TAU*(offset.x-offset.z)/1.8)

@@ -83,6 +83,10 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	var rotations: Array[float] = []
 	var variations: Array[float] = []
 	var thresholds: Array[float] = []
+	var bases: Array[Basis] = []
+	var origins: Array[Vector3] = []
+	var phases: Array[float] = []
+	var pending: Dictionary = {}
 	var rng = RandomNumberGenerator.new()
 	rng.seed = _appearance_seed ^ 0x48A17
 	for j in range(indices.size()):
@@ -96,27 +100,44 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 		offsets.append(offset)
 		rotations.append(_sample(i*37+_appearance_seed+31)*TAU if shrubs else rng.randf_range(0.0,TAU))
 		variations.append(0.7+_sample(i*37+_appearance_seed+47)*0.65 if shrubs else rng.randf_range(0.7,1.35))
-		thresholds.append(rng.randf())
-	batches.append({"renderer": renderer, "indices": indices, "source": source.transform, "sizes":sizes, "targets":sizes.duplicate(), "vitality":sizes.duplicate(), "shrubs":shrubs,"offsets":offsets,"rotations":rotations,"variations":variations,"thresholds":thresholds})
+		var threshold = 0.1+(fposmod(float(i*13+j*7)*0.618034,1.0) if shrubs else rng.randf())*0.8
+		if shrubs: rng.randf() # Preserve the existing seeded random stream.
+		if j == 0 or indices[j-1] != i: threshold = 0.08+_sample(i+83)*0.04
+		thresholds.append(threshold)
+		bases.append(Basis(Vector3.UP,rotations[j])*source.transform.basis)
+		origins.append(grid.world_position(cell)+offset)
+		phases.append(_sample(i*37+j))
+		pending[j] = true
+	batches.append({"renderer": renderer, "indices": indices, "source": source.transform, "sizes":sizes, "targets":sizes.duplicate(), "vitality":sizes.duplicate(), "shrubs":shrubs,"offsets":offsets,"rotations":rotations,"variations":variations,"thresholds":thresholds,"bases":bases,"origins":origins,"phases":phases,"pending":pending,"cell_states":{}})
 	model.free()
 
 func update_state(grid: RefCounted):
 	for batch in batches:
+		var last_cell = -1
+		var vitality = 0.0
+		var visible_patch = false
+		var changed = false
 		for j in range(batch.indices.size()):
 			var i = batch.indices[j]
-			var data = grid.cells[i]
-			var vitality = minf(data.get("health", 1.0), data.get("moisture", 1.0) * 1.65)
-			var cell = Vector2i(i%grid.SIZE,floori(float(i)/grid.SIZE))
-			var occupied = occupied_cells.has(cell) or cell == grid.start or data.tree or data.get("log",false) or data.get("berry_bush",false)
-			var allowed = (data.tree and data.get("tree_state","healthy") != "stump" and not data.get("log",false)) if batch.shrubs else not occupied
-			var visible_patch = allowed and data.terrain == "grass" and not data.get("burning", false) and (not data.get("burned", false) or data.get("burn_recovery", 0.0) >= 0.2)
-			var threshold = 0.1 + (fposmod(float(i*13+j*7)*0.618034,1.0) if batch.shrubs else batch.thresholds[j])*0.8
-			# A small founding shoot precedes the denser surrounding cluster.
-			if j == 0 or batch.indices[j-1] != i: threshold = 0.08 + _sample(i+83)*0.04
+			if i != last_cell:
+				last_cell = i
+				var data = grid.cells[i]
+				vitality = minf(data.get("health",1.0),data.get("moisture",1.0)*1.65)
+				var cell = Vector2i(i%grid.SIZE,i/grid.SIZE)
+				var occupied = occupied_cells.has(cell) or cell == grid.start or data.tree or data.get("log",false) or data.get("berry_bush",false)
+				var allowed = (data.tree and data.get("tree_state","healthy") != "stump" and not data.get("log",false)) if batch.shrubs else not occupied
+				visible_patch = allowed and data.terrain == "grass" and not data.get("burning",false) and (not data.get("burned",false) or data.get("burn_recovery",0.0) >= 0.2)
+				var signature = Vector2(vitality,1.0 if visible_patch else 0.0)
+				changed = batch.cell_states.get(i,Vector2(-1,-1)) != signature
+				batch.cell_states[i] = signature
+			if not changed: continue
+			var threshold: float = batch.thresholds[j]
 			var coverage = smoothstep(threshold-0.08,threshold+0.08,vitality*vitality)
 			batch.targets[j] = (0.65+vitality*0.65)*coverage*batch.variations[j] if visible_patch else 0.0
-			batch.vitality[j] = vitality
-			batch.renderer.multimesh.set_instance_custom_data(j, Color(vitality, _sample(i*37+j), vitality, 1))
+			if batch.sizes[j] != batch.targets[j]: batch.pending[j] = true
+			if batch.vitality[j] != vitality:
+				batch.vitality[j] = vitality
+				batch.renderer.multimesh.set_instance_custom_data(j,Color(vitality,batch.phases[j],vitality,1))
 	for i in range(grid.cells.size()):
 		var data = grid.cells[i]
 		var bare_ground: bool = data.terrain == "grass" and not data.get("burned", false)
@@ -129,21 +150,21 @@ func _process(delta: float):
 	var blend = 1.0-exp(-delta*7.0)
 	var changing = false
 	for batch in batches:
-		for j in range(batch.indices.size()):
-			var i = batch.indices[j]
-			batch.sizes[j] = lerpf(batch.sizes[j],batch.targets[j],blend)
-			changing = changing or absf(batch.sizes[j]-batch.targets[j]) > 0.002
-			var data = _grid.cells[i]
-			var cell = Vector2i(i%_grid.SIZE,floori(float(i)/_grid.SIZE))
-			var offset: Vector3 = batch.offsets[j]
-			var base: Transform3D = batch.source
-			base.basis = Basis(Vector3.UP,batch.rotations[j])*base.basis.scaled(Vector3.ONE*batch.sizes[j])
-			base.origin = base.origin*batch.sizes[j] + _grid.world_position(cell)+offset
+		for j in batch.pending.keys():
+			var size = lerpf(batch.sizes[j],batch.targets[j],blend)
+			if absf(size-batch.targets[j]) <= 0.002:
+				size = batch.targets[j]
+				batch.pending.erase(j)
+			batch.sizes[j] = size
+			var base = Transform3D(batch.bases[j].scaled(Vector3.ONE*size),batch.origins[j]+batch.source.origin*size)
 			batch.renderer.multimesh.set_instance_transform(j,base)
+		changing = changing or not batch.pending.is_empty()
 	for batch in _crack_batches:
 		for j in range(batch.indices.size()):
 			var i: int = batch.indices[j]
+			if _crack_sizes[i] == _crack_targets[i]: continue
 			_crack_sizes[i] = lerpf(_crack_sizes[i],_crack_targets[i],blend)
+			if absf(_crack_sizes[i]-_crack_targets[i]) <= 0.002: _crack_sizes[i] = _crack_targets[i]
 			changing = changing or absf(_crack_sizes[i]-_crack_targets[i]) > 0.002
 			var cell = Vector2i(i%_grid.SIZE,floori(float(i)/_grid.SIZE))
 			var size = _crack_sizes[i]
