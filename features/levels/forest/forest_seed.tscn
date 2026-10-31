@@ -1,0 +1,48 @@
+[gd_scene load_steps=7 format=3]
+
+[sub_resource type="StandardMaterial3D" id="MoundMat"]
+albedo_color = Color(0.24, 0.16, 0.10, 1)
+roughness = 0.95
+
+[sub_resource type="CylinderMesh" id="MoundMesh"]
+material = SubResource("MoundMat")
+top_radius = 0.12
+bottom_radius = 0.22
+height = 0.08
+radial_segments = 6
+
+[sub_resource type="StandardMaterial3D" id="SeedMat"]
+albedo_color = Color(0.48, 0.35, 0.22, 1)
+roughness = 0.7
+
+[sub_resource type="SphereMesh" id="SeedMesh"]
+material = SubResource("SeedMat")
+radius = 0.05
+height = 0.1
+radial_segments = 6
+rings = 3
+
+[sub_resource type="StandardMaterial3D" id="SproutTipMat"]
+albedo_color = Color(0.42, 0.88, 0.36, 1)
+roughness = 0.5
+
+[sub_resource type="CylinderMesh" id="SproutTipMesh"]
+material = SubResource("SproutTipMat")
+top_radius = 0.015
+bottom_radius = 0.035
+height = 0.09
+radial_segments = 5
+
+[node name="ForestSeed" type="Node3D"]
+
+[node name="Mound" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.04, 0)
+mesh = SubResource("MoundMesh")
+
+[node name="SeedShell" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.09, 0)
+mesh = SubResource("SeedMesh")
+
+[node name="SproutTip" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.15, 0)
+mesh = SubResource("SproutTipMesh")

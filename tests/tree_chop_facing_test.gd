@@ -80,14 +80,13 @@ func run():
 	check(not player.is_chopping, "Chopping stopped")
 	check(not axe.visible, "Axe is safely stowed away after chopping")
 	
-	# Test 6: Stump removal facing check
+	# Test 6: Seed collection from stump requires standing directly on the stump
 	grid.cells[tree_cell.y * grid.SIZE + tree_cell.x].tree_state = "stump"
-	interactions.target = Vector2i(-1, -1)
-	if interactions.begin(player_pos, Vector2i.UP):
-		check(interactions.action_kind != "stump_removed", "Facing away does not remove stump")
-	interactions.target = Vector2i(-1, -1)
-	check(interactions.begin(player_pos, Vector2i.RIGHT), "Can remove stump when facing it")
-	check(interactions.action_kind == "stump_removed", "Action kind is stump_removed")
+	interactions.cancel()
+	check(not interactions.begin(player_pos, Vector2i.RIGHT, "chop_gather"), "Cannot collect seeds from adjacent cell")
+	interactions.cancel()
+	check(interactions.begin(tree_cell, Vector2i.UP, "chop_gather"), "Can collect seeds when standing directly on cut tree remains")
+	check(interactions.action_kind == "collect_seeds", "Action kind is collect_seeds")
 	
 	player.free()
 	

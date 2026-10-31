@@ -39,12 +39,14 @@ func run():
 	var event = world.interactions.tick(1.0, player.cell)
 	check(event.direction == Vector2i.RIGHT and event.cell == tree_cell, "Fall direction away from player")
 	world._finish_interaction(event)
-	check(not world.grid.traversable(tree_cell), "Stump keeps original cell blocked")
+	check(world.grid.traversable(tree_cell), "Tree cut allows player onto cell")
 	check(world.grid.cells[tree_cell.y * world.grid.SIZE + tree_cell.x].tree_state == "stump", "Cut reflected in climate data")
-	check(world.interactions.begin(player.cell, Vector2i.RIGHT), "Second action targets stump")
+	player.cell = tree_cell
+	player.position = world.grid.world_position(tree_cell)
+	check(world.interactions.begin(player.cell, Vector2i.RIGHT, "chop_gather"), "Action on stump collects seeds")
 	event = world.interactions.tick(2.0, player.cell)
 	world._finish_interaction(event)
-	check(world.grid.traversable(tree_cell), "Stump removal opens cell")
+	check(not world.grid.cells[tree_cell.y * world.grid.SIZE + tree_cell.x].tree, "Tree remains removed after collecting seeds")
 	var health = world.grid.cells[0].health
 	world.climate.trample(Vector2i.ZERO)
 	world.climate.trample(Vector2i.ZERO)

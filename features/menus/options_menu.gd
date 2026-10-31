@@ -107,7 +107,7 @@ func binding_row(action: String) -> HBoxContainer:
 	row.add_theme_constant_override("separation", 12)
 	var caption = Label.new()
 	caption.name = "ActionLabel"
-	caption.text = {"camera_orbit": "Orbit Camera", "camera_zoom_in": "Zoom In", "camera_zoom_out": "Zoom Out"}.get(action, action.replace("_", " ").capitalize())
+	caption.text = {"camera_orbit": "Orbit Camera", "camera_zoom_in": "Zoom In", "camera_zoom_out": "Zoom Out", "chop_gather": "Chop / Gather Seeds"}.get(action, action.replace("_", " ").capitalize())
 	caption.custom_minimum_size.x = 180
 	row.add_child(caption)
 	for slot in range(2):

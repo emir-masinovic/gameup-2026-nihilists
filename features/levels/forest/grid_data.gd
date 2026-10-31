@@ -37,7 +37,9 @@ func traversable(cell: Vector2i) -> bool:
 		return false
 	var data = cells[cell.y * SIZE + cell.x]
 	if data.get("tree", false):
-		return false
+		var state = data.get("tree_state", "healthy")
+		if state in ["healthy", "dead"]:
+			return false
 	if data.get("water", false) and data.get("water_depth", 0.0) > 0.25:
 		return false
 	return true

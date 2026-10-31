@@ -27,6 +27,8 @@ func configure(grid: RefCounted, world_seed: int):
 		data.trampled = 0.0
 		data.water = data.get("water", false)
 		data.water_depth = data.get("water_depth", (1.0 if data.water else 0.0))
+		data.tilled = data.get("tilled", false)
+		data.water_needed = data.get("water_needed", 1.0)
 	_update_weather()
 
 func tick(seconds: float = 1.0):
@@ -73,9 +75,15 @@ func _simulate(seconds: float):
 				data.tree_health = clampf(data.tree_health + (recovery * 0.6 - stress * 0.6) * seconds, 0.0, 1.0)
 				if data.tree_health <= 0.0:
 					data.tree_state = "dead"
+			elif data.tree_state == "seed":
+				var hydration = (0.15 if weather == "rain" else (maxf(data.moisture - 0.3, 0.0) * 0.14)) * seconds
+				data.water_needed = maxf(0.0, data.get("water_needed", 1.0) - hydration)
+				if data.water_needed <= 0.0:
+					data.tree_state = "sapling"
+					data.tree_health = 0.25
 			elif data.tree_state == "sapling":
 				if data.moisture > 0.35 and temperature < 34.0:
-					data.tree_health = minf(data.tree_health + 0.03 * seconds, 1.0)
+					data.tree_health = minf(data.tree_health + 0.018 * seconds, 1.0)
 					if data.tree_health >= 0.95:
 						data.tree_state = "healthy"
 				else:
