@@ -154,7 +154,7 @@ func show_category(title: String):
 			camera_mode.select(camera_modes.find(SettingsManager.camera_mode))
 			camera_mode.item_selected.connect(func(index): SettingsManager.camera_mode = camera_modes[index]; persist())
 			setting_row("Default camera mode", camera_mode, "CameraMode")
-			label("Cycle modes with the camera mode binding. In Free Camera, hold Shift while dragging the orbit button to pan.")
+			label("Cycle Follow Player and Board Center with the camera mode binding.")
 			var modes = ["Orthographic", "Perspective"]
 			var projection = segmented_control(modes, modes.find(SettingsManager.camera_projection), func(index): SettingsManager.camera_projection = modes[index]; persist())
 			projection.add_theme_constant_override("separation", 12)

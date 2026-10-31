@@ -25,6 +25,7 @@ func run():
 	var world = current_scene
 	world.set_process(false)
 	var rig = world.get_node("CameraRig")
+	rig.set_mode("Board Center")
 	var camera = rig.get_node("Camera3D")
 	var grid_snapshot = world.grid.cells.duplicate(true)
 	var center = world.grid.world_position(world.grid.start)

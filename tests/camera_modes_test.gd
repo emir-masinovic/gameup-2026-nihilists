@@ -35,7 +35,18 @@ func run():
 	settings.load_settings()
 	check(settings.bindings.move_north == [KEY_C, KEY_UP] and settings.bindings.interact == [KEY_F, KEY_SPACE], "Legacy player bindings are preserved")
 	check(settings.bindings.camera_mode_cycle == [0, 0] and settings.bindings.eat == [0, 0], "Conflicting newly added defaults are unbound")
-	check(settings.camera_mode == "Board Center", "Invalid mode uses Board Center")
+	check(settings.camera_mode == "Follow Player", "Invalid mode uses Follow Player")
+	config.set_value("gameplay", "camera_mode", "Free Camera")
+	config.save(settings.storage_path)
+	settings.load_settings()
+	check(settings.camera_mode == "Follow Player", "Removed mode migrates safely to Follow Player")
+	settings.save_settings()
+	config.load(settings.storage_path)
+	check(config.get_value("gameplay", "camera_mode") == "Follow Player", "Next save persists the migrated mode")
+	config.erase_section_key("gameplay", "camera_mode")
+	config.save(settings.storage_path)
+	settings.load_settings()
+	check(settings.camera_mode == "Follow Player", "Missing setting uses Follow Player")
 	settings.reset_defaults()
 	var saves = root.get_node("SaveManager")
 	saves.storage_path = "user://camera_modes_progression.json"
@@ -50,12 +61,15 @@ func run():
 	var center = world.grid.world_position(world.grid.start)
 	rig.configure_targets(center, player)
 	var cells = world.grid.cells.duplicate(true)
-	check(rig.mode == "Board Center" and rig.global_position.is_equal_approx(center), "Board Center starts at existing pivot")
+	check(rig.mode == "Follow Player" and rig.global_position.is_equal_approx(player.global_position), "Fresh settings follow the actual player")
+	check(settings.CAMERA_MODES == ["Follow Player", "Board Center"], "Only two public modes remain")
 	var cycle = InputEventKey.new()
 	cycle.physical_keycode = KEY_C
 	cycle.pressed = true
 	rig._unhandled_input(cycle)
-	check(rig.mode == "Follow Player" and settings.camera_mode == "Board Center", "C cycles temporarily without replacing saved default")
+	check(rig.mode == "Board Center" and settings.camera_mode == "Follow Player", "C switches to Board Center without replacing saved default")
+	rig._unhandled_input(cycle)
+	check(rig.mode == "Follow Player", "C switches back to Follow Player")
 	player.global_position += Vector3(4, 0, 0)
 	var before = rig.global_position
 	rig._process(0.01)
@@ -63,36 +77,33 @@ func run():
 	rig._process(10.0)
 	check(rig.global_position.is_equal_approx(player.global_position), "Follow reaches actual player")
 	var before_orbit = rig.target_yaw
-	rig._unhandled_input(cycle)
-	check(rig.mode == "Free Camera", "C reaches Free Camera")
 	var press = InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_MIDDLE
 	press.pressed = true
 	press.shift_pressed = true
 	rig._unhandled_input(press)
 	var motion = InputEventMouseMotion.new()
-	motion.relative = Vector2(70, 40)
+	motion.relative = Vector2(70,40)
 	motion.button_mask = MOUSE_BUTTON_MASK_MIDDLE
-	var free_before = rig.free_target
 	rig._unhandled_input(motion)
-	check(not rig.free_target.is_equal_approx(free_before) and is_equal_approx(rig.target_yaw, before_orbit), "Shift orbit binding pans free target without orbit")
-	check(world.grid.cells == cells, "Free pan does not mutate logical grid")
-	rig._process(0.01)
-	check(not rig.global_position.is_equal_approx(rig.free_target), "Free pan interpolates")
-	motion.relative = Vector2(100000, 100000)
-	rig._unhandled_input(motion)
-	check(rig.free_target.distance_to(center) <= rig.MAX_FREE_OFFSET + 0.01, "Inspection range is bounded")
+	check(rig.target_yaw != before_orbit and world.grid.cells == cells, "Shift drag remains orbit and does not mutate the grid")
 	press.pressed = false
 	rig._input(press)
-	check(rig.drag_button == 0, "Mouse release ends pan")
+	check(rig.drag_button == 0, "Mouse release ends orbit")
 	var state = rig.get_transition_state()
-	var next_center = center + Vector3(200, 0, 20)
-	rig.configure_targets(next_center, player, state)
-	check(rig.mode == "Free Camera" and rig.global_position.is_equal_approx(next_center + state.free_position_offset) and rig.free_target.is_equal_approx(next_center + state.free_offset), "Region restore remaps free target immediately")
+	check(not state.has("free_offset") and not state.has("free_position_offset"), "Transition state has no removed pan data")
+	rig.configure_targets(center + Vector3(200,0,20), player, state)
+	check(rig.mode == "Follow Player" and rig.global_position.is_equal_approx(player.global_position), "Region restore follows the new actual player target")
 	check(is_equal_approx(rig.pitch, state.pitch) and is_equal_approx(rig.target_zoom, state.target_zoom), "Region restore retains view state")
+	state.mode = "Free Camera"
+	rig.configure_targets(center, player, state)
+	check(rig.mode == "Follow Player", "Removed runtime mode restores safely to Follow Player")
+	rig.set_mode("Board Center")
 	settings.volumes.Master = 0.5
 	settings.apply_settings()
-	check(rig.mode == "Free Camera", "Audio changes preserve temporary runtime mode")
+	check(rig.mode == "Board Center", "Audio changes preserve temporary runtime mode")
+	settings.camera_mode = "Board Center"
+	settings.apply_settings()
 	settings.camera_mode = "Follow Player"
 	settings.apply_settings()
 	check(rig.mode == "Follow Player", "Changing saved Gameplay default applies immediately")
@@ -110,12 +121,12 @@ func run():
 	check(rig.mode == "Follow Player", "Options rejects camera cycling")
 	var options = flow.pause_menu.options
 	options.show_category("Gameplay")
-	check(options.content.get_node("CameraModeRow/CameraMode").item_count == 3, "Gameplay exposes three defaults")
+	check(options.content.get_node("CameraModeRow/CameraMode").item_count == 2, "Gameplay exposes two defaults")
 	settings.reset_category("Gameplay")
-	check(rig.mode == "Board Center" and settings.camera_projection == "Orthographic", "Gameplay reset restores mode and projection")
+	check(rig.mode == "Follow Player" and settings.camera_projection == "Orthographic", "Gameplay reset restores mode and projection")
 	flow.resume()
 	rig._unhandled_input(cycle)
-	check(rig.mode == "Follow Player", "Resume restores camera input")
+	check(rig.mode == "Board Center", "Resume restores camera input")
 	flow.main_menu()
 	await process_frame
 	await process_frame

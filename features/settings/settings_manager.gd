@@ -7,8 +7,8 @@ const MIN_MOUSE_SENSITIVITY = 0.002
 const MAX_MOUSE_SENSITIVITY = 0.02
 var mouse_sensitivity = DEFAULT_MOUSE_SENSITIVITY
 var camera_projection = "Orthographic"
-const CAMERA_MODES = ["Board Center", "Follow Player", "Free Camera"]
-var camera_mode = "Board Center"
+const CAMERA_MODES = ["Follow Player", "Board Center"]
+var camera_mode = "Follow Player"
 
 const DEFAULT_BINDINGS = {
 	"move_north": [KEY_W, KEY_UP], "move_south": [KEY_S, KEY_DOWN],
@@ -63,8 +63,8 @@ func load_settings():
 	shadow_quality = shadows if shadows is int and shadows in [0, 1, 2, 3] else 2
 	var projection = config.get_value("gameplay", "camera_projection", "Orthographic")
 	camera_projection = projection if projection is String and projection in ["Orthographic", "Perspective"] else "Orthographic"
-	var saved_mode = config.get_value("gameplay", "camera_mode", "Board Center")
-	camera_mode = saved_mode if saved_mode is String and saved_mode in CAMERA_MODES else "Board Center"
+	var saved_mode = config.get_value("gameplay", "camera_mode", "Follow Player")
+	camera_mode = saved_mode if saved_mode is String and saved_mode in CAMERA_MODES else "Follow Player"
 	var sensitivity = config.get_value("controls", "mouse_sensitivity", DEFAULT_MOUSE_SENSITIVITY)
 	mouse_sensitivity = clampf(float(sensitivity), MIN_MOUSE_SENSITIVITY, MAX_MOUSE_SENSITIVITY) if (sensitivity is float or sensitivity is int) and is_finite(float(sensitivity)) else DEFAULT_MOUSE_SENSITIVITY
 	var candidate = config.get_value("controls", "bindings", {})
@@ -178,7 +178,7 @@ func _reset_category(category: String):
 	match category:
 		"Gameplay":
 			camera_projection = "Orthographic"
-			camera_mode = "Board Center"
+			camera_mode = "Follow Player"
 		"Audio":
 			volumes = {"Master": 0.8, "Music": 0.8, "SFX": 0.8}
 		"Controls":

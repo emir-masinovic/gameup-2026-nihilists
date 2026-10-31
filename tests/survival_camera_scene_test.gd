@@ -168,7 +168,7 @@ func run():
 		await process_frame
 		await process_frame
 		var picker = options.content.get_node("CameraModeRow/CameraMode")
-		check(picker.item_count == 3 and bounds.encloses(picker.get_global_rect()), "Gameplay camera picker fits " + str(size_value))
+		check(picker.item_count == 2 and bounds.encloses(picker.get_global_rect()), "Gameplay camera picker fits " + str(size_value))
 		await capture("survival_options_" + str(size_value.x))
 		flow.resume()
 		await process_frame
