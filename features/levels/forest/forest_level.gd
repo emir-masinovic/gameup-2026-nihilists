@@ -84,7 +84,7 @@ func _ready():
 		for moisture_bin in range(4):
 			var mat = ShaderMaterial.new()
 			mat.shader = preload("res://features/levels/forest/shader_grid.gdshader")
-			var green: Color = Color("b39a50").lerp(Color("8f8b43"), float(moisture_bin)) if moisture_bin < 2 else regional_palette.dry_green.lerp(regional_palette.wet_green, float(moisture_bin - 2))
+			var green: Color = Color("b39a50").lerp(regional_palette.dry_green, moisture_bin * 0.35) if moisture_bin < 2 else regional_palette.dry_green.lerp(regional_palette.wet_green, moisture_bin - 2.0)
 			mat.set_shader_parameter("terrain_color", regional_palette.soil.lerp(green, health_bin / 3.0))
 			mat.set_shader_parameter("terrain_health", health_bin / 3.0)
 			mat.set_shader_parameter("world_seed", float(posmod(world_seed, 65521)))
@@ -629,6 +629,9 @@ func _update_interaction_marker():
 	if interaction_marker.visible:
 		interaction_marker.position = grid.world_position(display.cell) + Vector3(0,0.12,0)
 	hud.update_interaction(display, context_action.progress, active_display, _binding_label("interact"))
+	if not display.is_empty() and grid.in_bounds(display.cell):
+		var conditions: Dictionary = climate.cell_conditions(display.cell)
+		hud.get_node("Context").text += "\nGround %.1f°C · Soil %d%%" % [conditions.temperature,roundi(conditions.moisture*100.0)]
 
 func _binding_label(action: String) -> String:
 	var labels: PackedStringArray = []

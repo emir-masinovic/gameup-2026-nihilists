@@ -56,17 +56,17 @@ func run():
 	climate.weather_override = "rain"
 	climate.warming_limit = 0.0
 	climate.ignition_chance = 0.0
-	for second in range(239): climate.tick(1.0)
-	check(data.tree_state == "sapling" and data.growth_age == 239.0, "Maturity takes four favorable minutes")
+	for second in range(119): climate.tick(1.0)
+	check(data.tree_state == "sapling" and data.growth_age == 119.0, "Maturity takes two favorable minutes")
 	var sprout = preload("res://features/levels/forest/VisualSapling.tscn").instantiate()
 	root.add_child(sprout)
 	var sizes = []
-	for age in [0.0,60.0,120.0]:
+	for age in [0.0,30.0,75.0]:
 		data.growth_age = age
 		sprout.update_growth(data)
 		sizes.append(sprout.scale.y)
 	check(sizes[0] < sizes[1] and sizes[1] < sizes[2], "Three distinct visible growing stages")
-	data.growth_age = 239.0
+	data.growth_age = 119.0
 	climate.tick(1.0)
 	check(data.tree_state == "healthy" and data.fuel == 1.0, "Mature planted tree joins existing vegetation/fuel states")
 	check(climate.shade_at(cell+Vector2i.UP) > 0.0, "Grown tree provides neighboring shade")
@@ -118,6 +118,7 @@ func run():
 	models.configure(2026)
 	check(models.planting.seed_count == 3 and models.states.is_empty(), "New run resets inventory and planted vegetation")
 	sprout.queue_free()
+	check_microclimate()
 	check_juvenile_removal()
 	await scene_checks()
 	print("PLANTING INTEGRATION: ", checks, " checks, ", failures, " failures")
@@ -131,7 +132,7 @@ func check_juvenile_removal():
 	var target = Vector2i(4,4)
 	var player = target + Vector2i.RIGHT
 	var landing = target + Vector2i.LEFT
-	for stage in [0.0, 60.0, 120.0, 239.0]:
+	for stage in [0.0, 30.0, 75.0, 119.0]:
 		for dead in [false,true]:
 			var data = soil(grid,target)
 			soil(grid,landing)
@@ -147,7 +148,7 @@ func check_juvenile_removal():
 	models.planting.seed_count = 3
 	models.planting.plant(grid,target)
 	check(cutter.begin(player,Vector2i.LEFT), "Start removal before growth boundary")
-	data.growth_age = 240.0
+	data.growth_age = 120.0
 	data.tree_state = "healthy"
 	check(cutter.tick(2.0,player).is_empty() and data.tree_state == "healthy", "Maturing invalidates an in-progress juvenile action")
 	check(cutter.begin(player,Vector2i.LEFT), "Fully grown planted tree can be chopped")
@@ -246,7 +247,7 @@ func scene_checks():
 	check(not data.tree and data.tree_state == "removed" and not world.trees.has(target), "Scene removes sapling without creating mature stump visual")
 	check(world.planting.plant(world.grid,target), "Removed juvenile cell can be replanted")
 	world._refresh_visuals()
-	data.growth_age = 240.0
+	data.growth_age = 120.0
 	data.tree_state = "healthy"
 	data.tree_health = 0.9
 	world._refresh_visuals()
@@ -283,3 +284,56 @@ func scene_checks():
 	await process_frame
 	for path in [SAVE,SAVE+".tmp"]:
 		if FileAccess.file_exists(path): DirAccess.remove_absolute(path)
+
+func check_microclimate():
+	var models = []
+	var target = Vector2i(6,5)
+	var source = Vector2i(5,5)
+	for cut in [false,true]:
+		var regions = Regions.new()
+		regions.configure(2026)
+		var state = regions.get_region("forest")
+		state.climate.baseline_temperature = 32.0
+		state.climate.warming_limit = 0.0
+		state.climate.weather_override = "clear"
+		state.climate.ignition_chance = 0.0
+		for cell_data in state.grid.cells:
+			cell_data.tree = false
+			cell_data.tree_state = "removed"
+		var tree = soil(state.grid,source)
+		tree.tree = true
+		tree.tree_state = "stump" if cut else "healthy"
+		tree.tree_health = 0.0 if cut else 1.0
+		var neighbor = soil(state.grid,target)
+		neighbor.terrain = "grass"
+		neighbor.moisture = 0.6
+		neighbor.health = 1.0
+		state.climate.tick(0.01)
+		models.append(state)
+	check(models[0].climate.temperature_at(target) < models[1].climate.temperature_at(target), "Mature adjacent canopy cools local ground")
+	check(is_equal_approx(models[0].climate.temperature_at(Vector2i(7,5)),models[0].climate.temperature), "Cooling stays within one cardinal cell")
+	check(models[1].grid.cells[target.y*17+target.x].moisture > 0.59, "Cutting does not instantly damage soil moisture")
+	for second in range(90):
+		for state in models: state.climate.tick(1.0)
+	var covered = models[0].grid.cells[target.y*17+target.x]
+	var exposed = models[1].grid.cells[target.y*17+target.x]
+	check(covered.moisture > exposed.moisture and covered.health >= exposed.health, "Cut patch dries and degrades faster through climate ticks")
+	var state = models[1]
+	var tree = soil(state.grid,source)
+	var planting = Planting.new()
+	planting.plant(state.grid,source)
+	check(state.climate.shade_at(target) == 0.0, "New sapling cannot instantly restore mature canopy")
+	state.climate.weather_override = "rain"
+	var before: float = exposed.health
+	state.climate.tick(1.0)
+	check(exposed.health < 1.0, "First rain tick cannot instantly reverse degradation")
+	for second in range(119): state.climate.tick(1.0)
+	check(tree.tree_state == "healthy" and state.climate.shade_at(target) > 0.0, "Reforestation eventually restores local shelter")
+	check(exposed.health > before and exposed.moisture > 0.35, "Sustained rain gradually recovers surviving ground")
+	check(tree.tree_health >= 0.82, "Faster maturity retains comparable mature-tree health")
+	soil(state.grid,source)
+	planting.plant(state.grid,source)
+	state.climate.sapling_growth_rate = 4.0
+	for second in range(30): state.climate.tick(1.0)
+	check(tree.tree_state == "healthy" and tree.growth_age >= 120.0, "Demo acceleration grows plants in 30 favorable seconds without speeding climate")
+	check(Planting.growth_stage(29.0)==0 and Planting.growth_stage(30.0)==1 and Planting.growth_stage(74.0)==1 and Planting.growth_stage(75.0)==2, "Visible growth thresholds share the normal 120-second balance")

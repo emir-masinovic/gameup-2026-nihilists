@@ -49,6 +49,8 @@ func get_region(id: String) -> Dictionary:
 		climate.baseline_temperature -= 2.0
 		climate.weather_cycle = ["rain", "cool", "rain", "clear"]
 	climate.configure(grid, seed_value)
+	if OS.is_debug_build() and OS.get_cmdline_user_args().has("--microclimate-demo"):
+		climate.sapling_growth_rate = 4.0
 	for data in grid.cells:
 		if id == "drylands":
 			data.moisture *= 0.55

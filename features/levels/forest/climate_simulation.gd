@@ -13,6 +13,7 @@ var ignition_interval = 30.0
 var ignition_chance = 0.65
 var spread_chance = 0.025
 var fuel_consumption = 0.055
+var sapling_growth_rate = 1.0 # Debug-only acceleration affects plants, not simulation time.
 var elapsed = 0.0
 var temperature = 24.0
 var weather: String = "clear"
@@ -80,8 +81,9 @@ func _simulate(seconds: float):
 		var data: Dictionary = _grid.cells[i]
 		var cell = Vector2i(i % _grid.SIZE, floori(float(i) / _grid.SIZE))
 		var terrain: String = data.get("terrain", "grass")
+		var local_temperature = temperature - shades[i] * 4.0
 		var exposure = 1.0 - shades[i] * 0.7
-		var drying = (0.0015 + maxf(temperature - 20.0, 0.0) * 0.00035) * exposure
+		var drying = (0.0015 + maxf(local_temperature - 20.0, 0.0) * 0.00035) * exposure
 		var rain = 0.015 if weather == "rain" else (0.0015 if weather == "cool" else 0.0)
 		var retention = 0.65 if terrain == "soil" else 1.0
 		var water_help = 0.0
@@ -96,8 +98,8 @@ func _simulate(seconds: float):
 		else:
 			data.moisture = clampf(data.moisture + (rain + water_help - drying / retention) * seconds, 0.0, 1.0)
 		data.trampled = maxf(0.0, data.get("trampled", 0.0) - 0.001 * seconds)
-		var stress = maxf(0.28 - data.moisture, 0.0) * 0.022 + maxf(temperature - 36.0, 0.0) * 0.0006 * exposure
-		var recovery = 0.006 if data.moisture > 0.35 and temperature < 35.0 else 0.0
+		var stress = maxf(0.28 - data.moisture, 0.0) * 0.022 + maxf(local_temperature - 36.0, 0.0) * 0.0006 * exposure
+		var recovery = 0.006 if data.moisture > 0.35 and local_temperature < 35.0 else 0.0
 		if data.get("burned", false):
 			# Char persists through drought. Moist conditions slowly establish new ground cover;
 			# exhausted fuel and dead trees remain exhausted/dead.
@@ -107,11 +109,10 @@ func _simulate(seconds: float):
 		if data.get("burned", false):
 			data.health = minf(data.health, data.burn_recovery)
 		if data.tree and data.tree_state == "sapling":
-			var local_temperature = temperature - shades[i] * 4.0
 			var favorable = data.moisture > 0.35 and local_temperature >= 8.0 and local_temperature <= 34.0 and not data.get("burning", false) and not data.get("burned", false)
 			if favorable:
-				data.growth_age += seconds
-				data.tree_health = minf(1.0, data.tree_health + 0.002 * seconds)
+				data.growth_age += seconds * sapling_growth_rate
+				data.tree_health = minf(1.0, data.tree_health + (0.48 / preload("res://features/levels/forest/StatePlanting.gd").GROWTH_SECONDS) * seconds * sapling_growth_rate)
 			else:
 				data.tree_health = maxf(0.0, data.tree_health - (stress + (0.003 if local_temperature < 3.0 else 0.0)) * seconds)
 			if data.tree_health <= 0.0:
@@ -225,7 +226,10 @@ func cell_conditions(cell: Vector2i) -> Dictionary:
 	if _grid == null or not _grid.in_bounds(cell):
 		return {}
 	var data = _grid.cells[cell.y * _grid.SIZE + cell.x]
-	return {"temperature": temperature, "weather": weather, "moisture": data.moisture,
+	return {"temperature": temperature_at(cell), "regional_temperature": temperature, "weather": weather, "moisture": data.moisture,
 		"health": data.health, "tree_health": data.tree_health, "tree_state": data.tree_state, "burning": data.burning,
 		"terrain": data.terrain, "water_level": data.water_level,
 		"canopy": shade_at(cell), "fire_hazard": fire_at(cell)}
+
+func temperature_at(cell: Vector2i) -> float:
+	return temperature - shade_at(cell) * 4.0

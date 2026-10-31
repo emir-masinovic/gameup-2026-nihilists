@@ -75,8 +75,17 @@ func run():
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(OS.get_environment("NIHILISTS_CAPTURE_DIR").path_join("planting-ring.png"))
 	world.terrain_renderer.update_state(world.grid)
-	check(world.terrain_renderer.batches[18].multimesh.visible_instance_count > 0 and world.terrain_renderer.batches[18].material_override.get_shader_parameter("terrain_color") == Color("554636"), "Generated soil has a shared brown terrain material independent of highlighting")
+	check(world.terrain_renderer.batches[18].multimesh.visible_instance_count + world.terrain_renderer.batches[19].multimesh.visible_instance_count > 0 and world.terrain_renderer.batches[18].material_override.get_shader_parameter("terrain_color") == Color("554636"), "Generated soil has a shared brown terrain material independent of highlighting")
 	check(world.hud.get_node("Context").get_theme_stylebox("normal") is StyleBoxFlat, "Interaction caption has a dark padded background")
+	data.moisture = 0.8
+	world.terrain_renderer.update_state(world.grid)
+	var wet_tiles: int = world.terrain_renderer.batches[19].multimesh.visible_instance_count
+	var dry_tiles: int = world.terrain_renderer.batches[18].multimesh.visible_instance_count
+	data.moisture = 0.1
+	world.terrain_renderer.update_state(world.grid)
+	check(world.terrain_renderer.batches[19].multimesh.visible_instance_count == wet_tiles-1 and world.terrain_renderer.batches[18].multimesh.visible_instance_count == dry_tiles+1, "Soil moisture selects distinct wet/dry brown materials without changing plantability")
+	data.moisture = 0.8
+
 	for batch in world.ground_cover.batches:
 		for index in batch.indices:
 			check(world.grid.cells[index].terrain != "soil", "Grass/shrub decoration leaves soil patches bare")

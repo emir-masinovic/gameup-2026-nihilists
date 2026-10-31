@@ -2,7 +2,7 @@ extends RefCounted
 # Run-local inventory; vegetation lives in each region's authoritative GridData.
 const INITIAL_SEEDS = 3
 const MAX_SEEDS = 9
-const GROWTH_SECONDS = 240.0
+const GROWTH_SECONDS = 120.0
 const MAX_WATER_ML = 1000
 const WATER_PER_POUR = 250
 const WATER_PER_FILL = 500
@@ -92,3 +92,6 @@ func collect_seed(grid: RefCounted, event: Dictionary) -> int:
 	seed_count += amount
 	data.pending_seeds = int(data.get("pending_seeds", 0)) - amount
 	return amount
+
+static func growth_stage(age: float) -> int:
+	return 0 if age < GROWTH_SECONDS * 0.25 else 1 if age < GROWTH_SECONDS * 0.625 else 2
