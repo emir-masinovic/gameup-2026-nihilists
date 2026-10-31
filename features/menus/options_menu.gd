@@ -148,13 +148,12 @@ func show_category(title: String):
 	match title:
 		"Gameplay":
 			var camera_modes = SettingsManager.CAMERA_MODES
-			var camera_mode = OptionButton.new()
-			for mode_name in camera_modes:
-				camera_mode.add_item(mode_name)
-			camera_mode.select(camera_modes.find(SettingsManager.camera_mode))
-			camera_mode.item_selected.connect(func(index): SettingsManager.camera_mode = camera_modes[index]; persist())
-			setting_row("Default camera mode", camera_mode, "CameraMode")
-			label("Cycle Follow Player and Board Center with the camera mode binding.")
+			var camera_mode = segmented_control(camera_modes,camera_modes.find(SettingsManager.camera_mode),func(index): SettingsManager.camera_mode = camera_modes[index]; persist())
+			for button in camera_mode.get_children():
+				button.add_theme_font_size_override("font_size",14)
+				button.custom_minimum_size.x = 0
+			setting_row("Camera mode",camera_mode,"CameraMode")
+			label("Cycle modes with the camera mode binding (C by default). Free Camera: arrow keys, Orbit drag, wheel zoom.")
 			var modes = ["Orthographic", "Perspective"]
 			var projection = segmented_control(modes, modes.find(SettingsManager.camera_projection), func(index): SettingsManager.camera_projection = modes[index]; persist())
 			projection.add_theme_constant_override("separation", 12)

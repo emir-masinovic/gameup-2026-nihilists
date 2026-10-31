@@ -56,7 +56,9 @@ func run():
 	var original_progression = save.progression
 	save.progression = original_progression.duplicate(true)
 	var flow = root.get_node("SceneFlow")
-	flow.run_regions = null
+	flow.run_regions = load("res://features/levels/forest/RunRegions.gd").new()
+	flow.run_regions.configure(2026)
+	flow.run_regions.get_region("forest").camp_enabled = true # Explicit reusable camp regression.
 	flow.next_seed = 2026
 	change_scene_to_file("res://features/levels/forest/forest_level.tscn")
 	await process_frame

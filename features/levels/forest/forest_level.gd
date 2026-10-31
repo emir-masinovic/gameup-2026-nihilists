@@ -66,7 +66,8 @@ func _ready():
 	world_seed = regions.seed_for(region_id)
 	grid = region_state.grid
 	climate = region_state.climate
-	climate.bonfire_intensity = region_state.get("bonfire_intensity", 1.0)
+	if not region_state.get("camp_enabled",false): region_state.bonfire_intensity = 0.0
+	climate.bonfire_intensity = region_state.get("bonfire_intensity", 0.0)
 	cut_cells = region_state.cut_cells
 	foraging = region_state.foraging
 	planting = regions.planting
@@ -129,7 +130,7 @@ func _ready():
 	$HUD/Info.hide()
 	SettingsManager.graphics_changed.connect(_apply_shadow_quality)
 	_apply_shadow_quality()
-	_create_landmarks()
+	if region_state.get("camp_enabled",false): _create_landmarks()
 	_update_bonfire_visuals()
 	_create_kenney_props()
 	water_material = StandardMaterial3D.new()
@@ -187,7 +188,7 @@ func _process(delta):
 		_tick_bonfire(1.0)
 		var cell = $GridPlayer.cell
 		var shade = climate.shade_at(cell)
-		var safe = cell.distance_to(grid.start) <= 2.2
+		var safe = _camp_active() and cell.distance_to(grid.start) <= 2.2
 		survival.tick(1.0, climate.temperature, shade, safe, SaveManager.has_heat_resistance(), {"camp_intensity": region_state.get("bonfire_intensity", 1.0), "weather": climate.weather, "canopy": shade, "wind": 0.5 if climate.weather in ["rain", "cool"] else 0.15, "fire_hazard": climate.fire_at(cell)})
 		var hazard = climate.fire_at(cell)
 		if hazard > 0 and not safe:
@@ -382,7 +383,7 @@ func _refresh_visuals():
 		forage_visuals.update_state(grid)
 
 func _update_hud():
-	var safe = $GridPlayer.cell.distance_to(grid.start) <= 2.2
+	var safe = _camp_active() and $GridPlayer.cell.distance_to(grid.start) <= 2.2
 	hud.update_status(survival.health, survival.exposure, climate.temperature, climate.weather, climate.warming_pressure(), SaveManager.progression.knowledge, safe, interactions.target.x >= 0)
 	_update_wind(tick_accumulator)
 	hud.set_environment_context(climate.fire_at($GridPlayer.cell), "", false)
@@ -614,10 +615,11 @@ func _descriptor(cell: Vector2i, kind: String, title: String, action: String, du
 func _interaction_candidates() -> Array:
 	var candidates: Array = []
 	var player = $GridPlayer.cell
-	var camp = _descriptor(grid.start, "bonfire", "Bonfire", "Rest", 0.0)
-	camp.range = 1.5
-	camp.priority = 10
-	candidates.append(camp)
+	if _camp_active():
+		var camp = _descriptor(grid.start,"bonfire","Bonfire","Rest",0.0)
+		camp.range = 1.5
+		camp.priority = 10
+		candidates.append(camp)
 	for cell in [player, player + Vector2i.UP, player + Vector2i.RIGHT, player + Vector2i.DOWN, player + Vector2i.LEFT]:
 		if not grid.in_bounds(cell): continue
 		var data = grid.cells[cell.y * grid.SIZE + cell.x]
@@ -797,7 +799,14 @@ func _planting_occupied(cell: Vector2i) -> bool:
 		if descriptor.cell == cell: return true
 	return false
 
+func _camp_active() -> bool:
+	return region_state.get("camp_enabled",false) and has_node("Bonfire")
+
 func _tick_bonfire(seconds: float):
+	if not _camp_active():
+		region_state.bonfire_intensity = 0.0
+		climate.bonfire_intensity = 0.0
+		return
 	var intensity: float = region_state.get("bonfire_intensity", 1.0)
 	var exposure = 1.0 - climate.shade_at(grid.start) * 0.85
 	intensity = clampf(intensity + (-0.02 * exposure if climate.weather == "rain" else 0.04) * seconds, 0.0, 1.0)
@@ -806,6 +815,7 @@ func _tick_bonfire(seconds: float):
 	_update_bonfire_visuals()
 
 func _update_bonfire_visuals():
+	if not _camp_active(): return
 	var intensity: float = region_state.get("bonfire_intensity", 1.0)
 	for i in range(3):
 		var flame = get_node("Bonfire/Flame%d" % i)

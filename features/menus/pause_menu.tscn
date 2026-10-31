@@ -48,6 +48,11 @@ custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
 text = "Options"
 
+[node name="Perks" type="Button" parent="Panel/Rows"]
+custom_minimum_size = Vector2(0,48)
+layout_mode = 2
+text = "Perks"
+
 [node name="MainMenu" type="Button" parent="Panel/Rows"]
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2

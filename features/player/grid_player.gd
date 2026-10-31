@@ -7,6 +7,13 @@ var facing = Vector2i.UP
 var cell = Vector2i.ZERO
 var grid: RefCounted
 var moving = false
+var camera_controlled = false:
+	set(value):
+		camera_controlled = value
+		if value and moving:
+			if is_instance_valid(move_tween): move_tween.kill()
+			moving = false
+			position = grid.world_position(cell) # Finish the already committed grid step.
 var require_release = false
 var move_tween: Tween
 var _screen_directions: Dictionary = {}
@@ -18,6 +25,7 @@ func configure(data: RefCounted):
 	_screen_directions.clear()
 
 func _process(_delta):
+	if camera_controlled: return
 	if require_release:
 		for action in ["move_north", "move_south", "move_west", "move_east"]:
 			if Input.is_action_pressed(action):
@@ -124,7 +132,7 @@ func _nearest_visible_direction(screen_direction: Vector2i, projected: Dictionar
 	return best_direction
 
 func try_move(direction: Vector2i) -> bool:
-	if moving or grid == null or abs(direction.x) + abs(direction.y) != 1:
+	if camera_controlled or moving or grid == null or abs(direction.x) + abs(direction.y) != 1:
 		return false
 	var target = cell + direction
 	if not grid.traversable(target):

@@ -7,7 +7,7 @@ const MIN_MOUSE_SENSITIVITY = 0.002
 const MAX_MOUSE_SENSITIVITY = 0.02
 var mouse_sensitivity = DEFAULT_MOUSE_SENSITIVITY
 var camera_projection = "Orthographic"
-const CAMERA_MODES = ["Follow Player", "Board Center"]
+const CAMERA_MODES = ["Follow Player", "Board Center", "Free Camera"]
 var camera_mode = "Follow Player"
 
 const DEFAULT_BINDINGS = {

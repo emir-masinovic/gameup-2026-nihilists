@@ -173,6 +173,9 @@ func run():
 		world._apply_shadow_quality()
 		world._advance_presentation(1.0)
 		check(sun.shadow_enabled == (quality > 0), "Day cycle respects shadow Off through High")
+	check(not world.has_node("Bonfire"),"Normal regions have no automatic camp")
+	world.region_state.camp_enabled = true
+	world._create_landmarks() # Retained reusable camp factory, explicitly opted in.
 	var fire = world.get_node("Bonfire")
 	check(fire.has_node("Flame0") and fire.has_node("Flame1") and fire.has_node("Flame2"), "Bonfire retains three lightweight flames")
 	check(fire.get_node("Smoke").amount <= 10 and not fire.get_node("Warmth").shadow_enabled, "Bonfire atmosphere remains bounded")
@@ -201,7 +204,7 @@ func run():
 	for label in world.find_children("*","Label3D",true,false):
 		check(label.text != "Recovering habitat","Temporary habitat label is absent")
 		if label.text.begins_with("To "): transitions += 1
-	check(transitions > 0 and world.has_node("Bonfire") and world.interaction_marker != null,"Region transitions, campfire and interaction marker remain")
+	check(transitions > 0 and not world.has_node("Bonfire") and world.interaction_marker != null,"Region transitions and interaction markers remain without automatic campfires")
 	var old_globe = false
 	for node in world.get_children():
 		if node is MeshInstance3D and node.material_override is StandardMaterial3D and node.material_override.emission_enabled:
