@@ -7,17 +7,25 @@ var cracks: MultiMeshInstance3D
 var _crack_batches: Array[Dictionary] = []
 var _noise = FastNoiseLite.new()
 var _appearance_seed = 0
+var _patch_noise = FastNoiseLite.new()
+var _detail_noise = FastNoiseLite.new()
+var _grass_sites: Dictionary = {}
 var _grid: RefCounted
 var _crack_sizes: Array[float] = []
 var _crack_targets: Array[float] = []
 
 func configure(grid: RefCounted, occupied: Dictionary = {}):
+	_grass_sites.clear()
 	occupied_cells = occupied
 	_grid = grid
 	_appearance_seed = int(grid.cells[0].rotation*10000.0)
 	_noise.seed = _appearance_seed
 	_noise.frequency = 0.23
 	_noise.fractal_octaves = 2
+	_patch_noise.seed = _appearance_seed ^ 0x71A3
+	_patch_noise.frequency = 0.075
+	_detail_noise.seed = _appearance_seed ^ 0x3E19
+	_detail_noise.frequency = 0.7
 	_build(grid, Visuals.instantiate_grass(), false)
 	_build(grid, Visuals.instantiate_shrub(), true)
 	_build_cracks(grid)
@@ -48,6 +56,12 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 			var position = Vector2i(i%grid.SIZE,floori(float(i)/grid.SIZE))
 			var cluster = (_noise.get_noise_2d(position.x,position.y)+1.0)*0.5
 			for slot in range(1 if shrubs else clampi(GRASS_DENSITY.minimum+int(cluster*10.0),GRASS_DENSITY.minimum,GRASS_DENSITY.maximum)): indices.append(i)
+	var placement: Array[Dictionary] = []
+	if not shrubs:
+		# Retain the old total capacity, not its per-tile layout.
+		placement = _grass_placement(grid,indices.size())
+		indices.clear()
+		for candidate in placement: indices.append(candidate.index)
 	var renderer = MultiMeshInstance3D.new()
 	renderer.name = "Shrubs" if shrubs else "Grass"
 	renderer.multimesh = MultiMesh.new()
@@ -67,17 +81,22 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	var offsets: Array[Vector3] = []
 	var rotations: Array[float] = []
 	var variations: Array[float] = []
-	var last_cell = -1
-	var slot = 0
-	for i in indices:
-		slot = slot+1 if i == last_cell else 0
-		last_cell = i
-		var key = i*37+slot*101+_appearance_seed
-		var anchor = Vector2(_sample(i*17)-0.5,_sample(i*29)-0.5)*0.65
-		offsets.append(Vector3(clampf(anchor.x+(_sample(key)-0.5)*1.8,-0.94,0.94),0,clampf(anchor.y+(_sample(key+13)-0.5)*1.8,-0.94,0.94)))
-		rotations.append(_sample(key+31)*TAU)
-		variations.append(0.7+_sample(key+47)*0.65)
-	batches.append({"renderer": renderer, "indices": indices, "source": source.transform, "sizes":sizes, "targets":sizes.duplicate(), "vitality":sizes.duplicate(), "shrubs":shrubs,"offsets":offsets,"rotations":rotations,"variations":variations})
+	var thresholds: Array[float] = []
+	var rng = RandomNumberGenerator.new()
+	rng.seed = _appearance_seed ^ 0x48A17
+	for j in range(indices.size()):
+		var i = indices[j]
+		var cell = Vector2i(i%grid.SIZE,floori(float(i)/grid.SIZE))
+		var offset: Vector3 = placement[j].position-grid.world_position(cell) if not shrubs else Vector3.ZERO
+		if shrubs:
+			var key = i*37+_appearance_seed
+			var anchor = Vector2(_sample(i*17)-0.5,_sample(i*29)-0.5)*0.65
+			offset = Vector3(clampf(anchor.x+(_sample(key)-0.5)*1.8,-0.94,0.94),0,clampf(anchor.y+(_sample(key+13)-0.5)*1.8,-0.94,0.94))
+		offsets.append(offset)
+		rotations.append(_sample(i*37+_appearance_seed+31)*TAU if shrubs else rng.randf_range(0.0,TAU))
+		variations.append(0.7+_sample(i*37+_appearance_seed+47)*0.65 if shrubs else rng.randf_range(0.7,1.35))
+		thresholds.append(rng.randf())
+	batches.append({"renderer": renderer, "indices": indices, "source": source.transform, "sizes":sizes, "targets":sizes.duplicate(), "vitality":sizes.duplicate(), "shrubs":shrubs,"offsets":offsets,"rotations":rotations,"variations":variations,"thresholds":thresholds})
 	model.free()
 
 func update_state(grid: RefCounted):
@@ -90,7 +109,7 @@ func update_state(grid: RefCounted):
 			var occupied = occupied_cells.has(cell) or cell == grid.start or data.tree or data.get("log",false) or data.get("berry_bush",false)
 			var allowed = (data.tree and data.get("tree_state","healthy") != "stump" and not data.get("log",false)) if batch.shrubs else not occupied
 			var visible_patch = allowed and data.terrain == "grass" and not data.get("burning", false) and (not data.get("burned", false) or data.get("burn_recovery", 0.0) >= 0.2)
-			var threshold = 0.1 + fposmod(float(i*13+j*7)*0.618034,1.0)*0.8
+			var threshold = 0.1 + (fposmod(float(i*13+j*7)*0.618034,1.0) if batch.shrubs else batch.thresholds[j])*0.8
 			# A small founding shoot precedes the denser surrounding cluster.
 			if j == 0 or batch.indices[j-1] != i: threshold = 0.08 + _sample(i+83)*0.04
 			var coverage = smoothstep(threshold-0.08,threshold+0.08,vitality*vitality)
@@ -202,3 +221,45 @@ func set_wind(state: Dictionary):
 		material.set_shader_parameter("wind_direction",state.direction)
 		material.set_shader_parameter("wind_strength",state.strength)
 		material.set_shader_parameter("wind_time",state.time)
+
+# Generation-only, continuous world-space density. One jittered candidate per
+# fine stratum; weighted sampling keeps the budget fixed without tile quotas.
+func _grass_placement(grid: RefCounted, budget: int) -> Array[Dictionary]:
+	var rng = RandomNumberGenerator.new()
+	rng.seed = _appearance_seed ^ 0x597B
+	var first: Vector3 = grid.world_position(Vector2i.ZERO)
+	var edge = Vector2(first.x,first.z)-Vector2.ONE*grid.CELL_SIZE*0.5
+	var extent = grid.SIZE*grid.CELL_SIZE
+	var steps = ceili(extent/0.45)
+	var spacing = extent/steps
+	var candidates: Array[Dictionary] = []
+	for z in range(steps):
+		for x in range(steps):
+			var point = edge+Vector2(x+rng.randf(),z+rng.randf())*spacing
+			var cell = Vector2i(floori((point.x-edge.x)/grid.CELL_SIZE),floori((point.y-edge.y)/grid.CELL_SIZE))
+			var index = cell.y*grid.SIZE+cell.x
+			if grid.cells[index].terrain != "grass": continue
+			var density = grass_density_at(point)
+			var priority = -log(maxf(rng.randf(),0.000001))/density
+			candidates.append({"position":Vector3(point.x,0,point.y),"index":index,"priority":priority})
+	candidates.sort_custom(func(a,b): return a.priority < b.priority)
+	candidates.resize(mini(budget,candidates.size()))
+	candidates.sort_custom(func(a,b): return a.index < b.index or (a.index == b.index and a.priority < b.priority))
+	return candidates
+
+func grass_density_at(point: Vector2) -> float:
+	const PATCH_SIZE = 4.2
+	var lattice = Vector2i(floori(point.x/PATCH_SIZE),floori(point.y/PATCH_SIZE))
+	var nearest = INF
+	for z in range(-1,2):
+		for x in range(-1,2):
+			var key = lattice+Vector2i(x,z)
+			if not _grass_sites.has(key):
+				var rng = RandomNumberGenerator.new()
+				rng.seed = hash(key) ^ _appearance_seed ^ 0x63B21
+				_grass_sites[key] = (Vector2(key)+Vector2(rng.randf(),rng.randf()))*PATCH_SIZE
+			nearest = minf(nearest,point.distance_to(_grass_sites[key]))
+	var cellular = 1.0-smoothstep(0.25,0.9,nearest/PATCH_SIZE)
+	var broad = smoothstep(-0.35,0.35,_patch_noise.get_noise_2d(point.x,point.y))
+	var detail = 0.8+0.2*_detail_noise.get_noise_2d(point.x,point.y)
+	return 0.02+pow(lerpf(broad,cellular,0.65),2.0)*detail

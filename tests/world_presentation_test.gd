@@ -92,6 +92,16 @@ func run():
 	check(forbidden_count > 0,"Occupied-cell grass exclusion was exercised")
 	var wetlands = world.regions.get_region("wetlands")
 	check(wetlands.climate.wind_state(0.25,world.regions.elapsed) == wind,"Regional travel keeps the shared run wind continuous")
+	var diagonal_phase = Vector2.ZERO
+	for offset in grass_batch.offsets:
+		diagonal_phase += Vector2.from_angle(TAU*(offset.x-offset.z)/1.8)
+	check(diagonal_phase.length()/grass_batch.offsets.size() < 0.25,"Grass offsets do not collapse onto correlated diagonal hash bands")
+	check(absf(cover.grass_density_at(Vector2(1.0-0.0001,3.4))-cover.grass_density_at(Vector2(1.0+0.0001,3.4))) < 0.001,"World density remains continuous across gameplay tile boundaries")
+	check(grass_batch.indices.size() == 1766,"World placement preserves the accepted seed-2026 grass budget")
+	var sites_before = cover._grass_sites.size()
+	cover.update_state(world.grid)
+	cover._process(0.1)
+	check(cover._grass_sites.size() == sites_before,"Climate appearance updates never regenerate spatial noise")
 	var distinct_offsets = {}
 	var per_cell = {}
 	for j in range(grass_batch.indices.size()):

@@ -98,3 +98,12 @@ The active scene sends one wind sample to the two ground-cover materials, six sh
 
 
 Batch 4 desktop inspection (seed 2026): Forest allocated 1,766 grass tufts, with 1,444 non-negligible target scales; Wetlands 1,824 / 1,498; Drylands 1,821 / 685. All retain five ground-cover batches and 18 triangles per grass tuft. The reference allocation rose from 705 to 1,766 (2.5x); hidden instances still consume capacity, so these are geometry/instance counts, not FPS claims. Compatibility captures, HUD checks at 800x600 / 1152x720 / 1600x900, and Web export pass. Browser runtime/FPS remains a manual acceptance check.
+
+
+### Grass distribution correction
+
+Batch 4's single-round integer hash produced correlated X/Z samples: `_sample(key + 13)` was almost a constant wrapped offset from `_sample(key)`. Tile-local anchors/clamping reinforced the diagonal rows; low-frequency noise only changed the count per tile. World-to-local conversion was correct. The accepted blades, shader, wind, tree sway, climate, height range and HUD are unchanged by this correction.
+
+Grass placement now generates fully jittered candidates in fine world-space strata across the entire region. Independent seeded RNG draws supply coordinates and appearance. A generation-only density field blends custom 2D Worley F1 (nearest of neighboring seeded cellular feature points), low-frequency coherent coverage and higher-frequency variation. Weighted sampling selects the existing total capacity from this field, allowing irregular gaps and dense patches across gameplay tile boundaries. Mapping accepted positions to logical cells happens afterwards, only for exclusions and real health/moisture response. There is no per-tile population quota or clamped tile-local offset. Appearance and growth update cached instances without resampling noise.
+
+SimonDev's inspected `grass-component.js` uses separate seeded random X/Z draws for instanced positions; the Worley field and global stratified/budgeted selection here are our implementation, not a claimed algorithm from that reference. Shrub placement, crack patterns and five ground-cover batches remain intact. Seed 2026 retains 1,766 grass instances (Forest), 1,824 (Wetlands), and 1,821 (Drylands); active population differs slightly because world-space candidates now land in different excluded/climate cells.
