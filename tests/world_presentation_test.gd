@@ -60,7 +60,7 @@ func run():
 	ground_data.merge(saved_ground)
 	cover.update_state(world.grid)
 	var grass_batch = cover.batches[0]
-	check(grass_batch.renderer.multimesh.mesh.get_faces().size() == 54, "Grass uses three rooted segmented blades, eighteen triangles per tuft")
+	check(grass_batch.renderer.multimesh.mesh.get_faces().size() == 45, "Grass uses three rooted segmented blades, fifteen non-degenerate triangles per tuft")
 	check(grass_batch.renderer.multimesh.mesh.get_aabb().position.y == 0.0, "Grass roots sit exactly on the ground")
 	check(grass_batch.renderer.material_override.get_shader_parameter("wind_height") == 0.5, "Wind bend height matches blade geometry")
 	var slot = grass_batch.indices.find(test_cell.y*17+test_cell.x)
@@ -137,6 +137,22 @@ func run():
 		world.grid.cells[i].merge(original[i].duplicate(true))
 	world._refresh_visuals()
 	check(grass_batch.renderer.material_override.get_shader_parameter("shelter_enabled") and grass_batch.renderer.material_override.get_shader_parameter("wind_exposure").size() == 73,"Shared GPU wind consumes one cached exposure value per cell")
+	var arrays = grass_batch.renderer.multimesh.mesh.surface_get_arrays(0)
+	var blade_vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var blade_uv: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
+	var blade_normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+	var root_count = 0
+	for i in range(blade_vertices.size()):
+		if blade_uv[i].y == 0.0:
+			root_count += 1
+			check(blade_vertices[i].y == 0.0,"Resting blade roots remain grounded")
+		check(blade_normals[i].y > 0.0,"Rounded blade normals retain sky-facing softness")
+	check(root_count > 0 and grass_batch.renderer.material_override.get_shader_parameter("blade_grass"),"Grass-only curvature/lighting metadata is present")
+	check(world.effects.wind_streaks.multimesh.instance_count == 6,"Wind ribbons remain capped at six instances")
+	world.effects.wind_streaks_enabled = false
+	world._update_wind(0.0)
+	check(not world.effects.wind_streaks.visible,"Optional wind ribbons disable independently of grass wind")
+	world.effects.wind_streaks_enabled = true
 	var distinct_offsets = {}
 	var per_cell = {}
 	for j in range(grass_batch.indices.size()):

@@ -378,6 +378,7 @@ func _refresh_visuals():
 		var exposure = climate.wind_exposure_map(regions.elapsed)
 		var origin = grid.world_position(Vector2i.ZERO)
 		ground_cover.set_shelter(exposure,origin)
+		effects.set_wind_shelter(exposure,origin)
 		preload("res://features/levels/forest/nature/nature_tree.gd").set_shelter(exposure,origin)
 	if forage_visuals != null:
 		forage_visuals.update_state(grid)
@@ -829,3 +830,4 @@ func _update_wind(fractional_seconds: float):
 	if ground_cover != null: ground_cover.set_wind(state)
 	preload("res://features/levels/forest/nature/nature_tree.gd").set_wind(state)
 	if hud != null: hud.set_wind(state)
+	if effects != null: effects.update_wind(state,$GridPlayer.global_position)

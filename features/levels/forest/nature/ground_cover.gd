@@ -72,6 +72,7 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	renderer.multimesh.instance_count = indices.size()
 	renderer.material_override = source.material.duplicate()
 	renderer.material_override.set_shader_parameter("instance_health", true)
+	renderer.material_override.set_shader_parameter("blade_grass",not shrubs)
 	renderer.material_override.set_shader_parameter("sway",0.045 if shrubs else 0.24)
 	renderer.material_override.set_shader_parameter("wind_height",0.3 if shrubs else 0.5)
 	renderer.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -223,18 +224,26 @@ func _grass_tuft() -> ArrayMesh:
 	var mesh = SurfaceTool.new()
 	mesh.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for blade in range(3):
-		var direction = Vector3(cos(blade*2.094),0,sin(blade*2.094))
+		var angle = [0.12,2.2,4.48][blade]
+		var direction = Vector3(cos(angle),0,sin(angle))
 		var side = direction.cross(Vector3.UP)
+		mesh.set_color(Color(direction.x*0.5+0.5,direction.z*0.5+0.5,float(blade)/2.0,1))
+		var bend = [0.24,0.18,0.29][blade]
+		var width = [0.045,0.04,0.05][blade]
 		for segment in range(3):
 			var t0 = float(segment)/3.0
 			var t1 = float(segment+1)/3.0
-			var start = Vector3.UP*t0*0.5+direction*t0*t0*0.13
-			var end = Vector3.UP*t1*0.5+direction*t1*t1*0.13
-			var a = side*(1.0-t0)*0.045
-			var b = side*(1.0-t1)*0.045
-			for point in [start-a,start+a,end+b,start-a,end+b,end-b]:
-				mesh.set_normal(direction)
-				mesh.add_vertex(point)
+			var vertices = [Vector2(t0,-1),Vector2(t0,1),Vector2(t1,1)]
+			if segment < 2: vertices.append_array([Vector2(t0,-1),Vector2(t1,1),Vector2(t1,-1)])
+			for vertex in vertices:
+				var t: float = vertex.x
+				var center = Vector3.UP*t*0.5+direction*(0.03*t+bend*t*t)
+				var tangent = (Vector3.UP*0.5+direction*(0.03+2.0*bend*t)).normalized()
+				var face = side.cross(tangent).normalized()
+				# Rounded cross-blade normals with an upward sky-light bias.
+				mesh.set_normal((face*0.45+Vector3.UP*0.7+side*vertex.y*0.35).normalized())
+				mesh.set_uv(Vector2((vertex.y+1.0)*0.5,t))
+				mesh.add_vertex(center+side*vertex.y*pow(1.0-t,0.9)*width)
 	return mesh.commit()
 
 func set_wind(state: Dictionary):
