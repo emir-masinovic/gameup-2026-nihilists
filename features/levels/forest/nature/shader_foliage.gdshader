@@ -7,6 +7,7 @@ varying vec3 leaf_position;
 uniform bool instance_health = false;
 uniform bool blade_grass = false;
 varying float blade_height;
+varying vec3 blade_tint;
 varying float vitality;
 uniform float sway = 0.025;
 uniform float wind_height = 1.6;
@@ -18,6 +19,12 @@ uniform vec4 wind_exposure[73];
 uniform vec2 shelter_origin = vec2(-16.0);
 void vertex() {
     blade_height = UV.y;
+    float occlusion = blade_grass ? INSTANCE_CUSTOM.b : 0.0;
+    float root_shade = mix(0.88,0.38,occlusion);
+    float top = smoothstep(0.0,0.95,UV.y);
+    float hue = fract(INSTANCE_CUSTOM.g*17.31);
+    vec3 variation = mix(vec3(0.94,0.99,0.88),vec3(1.03,1.01,0.98),hue);
+    blade_tint = mix(vec3(root_shade),vec3(1.03,1.07,0.94),top)*variation;
     vitality = INSTANCE_CUSTOM.r;
     leaf_position = VERTEX;
     vec3 world = MODEL_MATRIX[3].xyz;
@@ -54,8 +61,7 @@ void fragment() {
     if (blade_grass) {
         if (!FRONT_FACING) { NORMAL = -NORMAL; }
         // Real vitality approximates dense-cover root occlusion; tips stay soft.
-        float root_shade = mix(0.9,0.62,vitality);
-        ALBEDO *= mix(vec3(root_shade),vec3(1.06,1.1,0.96),smoothstep(0.0,1.0,blade_height));
+        ALBEDO *= blade_tint;
     }
     ROUGHNESS = 1.0;
     METALLIC = 0.0;

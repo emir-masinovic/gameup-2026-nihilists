@@ -153,6 +153,13 @@ func run():
 	world._update_wind(0.0)
 	check(not world.effects.wind_streaks.visible,"Optional wind ribbons disable independently of grass wind")
 	world.effects.wind_streaks_enabled = true
+	check(grass_batch.crowding.size() == grass_batch.indices.size() and grass_batch.crowding.min() < grass_batch.crowding.max(),"Spatial crowding cache distinguishes sparse and overlapping tufts")
+	var cached_crowding = grass_batch.crowding.duplicate()
+	cover.update_state(world.grid)
+	check(grass_batch.crowding == cached_crowding,"Climate refresh reuses crowding without resampling neighbors")
+	var close_pair: Array[Dictionary] = [{"position":Vector3.ZERO},{"position":Vector3(0.1,0,0)}]
+	var distant_pair: Array[Dictionary] = [{"position":Vector3.ZERO},{"position":Vector3(3,0,0)}]
+	check(cover._crowding(close_pair)[0] > cover._crowding(distant_pair)[0],"Overlapping blades receive more ambient occlusion than isolated blades")
 	var distinct_offsets = {}
 	var per_cell = {}
 	for j in range(grass_batch.indices.size()):

@@ -87,6 +87,7 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	var bases: Array[Basis] = []
 	var origins: Array[Vector3] = []
 	var phases: Array[float] = []
+	var crowding = _crowding(placement) if not shrubs else []
 	var pending: Dictionary = {}
 	var rng = RandomNumberGenerator.new()
 	rng.seed = _appearance_seed ^ 0x48A17
@@ -109,7 +110,7 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 		origins.append(grid.world_position(cell)+offset)
 		phases.append(_sample(i*37+j))
 		pending[j] = true
-	batches.append({"renderer": renderer, "indices": indices, "source": source.transform, "sizes":sizes, "targets":sizes.duplicate(), "vitality":sizes.duplicate(), "shrubs":shrubs,"offsets":offsets,"rotations":rotations,"variations":variations,"thresholds":thresholds,"bases":bases,"origins":origins,"phases":phases,"pending":pending,"cell_states":{}})
+	batches.append({"renderer": renderer, "indices": indices, "source": source.transform, "sizes":sizes, "targets":sizes.duplicate(), "vitality":sizes.duplicate(), "shrubs":shrubs,"offsets":offsets,"rotations":rotations,"variations":variations,"thresholds":thresholds,"bases":bases,"origins":origins,"phases":phases,"pending":pending,"cell_states":{},"crowding":crowding})
 	model.free()
 
 func update_state(grid: RefCounted):
@@ -138,7 +139,7 @@ func update_state(grid: RefCounted):
 			if batch.sizes[j] != batch.targets[j]: batch.pending[j] = true
 			if batch.vitality[j] != vitality:
 				batch.vitality[j] = vitality
-				batch.renderer.multimesh.set_instance_custom_data(j,Color(vitality,batch.phases[j],vitality,1))
+				batch.renderer.multimesh.set_instance_custom_data(j,Color(vitality,batch.phases[j],0.0 if batch.shrubs else batch.crowding[j]*vitality*vitality,1))
 	for i in range(grid.cells.size()):
 		var data = grid.cells[i]
 		var bare_ground: bool = data.terrain == "grass" and not data.get("burned", false)
@@ -301,3 +302,24 @@ func set_shelter(values: PackedVector4Array, origin: Vector3):
 		material.set_shader_parameter("wind_exposure",values)
 		material.set_shader_parameter("shelter_origin",Vector2(origin.x,origin.z))
 		material.set_shader_parameter("shelter_enabled",true)
+
+# Generation-only spatial bins: approximate overlapping-tuft ambient occlusion.
+# Fixed placements remain cached; climate thinning scales this proxy at refresh.
+func _crowding(placement: Array[Dictionary]) -> Array[float]:
+	var bins: Dictionary = {}
+	for candidate in placement:
+		var key = Vector2i(floori(candidate.position.x/0.65),floori(candidate.position.z/0.65))
+		if not bins.has(key): bins[key] = []
+		bins[key].append(candidate.position)
+	var values: Array[float] = []
+	for candidate in placement:
+		var point: Vector3 = candidate.position
+		var key = Vector2i(floori(point.x/0.65),floori(point.z/0.65))
+		var overlap = 0.0
+		for z in range(-1,2):
+			for x in range(-1,2):
+				for other in bins.get(key+Vector2i(x,z),[]):
+					var distance = point.distance_to(other)
+					if distance > 0.001: overlap += maxf(0.0,1.0-distance/0.65)
+		values.append(clampf(overlap/3.0,0.0,1.0))
+	return values
