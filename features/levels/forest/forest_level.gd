@@ -298,6 +298,11 @@ func _finish_interaction(event: Dictionary):
 			log_visual.rotation.y = atan2(event.direction.x, event.direction.y)
 			$Vegetation.add_child(log_visual)
 			logs[landing] = log_visual
+	elif event.kind == "sapling_removed":
+		if trees.has(cell):
+			trees[cell].queue_free()
+			trees.erase(cell)
+		hud.notify("Sapling removed")
 	elif event.kind == "log_cleared":
 		if logs.has(cell):
 			logs[cell].queue_free()
@@ -588,12 +593,22 @@ func _create_region_markers():
 	add_child(interaction_marker)
 
 func _update_interaction_marker():
-	selected_interaction = context_action.select(_interaction_candidates(), $GridPlayer.cell, $GridPlayer.facing)
-	var display = context_action.active if not context_action.active.is_empty() else selected_interaction
-	interaction_marker.visible = not display.is_empty() and not $GridPlayer.moving and not get_tree().paused
+	var candidates = _interaction_candidates()
+	selected_interaction = context_action.select(candidates, $GridPlayer.cell, $GridPlayer.facing)
+	var display = selected_interaction
+	var active_display = false
+	if not context_action.active.is_empty():
+		# Revalidate against current world descriptors, never a cached active target.
+		display = {}
+		for candidate in candidates:
+			if candidate.id == context_action.active.id and candidate.get("available", true) and not context_action.select([candidate], $GridPlayer.cell, $GridPlayer.facing).is_empty():
+				display = candidate
+				active_display = true
+				break
+	interaction_marker.visible = not display.is_empty() and display.get("available", true) and not $GridPlayer.moving and not get_tree().paused
 	if interaction_marker.visible:
 		interaction_marker.position = grid.world_position(display.cell) + Vector3(0,0.12,0)
-	hud.update_interaction(display, context_action.progress, not context_action.active.is_empty(), _binding_label("interact"))
+	hud.update_interaction(display, context_action.progress, active_display, _binding_label("interact"))
 
 func _binding_label(action: String) -> String:
 	var labels: PackedStringArray = []
@@ -627,10 +642,13 @@ func _interaction_candidates() -> Array:
 		elif data.get("log", false):
 			candidates.append(_descriptor(cell, "log", "Fallen Log", "Clear", 1.2 * SaveManager.get_chop_multiplier(), not burning, "Wood is burning" if burning else ""))
 		elif data.tree:
-			candidates.append(_descriptor(cell, "tree", "Stump" if data.tree_state == "stump" else "Tree", "Remove" if data.tree_state == "stump" else "Chop", 1.2 * SaveManager.get_chop_multiplier(), not burning, "Tree is burning" if burning else ""))
+			var juvenile: bool = interactions.is_juvenile(data)
+			var title = ("Dead Sapling" if data.tree_state == "dead" else "Sapling") if juvenile else "Stump" if data.tree_state == "stump" else "Tree"
+			candidates.append(_descriptor(cell, "tree", title, "Remove" if juvenile or data.tree_state == "stump" else "Chop", 1.2 * SaveManager.get_chop_multiplier(), not burning, "Tree is burning" if burning else ""))
 		elif cell != player and data.terrain == "soil":
 			var availability: Dictionary = planting.availability(grid, cell, _planting_occupied(cell))
-			candidates.append(_descriptor(cell, "plant", "Bare Soil", "Plant Seed", 1.0, availability.available, availability.reason))
+			if availability.available:
+				candidates.append(_descriptor(cell, "plant", "Bare Soil", "Plant Seed", 1.0))
 	candidates.append_array(custom_interactables)
 	return candidates
 

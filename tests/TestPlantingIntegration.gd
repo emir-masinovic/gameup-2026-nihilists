@@ -116,9 +116,54 @@ func run():
 	models.configure(2026)
 	check(models.planting.seed_count == 3 and models.states.is_empty(), "New run resets inventory and planted vegetation")
 	sprout.queue_free()
+	check_juvenile_removal()
 	await scene_checks()
 	print("PLANTING INTEGRATION: ", checks, " checks, ", failures, " failures")
 	quit(failures)
+func check_juvenile_removal():
+	var models = Regions.new()
+	models.configure(2026)
+	var grid = models.enter("forest").grid
+	var cutter = preload("res://features/levels/forest/forest_interactions.gd").new()
+	cutter.configure(grid)
+	var target = Vector2i(4,4)
+	var player = target + Vector2i.RIGHT
+	var landing = target + Vector2i.LEFT
+	for stage in [0.0, 60.0, 120.0, 239.0]:
+		for dead in [false,true]:
+			var data = soil(grid,target)
+			soil(grid,landing)
+			models.planting.seed_count = 3
+			models.planting.plant(grid,target)
+			data.growth_age = stage
+			if dead: data.tree_state = "dead"
+			check(cutter.begin(player,Vector2i.LEFT), "Young/dead sapling removal can begin")
+			var event = cutter.tick(2.0,player)
+			check(event.get("kind", "") == "sapling_removed" and not event.has("landing") and not event.get("seed_eligible",false), "Juvenile never enters full-tree fall/log/seed logic")
+			check(not data.tree and data.tree_state == "removed" and not grid.cells[landing.y*grid.SIZE+landing.x].log, "Young vegetation removal leaves empty cell without mature stump/log")
+	var data = soil(grid,target)
+	models.planting.seed_count = 3
+	models.planting.plant(grid,target)
+	check(cutter.begin(player,Vector2i.LEFT), "Start removal before growth boundary")
+	data.growth_age = 240.0
+	data.tree_state = "healthy"
+	check(cutter.tick(2.0,player).is_empty() and data.tree_state == "healthy", "Maturing invalidates an in-progress juvenile action")
+	check(cutter.begin(player,Vector2i.LEFT), "Fully grown planted tree can be chopped")
+	check(cutter.tick(2.0,player).get("kind", "") == "tree_cut" and data.tree_state == "stump", "Only mature planted tree retains existing stump behavior")
+	soil(grid,target)
+	models.planting.seed_count = 3
+	models.planting.plant(grid,target)
+	cutter.begin(player,Vector2i.LEFT)
+	cutter.tick(2.0,player)
+	models.enter("wetlands")
+	var returned = models.enter("forest")
+	check(not returned.grid.cells[target.y*grid.SIZE+target.x].tree and returned.grid.cells[target.y*grid.SIZE+target.x].tree_state == "removed", "Removed sapling stays removed after regional round trip")
+
+func highlighted(world: Node, cell: Vector2i) -> bool:
+	var marker: Node3D = world.interaction_marker
+	var expected: Vector3 = world.grid.world_position(cell) + Vector3(0,0.12,0)
+	return marker.visible and marker.position.is_equal_approx(expected)
+
 func soil_cell(grid: RefCounted) -> Vector2i:
 	soil(grid,Vector2i(2,2))
 	return Vector2i(2,2)
@@ -148,6 +193,37 @@ func scene_checks():
 	player.cell = Vector2i(8,5)
 	player.position = world.grid.world_position(player.cell)
 	player.facing = Vector2i.LEFT
+	world._update_interaction_marker()
+	check(highlighted(world,target) and world.hud.get_node("Context").text.contains("Plant Seed"), "Empty eligible soil ring matches the named Interact action")
+	for reason in ["burning","burned","occupied","seeds","protected"]:
+		var soil_data: Dictionary = world.grid.cells[target.y*world.grid.SIZE+target.x]
+		if reason == "burning": soil_data.burning = true
+		if reason == "burned": soil_data.burned = true
+		if reason == "occupied": world.decorated_cells[target] = true
+		if reason == "seeds": world.planting.seed_count = 0
+		if reason == "protected":
+			player.cell = Vector2i(8,4)
+			soil(world.grid,Vector2i(8,5))
+		world._update_interaction_marker()
+		check(not highlighted(world,Vector2i(8,5) if reason == "protected" else target), "Invalid soil has no planting ring: " + reason)
+		soil_data.burning = false
+		soil_data.burned = false
+		world.decorated_cells.erase(target)
+		world.planting.seed_count = 3
+		player.cell = Vector2i(8,5)
+	world._begin_context_action()
+	player.cell = Vector2i(0,0)
+	world._update_interaction_marker()
+	check(not world.interaction_marker.visible and not world.hud.get_node("Context").text.contains("Plant Seed"), "Out-of-range cached action cannot retain a ring or stale prompt")
+	player.cell = Vector2i(8,5)
+	world._update_interaction_marker()
+	check(highlighted(world,target), "Still valid in-range action retains its correct target")
+	world.grid.cells[target.y*world.grid.SIZE+target.x].log = true
+	world._update_interaction_marker()
+	check(not highlighted(world,target) and not world.hud.get_node("Context").text.contains("Plant Seed"), "Stale active planting target clears ring and prompt immediately")
+	world._tick_context_action(0.1)
+	check(world.context_action.active.is_empty() and world.planting.seed_count == 3, "Invalidated planting cancels without spending seeds")
+	world.grid.cells[target.y*world.grid.SIZE+target.x].log = false
 	world._begin_context_action()
 	check(world.context_action.active.get("object_kind", "") == "plant", "Existing contextual Interact selects planting without separate action")
 	paused = true
@@ -160,7 +236,14 @@ func scene_checks():
 	var knowledge: int = save.progression.knowledge
 	world._discover("interaction.first_planting", "Repeated planting")
 	check(save.progression.knowledge == knowledge, "Planting discovery awards Knowledge only once")
+	world._update_interaction_marker()
+	check(highlighted(world,target) and world.hud.get_node("Context").text.contains("Sapling") and world.hud.get_node("Context").text.contains("Remove"), "Juvenile prompt names sapling removal rather than mature chopping")
+	world._begin_context_action()
+	world._tick_context_action(1.3)
 	var data: Dictionary = world.grid.cells[target.y*world.grid.SIZE+target.x]
+	check(not data.tree and data.tree_state == "removed" and not world.trees.has(target), "Scene removes sapling without creating mature stump visual")
+	check(world.planting.plant(world.grid,target), "Removed juvenile cell can be replanted")
+	world._refresh_visuals()
 	data.growth_age = 240.0
 	data.tree_state = "healthy"
 	data.tree_health = 0.9

@@ -22,14 +22,10 @@ func begin(player: Vector2i, facing: Vector2i) -> bool:
 		if not grid.in_bounds(candidate):
 			continue
 		var cell = grid.cells[candidate.y * grid.SIZE + candidate.x]
-		if cell.get("burning", false):
+		_interaction_kind = kind_for(cell)
+		if _interaction_kind.is_empty():
 			continue
-		if cell.get("log", false):
-			_interaction_kind = "log_cleared"
-		elif cell.tree:
-			_interaction_kind = "stump_removed" if cell.get("tree_state", "healthy") == "stump" else "tree_cut"
-		else:
-			continue
+
 		target = candidate
 		origin = player
 		progress = 0.0
@@ -44,7 +40,7 @@ func tick(delta: float, player: Vector2i) -> Dictionary:
 		return {}
 	var cell = grid.cells[target.y * grid.SIZE + target.x]
 	# Weather or fire may invalidate an action while it is in progress.
-	if cell.get("burning", false) or (_interaction_kind == "log_cleared" and not cell.get("log", false)) or (_interaction_kind != "log_cleared" and not cell.tree):
+	if _interaction_kind != kind_for(cell):
 		_cancel()
 		return {}
 	if not is_finite(delta) or delta <= 0.0:
@@ -56,7 +52,7 @@ func tick(delta: float, player: Vector2i) -> Dictionary:
 	if _interaction_kind == "log_cleared":
 		cell.log = false
 		cell.fuel = 0.0
-	elif _interaction_kind == "stump_removed":
+	elif _interaction_kind in ["stump_removed", "sapling_removed"]:
 		cell.tree = false
 		cell.tree_state = "removed"
 		cell.fuel = 0.0
@@ -80,3 +76,13 @@ func _cancel() -> void:
 	target = Vector2i(-1, -1)
 	progress = 0.0
 	_interaction_kind = ""
+
+func is_juvenile(cell: Dictionary) -> bool:
+	return cell.get("tree_state", "") == "sapling" or (cell.get("planted", false) and cell.get("growth_age", 0.0) < preload("res://features/levels/forest/StatePlanting.gd").GROWTH_SECONDS and cell.get("tree_state", "") != "stump")
+
+func kind_for(cell: Dictionary) -> String:
+	if cell.get("burning", false): return ""
+	if cell.get("log", false): return "log_cleared"
+	if not cell.tree: return ""
+	if cell.get("tree_state", "healthy") == "stump": return "stump_removed"
+	return "sapling_removed" if is_juvenile(cell) else "tree_cut"
