@@ -1,6 +1,7 @@
 extends Node3D
 const GridData = preload("res://features/levels/forest/grid_data.gd")
 const TREE = preload("res://features/levels/forest/forest_tree.tscn")
+const SAPLING = preload("res://features/levels/forest/forest_sapling.tscn")
 @export var world_seed: int = 2026
 @export_range(0.1, 10.0) var simulation_time_scale = 1.0
 @export_group("World presentation")
@@ -16,6 +17,7 @@ var interactions = preload("res://features/levels/forest/forest_interactions.gd"
 var survival = preload("res://features/player/survival_state.gd").new()
 var grounds: Array[MeshInstance3D] = []
 var trees = {}
+var water_tiles: Dictionary = {}
 var palette: Array[ShaderMaterial] = []
 var leaf_materials: Array[StandardMaterial3D] = []
 var tick_accumulator = 0.0
@@ -24,6 +26,7 @@ var hud: Control
 var recovery_seen = false
 var rain_particles: CPUParticles3D
 var heat_particles: CPUParticles3D
+var water_splash: CPUParticles3D
 
 func _ready():
 	if not OS.get_cmdline_user_args().has("--fixed-seed"):
@@ -50,6 +53,18 @@ func _ready():
 		mat.albedo_color = color
 		mat.roughness = 1.0
 		leaf_materials.append(mat)
+	
+	var water_container = Node3D.new()
+	water_container.name = "Water"
+	add_child(water_container)
+	var water_mat = StandardMaterial3D.new()
+	water_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	water_mat.albedo_color = Color(0.18, 0.58, 0.88, 0.72)
+	water_mat.roughness = 0.1
+	water_mat.metallic = 0.15
+	var water_box = BoxMesh.new()
+	water_box.size = Vector3(grid.CELL_SIZE * 0.96, 0.08, grid.CELL_SIZE * 0.96)
+
 	var tile = BoxMesh.new()
 	tile.size = Vector3(grid.CELL_SIZE, 0.3, grid.CELL_SIZE)
 	for z in range(grid.SIZE):
@@ -62,7 +77,14 @@ func _ready():
 			ground.position = grid.world_position(cell) + Vector3(0, -0.15, 0)
 			$Terrain.add_child(ground)
 			grounds.append(ground)
-			if data.tree:
+			if data.get("water", false):
+				var water_mesh = MeshInstance3D.new()
+				water_mesh.mesh = water_box
+				water_mesh.material_override = water_mat
+				water_mesh.position = grid.world_position(cell) + Vector3(0, 0.02, 0)
+				water_container.add_child(water_mesh)
+				water_tiles[cell] = water_mesh
+			elif data.tree:
 				var tree = TREE.instantiate()
 				tree.position = grid.world_position(cell)
 				tree.rotation.y = data.rotation
@@ -77,6 +99,7 @@ func _ready():
 	_create_landmarks()
 	_create_kenney_props()
 	_create_weather_effects()
+	_create_water_splash()
 	_update_lighting()
 	_refresh_visuals()
 	_update_weather_effects()
@@ -119,20 +142,35 @@ func _unhandled_input(event):
 	if $GridPlayer.cell.distance_to(grid.start) <= 1.5:
 		hud.show_modal("bonfire")
 	elif interactions.begin($GridPlayer.cell, $GridPlayer.facing):
-		hud.notify("Chopping... moving cancels the action")
+		var msg = "Chopping... moving cancels the action"
+		if interactions.action_kind == "water_soil":
+			msg = "Revitalizing soil... moving cancels the action"
+		elif interactions.action_kind == "plant_sapling":
+			msg = "Planting sapling... moving cancels the action"
+		elif interactions.action_kind == "stump_removed":
+			msg = "Removing stump... moving cancels the action"
+		hud.notify(msg)
 	else:
-		hud.notify("Move beside a tree or stump to interact")
+		hud.notify("Face an adjacent tree, stump, or clear ground to interact")
 	get_viewport().set_input_as_handled()
 
 func _on_cell_entered(cell: Vector2i):
 	climate.trample(cell)
+	if climate.water_proximity(cell) > 0.15:
+		_discover("terrain.water_source", "Lake: water cools the surroundings and resists drought")
+	var current_cell_data = grid.cells[cell.y * grid.SIZE + cell.x]
+	if current_cell_data.get("water", false) and current_cell_data.get("water_depth", 0.0) <= 0.25:
+		_discover("terrain.dried_lakebed", "Dried lakebed: passable during heatwaves")
 	for offset in [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
 		var next = cell + offset
 		if grid.in_bounds(next):
 			var data = grid.cells[next.y * grid.SIZE + next.x]
 			if data.tree:
-				var dead = data.tree_state == "dead"
-				_discover("flora.dead_tree" if dead else "flora.healthy_tree", "Dead tree" if dead else "Healthy tree")
+				if data.tree_state == "sapling":
+					_discover("flora.sapling", "Young sapling")
+				else:
+					var dead = data.tree_state == "dead"
+					_discover("flora.dead_tree" if dead else "flora.healthy_tree", "Dead tree" if dead else "Healthy tree")
 	_update_hud()
 	if cell == grid.objective:
 		call_deferred("_end_run", "success")
@@ -173,11 +211,25 @@ func _finish_interaction(event: Dictionary):
 		stump.position = grid.world_position(cell) + Vector3(0, 0.175, 0)
 		$Vegetation.add_child(stump)
 		trees[cell] = stump
-	else:
+	elif event.kind == "stump_removed":
 		if trees.has(cell):
 			trees[cell].queue_free()
 			trees.erase(cell)
 		hud.notify("Stump removed: the cell is now open")
+	elif event.kind == "water_soil":
+		_discover("interaction.water_soil", "Soil revitalized: moisture and nutrients restored")
+		hud.notify("Soil revitalized! Fertile and moist.")
+		if water_splash != null:
+			water_splash.position = grid.world_position(cell) + Vector3(0, 0.15, 0)
+			water_splash.restart()
+	elif event.kind == "plant_sapling":
+		_discover("interaction.plant_sapling", "Sapling planted: will grow into a shade-giving tree")
+		hud.notify("Sapling planted! Keep it moist to help it grow.")
+		var sapling = SAPLING.instantiate()
+		sapling.position = grid.world_position(cell)
+		sapling.scale = Vector3.ONE * 0.8
+		$Vegetation.add_child(sapling)
+		trees[cell] = sapling
 	_refresh_visuals()
 
 func _refresh_visuals():
@@ -193,13 +245,36 @@ func _refresh_visuals():
 			recovery_seen = true
 			_discover("flora.recovery", "Vegetation recovers in favorable weather")
 		var cell = Vector2i(i % grid.SIZE, floori(float(i) / grid.SIZE))
-		if trees.has(cell) and data.tree_state in ["healthy", "dead"]:
-			var tree = trees[cell]
-			var bucket = clampi(int(data.tree_health * 3.99), 0, 3)
-			for child in tree.get_children():
-				if child is MeshInstance3D and child.name.begins_with("Crown"):
-					child.material_override = leaf_materials[bucket]
-					child.visible = data.tree_state != "dead"
+		if trees.has(cell):
+			var node = trees[cell]
+			if data.tree_state == "sapling":
+				node.scale = Vector3.ONE * clampf(data.tree_health * 1.1, 0.5, 1.1)
+			elif data.tree_state in ["healthy", "dead"]:
+				if node.has_node("Stem"):
+					# Sapling matured into full tree
+					node.queue_free()
+					var mature_tree = TREE.instantiate()
+					mature_tree.position = grid.world_position(cell)
+					$Vegetation.add_child(mature_tree)
+					trees[cell] = mature_tree
+					node = mature_tree
+					_discover("flora.tree_matured", "Mature tree: grown from planted sapling")
+					hud.notify("A sapling has grown into a mature tree!")
+				var bucket = clampi(int(data.tree_health * 3.99), 0, 3)
+				for child in node.get_children():
+					if child is MeshInstance3D and child.name.begins_with("Crown"):
+						child.material_override = leaf_materials[bucket]
+						child.visible = data.tree_state != "dead"
+	for cell in water_tiles.keys():
+		var node: MeshInstance3D = water_tiles[cell]
+		var data = grid.cells[cell.y * grid.SIZE + cell.x]
+		var depth = data.get("water_depth", 0.0)
+		if depth < 0.12:
+			node.visible = false
+		else:
+			node.visible = true
+			node.scale = Vector3(clampf(0.6 + depth * 0.4, 0.6, 1.0), clampf(depth, 0.2, 1.0), clampf(0.6 + depth * 0.4, 0.6, 1.0))
+			node.position.y = lerpf(-0.04, 0.02, depth)
 
 func _update_hud():
 	var safe = $GridPlayer.cell.distance_to(grid.start) <= 2.2
@@ -360,6 +435,34 @@ func _create_weather_effects():
 	heat_particles.mesh = ember
 	heat_particles.position = center + Vector3(0, 0.2, 0)
 	add_child(heat_particles)
+
+func _create_water_splash():
+	water_splash = CPUParticles3D.new()
+	water_splash.name = "WaterSplash"
+	water_splash.emitting = false
+	water_splash.one_shot = true
+	water_splash.explosiveness = 0.92
+	water_splash.amount = 24
+	water_splash.lifetime = 0.55
+	water_splash.direction = Vector3(0, 1, 0)
+	water_splash.spread = 55.0
+	water_splash.initial_velocity_min = 2.0
+	water_splash.initial_velocity_max = 4.0
+	water_splash.gravity = Vector3(0, -9.8, 0)
+	
+	var water_mat = StandardMaterial3D.new()
+	water_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	water_mat.albedo_color = Color(0.35, 0.72, 1.0, 0.75)
+	water_mat.roughness = 0.1
+	
+	var drop = SphereMesh.new()
+	drop.radius = 0.04
+	drop.height = 0.08
+	drop.radial_segments = 5
+	drop.rings = 3
+	drop.material = water_mat
+	water_splash.mesh = drop
+	add_child(water_splash)
 
 func _update_weather_effects():
 	if rain_particles != null:

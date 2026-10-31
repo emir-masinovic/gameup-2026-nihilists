@@ -20,11 +20,13 @@ func configure(grid: RefCounted, world_seed: int):
 	rng.seed = world_seed
 	_weather_offset = rng.randi_range(0, 3)
 	for data in _grid.cells:
-		data.moisture = rng.randf_range(0.55, 0.8)
+		data.moisture = 1.0 if data.get("water", false) else rng.randf_range(0.55, 0.8)
 		data.health = 1.0
 		data.tree_health = 1.0 if data.tree else 0.0
 		data.tree_state = "healthy" if data.tree else "removed"
 		data.trampled = 0.0
+		data.water = data.get("water", false)
+		data.water_depth = data.get("water_depth", (1.0 if data.water else 0.0))
 	_update_weather()
 
 func tick(seconds: float = 1.0):
@@ -51,6 +53,13 @@ func _simulate(seconds: float):
 		shades.append(shade_at(Vector2i(i % _grid.SIZE, floori(float(i) / _grid.SIZE))))
 	for i in range(_grid.cells.size()):
 		var data: Dictionary = _grid.cells[i]
+		if data.get("water", false):
+			var rain_inflow = 0.05 if weather == "rain" else (0.008 if weather == "cool" else 0.0)
+			var evaporation = (0.0035 + maxf(temperature - 26.0, 0.0) * 0.0014) * (1.6 if weather == "heat" else 0.8)
+			data.water_depth = clampf(data.get("water_depth", 1.0) + (rain_inflow - evaporation) * seconds, 0.0, 1.0)
+			data.moisture = clampf(data.water_depth, 0.1, 1.0)
+			data.health = 1.0
+			continue
 		var exposure = 1.0 - shades[i] * 0.7
 		var drying = (0.0015 + maxf(temperature - 20.0, 0.0) * 0.00035) * exposure
 		var rain = 0.015 if weather == "rain" else (0.001 if weather == "cool" else 0.0)
@@ -59,10 +68,36 @@ func _simulate(seconds: float):
 		var stress = maxf(0.28 - data.moisture, 0.0) * 0.022 + maxf(temperature - 34.0, 0.0) * 0.0008 * exposure
 		var recovery = 0.006 if data.moisture > 0.35 and temperature < 33.0 else 0.0
 		data.health = clampf(data.health + (recovery * (1.0 - data.trampled) - stress) * seconds, 0.0, 1.0)
-		if data.tree and data.tree_state == "healthy":
-			data.tree_health = clampf(data.tree_health + (recovery * 0.6 - stress * 0.6) * seconds, 0.0, 1.0)
-			if data.tree_health <= 0.0:
-				data.tree_state = "dead"
+		if data.tree:
+			if data.tree_state == "healthy":
+				data.tree_health = clampf(data.tree_health + (recovery * 0.6 - stress * 0.6) * seconds, 0.0, 1.0)
+				if data.tree_health <= 0.0:
+					data.tree_state = "dead"
+			elif data.tree_state == "sapling":
+				if data.moisture > 0.35 and temperature < 34.0:
+					data.tree_health = minf(data.tree_health + 0.03 * seconds, 1.0)
+					if data.tree_health >= 0.95:
+						data.tree_state = "healthy"
+				else:
+					data.tree_health = maxf(data.tree_health - stress * 0.8 * seconds, 0.0)
+					if data.tree_health <= 0.0:
+						data.tree_state = "dead"
+
+func water_proximity(cell: Vector2i) -> float:
+	if _grid == null or not _grid.in_bounds(cell):
+		return 0.0
+	var cooling = 0.0
+	for dy in range(-2, 3):
+		for dx in range(-2, 3):
+			var neighbor = cell + Vector2i(dx, dy)
+			if not _grid.in_bounds(neighbor):
+				continue
+			var data: Dictionary = _grid.cells[neighbor.y * _grid.SIZE + neighbor.x]
+			if data.get("water", false) and data.get("water_depth", 0.0) > 0.15:
+				var dist = cell.distance_to(neighbor)
+				if dist <= 2.2:
+					cooling = maxf(cooling, data.water_depth * (1.0 - dist / 2.5))
+	return clampf(cooling, 0.0, 0.85)
 
 func shade_at(cell: Vector2i) -> float:
 	if _grid == null or not _grid.in_bounds(cell):
@@ -73,9 +108,14 @@ func shade_at(cell: Vector2i) -> float:
 		if not _grid.in_bounds(neighbor):
 			continue
 		var data: Dictionary = _grid.cells[neighbor.y * _grid.SIZE + neighbor.x]
-		if data.tree and data.get("tree_state", "removed") == "healthy":
-			shade += data.get("tree_health", 0.0) * (0.8 if offset == Vector2i.ZERO else 0.3)
-	return clampf(shade, 0.0, 0.9)
+		if data.tree:
+			var state = data.get("tree_state", "removed")
+			if state == "healthy":
+				shade += data.get("tree_health", 0.0) * (0.8 if offset == Vector2i.ZERO else 0.3)
+			elif state == "sapling":
+				shade += data.get("tree_health", 0.0) * 0.4 * (0.8 if offset == Vector2i.ZERO else 0.3)
+	var cooling = water_proximity(cell) * 0.4
+	return clampf(shade + cooling, 0.0, 0.9)
 
 func trample(cell: Vector2i, amount: float = 0.12):
 	if _grid == null or not _grid.in_bounds(cell) or not is_finite(amount) or amount <= 0.0:
