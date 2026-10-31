@@ -74,6 +74,14 @@ func begin(player: Vector2i, facing: Vector2i, action_group: String = "") -> boo
 		return _begin_interact(player, front, current_cell, front_cell)
 	if front_cell != null and _is_water_cell(front_cell):
 		return _begin_interact(player, front, current_cell, front_cell)
+	if front_cell != null and front_cell.get("tree", false) and front_cell.get("tree_state") == "stump":
+		target = front
+		origin = player
+		progress = 0.0
+		action_kind = "stump_removed"
+		_interaction_kind = "stump_removed"
+		duration = 0.8
+		return true
 	if front_cell != null and front_cell.get("tree", false):
 		return _begin_chop_gather(player, front, current_cell, front_cell)
 	if front_cell != null and front_cell.get("log", false):
@@ -110,7 +118,7 @@ func _begin_chop_gather(player: Vector2i, front: Vector2i, current_cell: Diction
 	# Priority 2: Facing tree (healthy, dead, or juvenile sapling/planted tree)
 	if front_cell != null and front_cell.get("tree", false):
 		var k = kind_for(front_cell)
-		if k in ["tree_cut", "sapling_removed", "stump_removed"]:
+		if k in ["tree_cut", "sapling_removed"]:
 			target = front
 			origin = player
 			progress = 0.0

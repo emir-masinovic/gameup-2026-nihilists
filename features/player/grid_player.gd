@@ -194,14 +194,15 @@ func _nearest_visible_direction(screen_direction: Vector2i, projected: Dictionar
 func try_move(direction: Vector2i) -> bool:
 	if moving or grid == null or abs(direction.x) + abs(direction.y) != 1:
 		return false
+	facing = direction
+	if has_node("Body"):
+		$Body.rotation.y = atan2(-direction.x, -direction.y)
 	var target = cell + direction
 	if not grid.traversable(target):
 		return false
-	facing = direction
 	moving = true
 	cell = target
 	cell_entered.emit(cell)
-	$Body.rotation.y = atan2(-direction.x, -direction.y)
 	move_tween = create_tween()
 	move_tween.tween_property(self, "position", grid.world_position(cell), 0.16).set_trans(Tween.TRANS_SINE)
 	move_tween.finished.connect(func(): moving = false)
