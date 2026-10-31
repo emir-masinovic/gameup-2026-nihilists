@@ -9,8 +9,13 @@ uniform float terrain_health = 1.0;
 uniform float variation_strength = 0.14;
 varying vec3 world_position;
 
+// Integer avalanche keeps seeded patch variation independent of sine precision.
 float hash_patch(vec2 p) {
- return fract(sin(dot(p, vec2(127.1, 311.7)) + world_seed * 0.137) * 43758.5453);
+ uvec2 cell = uvec2(ivec2(p));
+ uint h = cell.x * 1597334677u ^ cell.y * 3812015801u ^ uint(world_seed);
+ h = (h ^ (h >> 16u)) * 2246822519u;
+ h = (h ^ (h >> 13u)) * 3266489917u;
+ return float(h ^ (h >> 16u)) / 4294967295.0;
 }
 
 float patch_noise(vec2 p) {

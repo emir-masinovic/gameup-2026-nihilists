@@ -16,6 +16,8 @@ var fuel_consumption = 0.055
 var elapsed = 0.0
 var temperature = 24.0
 var weather: String = "clear"
+# Empty uses seeded weather; named conditions are also useful for bounded scenarios.
+var weather_override: String = ""
 var tick_count = 0
 var _grid: RefCounted
 var _weather_offset = 0
@@ -41,6 +43,7 @@ func configure(grid: RefCounted, world_seed: int):
 		data.burning = false
 		data.burned = false
 		data.fire_time = 0.0
+		data.burn_recovery = 0.0
 		data.fuel = 0.0 if data.get("terrain", "grass") == "water" else (1.0 if data.tree else 0.45)
 	_update_weather()
 
@@ -58,6 +61,8 @@ func tick(seconds: float = 1.0):
 
 func _update_weather():
 	weather = WEATHER_CYCLE[(floori(elapsed / WEATHER_SECONDS) + _weather_offset) % WEATHER_CYCLE.size()]
+	if weather_override in WEATHER_CYCLE:
+		weather = weather_override
 	var offset = {"clear": 0.0, "rain": -5.0, "cool": -7.0, "heat": 8.0}[weather]
 	# Long-term warming approaches the limit; transient weather stays independent.
 	temperature = baseline_temperature + warming_pressure() + offset
@@ -91,7 +96,14 @@ func _simulate(seconds: float):
 		data.trampled = maxf(0.0, data.get("trampled", 0.0) - 0.001 * seconds)
 		var stress = maxf(0.28 - data.moisture, 0.0) * 0.022 + maxf(temperature - 36.0, 0.0) * 0.0006 * exposure
 		var recovery = 0.006 if data.moisture > 0.35 and temperature < 35.0 else 0.0
+		if data.get("burned", false):
+			# Char persists through drought. Moist conditions slowly establish new ground cover;
+			# exhausted fuel and dead trees remain exhausted/dead.
+			data.burn_recovery = clampf(data.get("burn_recovery", 0.0) + (0.002 if recovery > 0.0 else -0.001) * seconds, 0.0, 1.0)
+			recovery *= 0.35
 		data.health = clampf(data.health + (recovery * (1.0 - data.trampled) - stress) * seconds, 0.0, 1.0)
+		if data.get("burned", false):
+			data.health = minf(data.health, data.burn_recovery)
 		if data.tree and data.tree_state == "healthy":
 			data.tree_health = clampf(data.tree_health + (recovery * 0.6 - stress * 0.6) * seconds, 0.0, 1.0)
 			if data.tree_health <= 0.0:
@@ -129,6 +141,8 @@ func _simulate_fire(seconds: float):
 			if data.fuel <= 0.05:
 				data.fuel = 0.0
 				data.burned = true
+				data.health = 0.0
+				data.burn_recovery = 0.0
 				data.log = false
 			continue
 		if weather == "rain":
