@@ -14,6 +14,9 @@ func run():
 	saves.load_progression()
 	var flow = root.get_node("SceneFlow")
 	flow.next_seed = 2026
+	flow.run_regions = preload("res://features/levels/forest/RunRegions.gd").new()
+	flow.run_regions.configure(2026)
+	flow.run_regions.enter("drylands")
 	flow.transition(flow.playable_scene)
 	await process_frame
 	await process_frame
@@ -58,7 +61,7 @@ func run():
 	here.recovery_low = 0.2
 	here.health = 0.5
 	world._refresh_visuals()
-	check(world.objectives.ready_for_clearing(), "Observed regrowth completes field evidence")
+	check(not world.objectives.ready_for_clearing(), "Drylands regrowth cannot bypass the Wetlands observation")
 	var hazard_cell = world.grid.cells[player.cell.y * world.grid.SIZE + player.cell.x]
 	hazard_cell.burning = true
 	hazard_cell.fire_time = 0.0
@@ -73,7 +76,7 @@ func run():
 	player.cell = world.grid.objective
 	world._on_cell_entered(player.cell)
 	await process_frame
-	check(world.ended and world.hud.modal_kind == "success", "Evidence then refuge ends run")
+	check(not world.ended, "Drylands clearing cannot bypass the regional refuge sequence")
 	world.hud.close_modal()
 	flow.main_menu()
 	await process_frame

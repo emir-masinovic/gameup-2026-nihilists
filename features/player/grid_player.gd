@@ -6,6 +6,7 @@ var facing = Vector2i.UP
 var cell = Vector2i.ZERO
 var grid: RefCounted
 var moving = false
+var require_release = false
 var move_tween: Tween
 var _screen_directions: Dictionary = {}
 
@@ -16,6 +17,11 @@ func configure(data: RefCounted):
 	_screen_directions.clear()
 
 func _process(_delta):
+	if require_release:
+		for action in ["move_north", "move_south", "move_west", "move_east"]:
+			if Input.is_action_pressed(action):
+				return
+		require_release = false
 	if moving or grid == null:
 		return
 	var direction = Vector2i.ZERO

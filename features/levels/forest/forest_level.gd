@@ -32,23 +32,45 @@ var charred_material: ShaderMaterial
 var last_weather = ""
 var ground_cover: Node3D
 var warned_fire = false
+var regions: RefCounted
+var region_id = "forest"
+var region_state = {}
+var transitioning = false
+var interaction_marker: MeshInstance3D
+var habitat_marker: MeshInstance3D
+var previous_objective = ""
+
 
 func _ready():
 	if not OS.get_cmdline_user_args().has("--fixed-seed"):
 		world_seed = SceneFlow.next_seed
-	grid.generate(world_seed)
-	climate.configure(grid, world_seed)
+	if SceneFlow.run_regions == null or SceneFlow.run_regions.seed_for("forest") != world_seed:
+		SceneFlow.run_regions = preload("res://features/levels/forest/RunRegions.gd").new()
+		SceneFlow.run_regions.configure(world_seed)
+	regions = SceneFlow.run_regions
+	region_id = regions.current_id
+	region_state = regions.enter(region_id)
+	world_seed = regions.seed_for(region_id)
+	grid = region_state.grid
+	climate = region_state.climate
+	cut_cells = region_state.cut_cells
+	survival = regions.survival
+	objectives = regions.objectives
+	objectives.regional_mode = true
+	presentation_elapsed = regions.elapsed
+
 	interactions.configure(grid)
 	hud = preload("res://features/levels/forest/run_hud.tscn").instantiate()
 	$HUD.add_child(hud)
 	hud.world = self
 	$GridPlayer.cell_entered.connect(_on_cell_entered)
+	var regional_palette: Dictionary = regions.palette_for(region_id)
 	for health_bin in range(4):
 		for moisture_bin in range(4):
 			var mat = ShaderMaterial.new()
 			mat.shader = preload("res://features/levels/forest/shader_grid.gdshader")
-			var green = Color("315f3c").lerp(Color("5c894a"), moisture_bin / 3.0)
-			mat.set_shader_parameter("terrain_color", Color("80684a").lerp(green, health_bin / 3.0))
+			var green: Color = Color("b39a50").lerp(Color("8f8b43"), float(moisture_bin)) if moisture_bin < 2 else regional_palette.dry_green.lerp(regional_palette.wet_green, float(moisture_bin - 2))
+			mat.set_shader_parameter("terrain_color", regional_palette.soil.lerp(green, health_bin / 3.0))
 			mat.set_shader_parameter("terrain_health", health_bin / 3.0)
 			mat.set_shader_parameter("world_seed", float(posmod(world_seed, 65521)))
 			mat.set_shader_parameter("variation_strength", terrain_variation_strength)
@@ -58,15 +80,42 @@ func _ready():
 			var cell = Vector2i(x, z)
 			var data = grid.cells[z * grid.SIZE + x]
 			if data.tree:
-				var tree = TREE.instantiate()
-				tree.variant = data.get("variant", 0) % 2
+				var tree = NatureProps.instantiate_stump() if data.tree_state == "stump" else TREE.instantiate()
+				if data.tree_state != "stump":
+					tree.variant = data.get("variant", 0) % 2
 				tree.position = grid.world_position(cell)
 				tree.rotation.y = data.rotation
 				tree.scale = Vector3.ONE * data.scale
 				$Vegetation.add_child(tree)
 				trees[cell] = tree
+	for i in range(grid.cells.size()):
+		var data = grid.cells[i]
+		if data.get("log", false):
+			var cell = Vector2i(i % grid.SIZE, floori(float(i) / grid.SIZE))
+			var log_visual = NatureProps.instantiate_log()
+			log_visual.position = grid.world_position(cell)
+			var direction: Vector2i = data.get("log_direction", Vector2i.UP)
+			log_visual.rotation.y = atan2(direction.x, direction.y)
+			$Vegetation.add_child(log_visual)
+			logs[cell] = log_visual
 	$GridPlayer.configure(grid)
+	if not SceneFlow.region_arrival_from.is_empty():
+		$GridPlayer.cell = regions.entry(region_id, SceneFlow.region_arrival_from)
+		$GridPlayer.position = grid.world_position($GridPlayer.cell)
+		$GridPlayer.require_release = true
+	SceneFlow.region_arrival_from = ""
+	SceneFlow.region_transitioning = false
+
 	$CameraRig.position = grid.world_position(grid.start)
+	if not SceneFlow.camera_state.is_empty():
+		var rig = $CameraRig
+		rig.target_yaw = SceneFlow.camera_state.yaw
+		rig.rotation.y = rig.target_yaw
+		rig.target_pitch = SceneFlow.camera_state.pitch
+		rig.pitch = rig.target_pitch
+		rig.target_zoom = SceneFlow.camera_state.zoom
+		rig.get_node("Camera3D").size = rig.target_zoom
+		rig._update_camera()
 	$HUD/Info.hide()
 	SettingsManager.graphics_changed.connect(_apply_shadow_quality)
 	_apply_shadow_quality()
@@ -76,7 +125,8 @@ func _ready():
 	water_material.albedo_color = Color("477c88")
 	water_material.roughness = 0.5
 	charred_material = palette[0].duplicate()
-	charred_material.set_shader_parameter("terrain_color", Color("30392f"))
+	charred_material.set_shader_parameter("terrain_color", Color("241f1b"))
+	charred_material.set_shader_parameter("variation_strength", 0.08)
 	terrain_renderer = preload("res://features/levels/forest/RendererTerrain.gd").new()
 	$Terrain.add_child(terrain_renderer)
 	terrain_renderer.configure(grid, palette, water_material, charred_material)
@@ -86,7 +136,13 @@ func _ready():
 	ground_cover = preload("res://features/levels/forest/nature/ground_cover.gd").new()
 	add_child(ground_cover)
 	ground_cover.configure(grid)
-	hud.notify("Survey dry ground, clear a small firebreak, then find recovering vegetation. Interact at camp for your field notes.")
+	_create_region_markers()
+	var listener = AudioListener3D.new()
+	$GridPlayer.add_child(listener)
+	listener.position.y = 1.0
+	listener.make_current()
+	SceneFlow.sounds.attach_world(self)
+	hud.notify(regions.region_name(region_id) + ": " + objectives.summary())
 	_update_lighting()
 	_refresh_visuals()
 	_update_hud()
@@ -99,8 +155,9 @@ func _apply_shadow_quality():
 	$Sun.shadow_normal_bias = 0.7
 
 func _process(delta):
-	if ended:
+	if ended or transitioning:
 		return
+	_update_interaction_marker()
 	_advance_presentation(delta)
 	var event = interactions.tick(delta, $GridPlayer.cell)
 	if not event.is_empty():
@@ -110,6 +167,7 @@ func _process(delta):
 		tick_accumulator -= 1.0
 		var health_before = survival.health
 		climate.tick(1.0)
+		regions.advance(1.0)
 		var cell = $GridPlayer.cell
 		var shade = climate.shade_at(cell)
 		var safe = cell.distance_to(grid.start) <= 2.2
@@ -128,9 +186,11 @@ func _process(delta):
 		if climate.weather == "rain":
 			_discover("climate.rainfall", "Rainfall supports recovery")
 		if climate.weather == "heat" or grid.cells[cell.y * grid.SIZE + cell.x].moisture < 0.35:
-			objectives.observe_problem()
+			objectives.observe_problem(region_id)
 			_discover("climate.drought", "Dry vegetation stores less moisture")
 		hud.damage_feedback(survival.health < health_before)
+		if survival.health < health_before:
+			audio_cue.emit("damage", $GridPlayer.position)
 		if climate.weather == "heat":
 			_discover("climate.heatwave", "Heatwave: weather intensifies the warming trend")
 		if shade > 0.0:
@@ -141,7 +201,7 @@ func _process(delta):
 		_update_hud()
 
 func _unhandled_input(event):
-	if ended or $GridPlayer.moving or not event.is_action_pressed("interact"):
+	if ended or transitioning or $GridPlayer.moving or not event.is_action_pressed("interact"):
 		return
 	if $GridPlayer.cell.distance_to(grid.start) <= 1.5:
 		hud.show_modal("bonfire")
@@ -155,16 +215,23 @@ func _unhandled_input(event):
 	get_viewport().set_input_as_handled()
 
 func _on_cell_entered(cell: Vector2i):
+	if transitioning:
+		return
+	var destination: String = regions.exit_destination(region_id, cell)
+	if not destination.is_empty():
+		_request_region_transition(destination)
+		return
+	_discover("region." + region_id, regions.region_name(region_id) + " surveyed")
 	climate.trample(cell)
 	audio_cue.emit("footstep", grid.world_position(cell))
 	var here = grid.cells[cell.y * grid.SIZE + cell.x]
 	if here.moisture < 0.45 or here.get("burned", false):
-		objectives.observe_problem()
+		objectives.observe_problem(region_id)
 	if here.get("terrain", "grass") == "water" or _near_water(cell):
 		_discover("terrain.pond", "Ponds shelter wet ground")
 	for near in [cell, cell + Vector2i.UP, cell + Vector2i.LEFT, cell + Vector2i.DOWN, cell + Vector2i.RIGHT]:
 		if grid.in_bounds(near) and grid.cells[near.y * grid.SIZE + near.x].get("burning", false):
-			objectives.observe_problem()
+			objectives.observe_problem(region_id)
 			_discover("climate.wildfire", "Dry fuel carries wildfire")
 	for offset in [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
 		var next = cell + offset
@@ -175,7 +242,7 @@ func _on_cell_entered(cell: Vector2i):
 				_discover("flora.dead_tree" if dead else "flora.healthy_tree", "Dead tree" if dead else "Healthy tree")
 	_update_hud()
 	if cell == grid.objective:
-		if objectives.ready_for_clearing():
+		if objectives.ready_for_clearing() and region_id == "wetlands":
 			_discover("landmark.refuge", "Forest refuge reached")
 			call_deferred("_end_run", "success")
 		else:
@@ -226,7 +293,7 @@ func _finish_interaction(event: Dictionary):
 		if trees.has(cell):
 			trees[cell].queue_free()
 			trees.erase(cell)
-		if cut_cells.has(cell) and objectives.record_mitigation():
+		if cut_cells.has(cell) and objectives.record_mitigation(region_id):
 			_discover("interaction.firebreak", "Cleared fuel breaks the fire path; shade is lost")
 		hud.notify("Stump removed: fuel cleared and route open")
 	_refresh_visuals()
@@ -238,18 +305,22 @@ func _refresh_visuals():
 		var moisture_low = data.get("moisture_low", data.moisture)
 		data.moisture_low = minf(moisture_low, data.moisture)
 		if climate.weather == "rain" and moisture_low < 0.5 and data.moisture > moisture_low + 0.15:
-			objectives.observe_recovery()
+
+			if $GridPlayer.cell.distance_to(Vector2i(i % grid.SIZE, floori(float(i) / grid.SIZE))) <= 2.5:
+				objectives.observe_recovery(region_id)
 		var low = data.get("recovery_low", 1.0)
 		if data.health < low:
 			data.recovery_low = data.health
 		if low < 0.85 and data.health > low + 0.08:
-			objectives.observe_recovery()
+
+			if $GridPlayer.cell.distance_to(Vector2i(i % grid.SIZE, floori(float(i) / grid.SIZE))) <= 2.5:
+				objectives.observe_recovery(region_id)
 			if not recovery_seen:
 				recovery_seen = true
 				_discover("flora.recovery", "Vegetation recovers in favorable weather")
 		var cell = Vector2i(i % grid.SIZE, floori(float(i) / grid.SIZE))
 		if trees.has(cell) and data.tree_state in ["healthy", "dead"]:
-			trees[cell].set_health(data.tree_health, data.tree_state == "dead")
+			trees[cell].set_health(data.tree_health, data.tree_state == "dead", data.moisture, data.get("burned", false))
 			if data.get("burned", false):
 				_discover("flora.burned_tree", "Burned trees lose shade")
 		if logs.has(cell) and not data.get("log", false):
@@ -264,6 +335,11 @@ func _update_hud():
 	var safe = $GridPlayer.cell.distance_to(grid.start) <= 2.2
 	hud.update_status(survival.health, survival.exposure, climate.temperature, climate.weather, climate.warming_pressure(), SaveManager.progression.knowledge, safe, interactions.target.x >= 0)
 	hud.set_environment_context(climate.fire_at($GridPlayer.cell), objectives.summary(), objectives.ready_for_clearing())
+	hud.set_region(regions.region_name(region_id))
+	if previous_objective != objectives.summary():
+		if not previous_objective.is_empty():
+			hud.notify(objectives.summary())
+		previous_objective = objectives.summary()
 
 func _create_landmarks():
 	var fire = Node3D.new()
@@ -331,6 +407,7 @@ func _create_landmarks():
 	clearing.mesh = marker
 	clearing.material_override = glow
 	clearing.position = grid.world_position(grid.objective) + Vector3(0, 0.05, 0)
+	clearing.visible = region_id == "wetlands"
 	add_child(clearing)
 
 	# Crossed logs make the procedural fire recognizable without asset packs.
@@ -354,6 +431,7 @@ func _create_landmarks():
 	landmark.mesh = stone
 	landmark.material_override = glow
 	landmark.position = clearing.position + Vector3(0, 0.6, 0)
+	landmark.visible = region_id == "wetlands"
 	add_child(landmark)
 
 # Presentation has its own clock: no changes to seeded climate or logical cells.
@@ -407,3 +485,82 @@ func _near_water(cell: Vector2i) -> bool:
 			if data.get("terrain", "grass") == "water" and data.get("water_level", 0.0) > 0.1:
 				return true
 	return false
+
+func _request_region_transition(destination: String):
+	if transitioning or get_tree().paused:
+		return
+	transitioning = true
+	SceneFlow.region_transitioning = true
+	$CameraRig._cancel_drag()
+	SceneFlow.camera_state = {"yaw": $CameraRig.target_yaw, "pitch": $CameraRig.target_pitch, "zoom": $CameraRig.target_zoom}
+	$GridPlayer.set_process(false)
+	interactions.configure(grid)
+	hud.notify("Trail to " + regions.region_name(destination))
+	await get_tree().create_timer(0.20, false).timeout
+	if is_inside_tree():
+		SceneFlow.change_region(destination)
+
+func _trail_marker(cell: Vector2i, title: String, color: Color) -> MeshInstance3D:
+	var marker = MeshInstance3D.new()
+	var mesh = CylinderMesh.new()
+	mesh.top_radius = 0.72
+	mesh.bottom_radius = 0.72
+	mesh.height = 0.05
+	mesh.radial_segments = 12
+	marker.mesh = mesh
+	var material = StandardMaterial3D.new()
+	material.albedo_color = color
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	marker.material_override = material
+	marker.position = grid.world_position(cell) + Vector3(0,0.035,0)
+	marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(marker)
+	var label = Label3D.new()
+	label.text = title
+	label.font_size = 40
+	label.pixel_size = 0.025
+	label.position = Vector3(0,1.8,0)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	marker.add_child(label)
+	return marker
+
+func _create_region_markers():
+	for cell in [Vector2i(0,8),Vector2i(16,8)]:
+		var destination: String = regions.exit_destination(region_id, cell)
+		if not destination.is_empty():
+			_trail_marker(cell, "To " + regions.region_name(destination), Color("c8b977"))
+	if region_id == "wetlands":
+		habitat_marker = _trail_marker(Vector2i(8,5), "Recovering habitat", Color("86c9b3"))
+		var habitat_ring = TorusMesh.new()
+		habitat_ring.inner_radius = 0.78
+		habitat_ring.outer_radius = 0.85
+		habitat_marker.mesh = habitat_ring
+	interaction_marker = MeshInstance3D.new()
+	var ring = TorusMesh.new()
+	ring.inner_radius = 0.63
+	ring.outer_radius = 0.70
+	ring.rings = 16
+	ring.ring_segments = 6
+	interaction_marker.mesh = ring
+	var material = StandardMaterial3D.new()
+	material.albedo_color = Color("edcf86")
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	interaction_marker.material_override = material
+	interaction_marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(interaction_marker)
+
+func _update_interaction_marker():
+	interaction_marker.visible = false
+	if $GridPlayer.moving or get_tree().paused:
+		return
+	var player = $GridPlayer.cell
+	for direction in [$GridPlayer.facing, Vector2i.UP,Vector2i.RIGHT,Vector2i.DOWN,Vector2i.LEFT]:
+		var cell: Vector2i = player + direction
+		if not grid.in_bounds(cell):
+			continue
+		var data = grid.cells[cell.y * grid.SIZE + cell.x]
+		if not data.get("burning", false) and (data.tree or data.get("log", false)):
+			interaction_marker.position = grid.world_position(cell) + Vector3(0,0.12,0)
+			interaction_marker.visible = true
+			break

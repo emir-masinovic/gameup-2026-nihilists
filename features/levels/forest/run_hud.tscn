@@ -92,6 +92,9 @@ offset_bottom = 124.0
 theme_override_styles/panel = SubResource("Surface")
 [node name="Rows" type="VBoxContainer" parent="WorldStatus"]
 theme_override_constants/separation = 4
+[node name="Region" type="Label" parent="WorldStatus/Rows"]
+text = "Forest"
+theme_override_font_sizes/font_size = 16
 [node name="Climate" type="HBoxContainer" parent="WorldStatus/Rows"]
 theme_override_constants/separation = 8
 [node name="Icon" type="Control" parent="WorldStatus/Rows/Climate"]

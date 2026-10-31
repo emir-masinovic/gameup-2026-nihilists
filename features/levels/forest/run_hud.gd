@@ -31,7 +31,7 @@ func show_modal(kind: String):
 	$Modal.show()
 	$Dim.show()
 	get_tree().paused = true
-	$Modal/Rows/Title.text = {"bonfire": "Bonfire - safe shelter", "death": "The forest claimed this attempt", "success": "Clearing reached"}[kind]
+	$Modal/Rows/Title.text = {"bonfire": "Bonfire - safe shelter", "death": "The forest claimed this attempt", "success": "Wetlands refuge reached"}[kind]
 	$Modal/Rows/Progress.text = "Knowledge: %d | Discoveries: %d\nHeat Resistance: %s" % [SaveManager.progression.knowledge, SaveManager.progression.discoveries.size(), "Owned" if SaveManager.has_heat_resistance() else "Not purchased"]
 	var names: PackedStringArray = []
 	for id in SaveManager.progression.discoveries:
@@ -86,3 +86,7 @@ func set_environment_context(fire_hazard: float, notes: String, ready: bool):
 	$PlayerStatus/Rows/Heat/Icon.modulate = Color(1,0.4,0.2) if fire_hazard > 0 else Color.WHITE
 	if fire_hazard > 0:
 		$Context.text = "Fire nearby - seek wet ground or a cleared path"
+
+func set_region(title: String):
+	$WorldStatus/Rows/Region.text = title
+	$WorldStatus/Rows/Region.tooltip_text = field_notes

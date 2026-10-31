@@ -66,9 +66,10 @@ func tick(delta: float, player: Vector2i) -> Dictionary:
 		# A cut cell is a practical break in fuel; the displaced wood blocks its landing.
 		cell.fuel = 0.0
 		var landing = target + (target - player)
-		if grid.in_bounds(landing) and landing.distance_to(grid.start) > 2.5 and grid.traversable(landing):
+		if grid.in_bounds(landing) and landing.distance_to(grid.start) > 2.5 and grid.traversable(landing) and landing not in [Vector2i(0,8),Vector2i(1,8),Vector2i(15,8),Vector2i(16,8)]:
 			var landing_cell = grid.cells[landing.y * grid.SIZE + landing.x]
 			landing_cell.log = true
+			landing_cell.log_direction = target - player
 			landing_cell.fuel = maxf(float(landing_cell.get("fuel", 0.0)), 0.65)
 			event.landing = landing
 	_cancel()
