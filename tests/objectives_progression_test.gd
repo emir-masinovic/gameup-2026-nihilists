@@ -100,7 +100,7 @@ func run() -> void:
 	check(interaction.tick(0.5, player).is_empty(), "Chop requires its upgraded duration")
 	var cut = interaction.tick(0.29, player)
 	check(cut.get("kind") == "tree_cut" and cut.get("landing") == landing, "Quick chop completes before ordinary 1.2 seconds and predicts landing")
-	check(not grid.traversable(tree) and grid.cells[tree.y * grid.SIZE + tree.x].fuel == 0.0, "Cut leaves a blocked, fuel-free stump")
+	check(grid.traversable(tree) and grid.cells[tree.y * grid.SIZE + tree.x].fuel == 0.0, "Cut leaves a traversable, fuel-free stump")
 	check(grid.cells[landing.y * grid.SIZE + landing.x].log and not grid.traversable(landing), "Fallen log blocks the predictable landing cell")
 	check(interaction.begin(player, Vector2i.RIGHT) and interaction.tick(2.0, player).get("kind") == "stump_removed", "Second action removes stump")
 	check(grid.traversable(tree) and grid.cells[tree.y * grid.SIZE + tree.x].fuel == 0.0, "Stump removal opens a fuel-free firebreak cell")

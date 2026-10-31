@@ -4,6 +4,9 @@ const SEED_DROP = preload("res://features/levels/forest/VisualSeedDrop.tscn")
 const SAPLING = preload("res://features/levels/forest/VisualSapling.tscn")
 const TREE = preload("res://features/levels/forest/nature/nature_tree.tscn")
 const NatureProps = preload("res://features/levels/forest/nature/nature_visuals.gd")
+const CROP_INDICATOR = preload("res://features/levels/forest/crop_indicator.gd")
+const FOREST_SEED = preload("res://features/levels/forest/forest_seed.tscn")
+const FOREST_SAPLING = preload("res://features/levels/forest/forest_sapling.tscn")
 signal audio_cue(cue: String, at: Vector3)
 @export var world_seed: int = 2026
 @export_range(0.1, 10.0) var simulation_time_scale = 1.0
@@ -48,6 +51,13 @@ var forage_visuals: Node3D
 var selected_interaction = {}
 var custom_interactables: Array = []
 var planting: RefCounted
+var farmland_container: Node3D
+var tilled_meshes: Dictionary = {}
+var crop_indicators: Dictionary = {}
+var water_tiles: Dictionary = {}
+var water_splash: CPUParticles3D
+var wood_chips: CPUParticles3D
+var dirt_puff: CPUParticles3D
 var seed_visuals = {}
 var decorated_cells = {}
 var wet_indicator: MeshInstance3D
@@ -79,6 +89,31 @@ func _ready():
 	$HUD.add_child(hud)
 	hud.world = self
 	$GridPlayer.cell_entered.connect(_on_cell_entered)
+
+	farmland_container = get_node_or_null("Farmland")
+	if farmland_container == null:
+		farmland_container = Node3D.new()
+		farmland_container.name = "Farmland"
+		add_child(farmland_container)
+	_create_water_splash()
+	_create_wood_chips()
+	_create_dirt_puff()
+	if $GridPlayer.has_signal("chop_impact"):
+		$GridPlayer.chop_impact.connect(_on_chop_impact)
+	if $GridPlayer.has_signal("till_impact"):
+		$GridPlayer.till_impact.connect(_on_till_impact)
+	if $GridPlayer.has_signal("water_fill_splash"):
+		$GridPlayer.water_fill_splash.connect(_on_water_fill_splash)
+	if $GridPlayer.has_signal("water_pour_splash"):
+		$GridPlayer.water_pour_splash.connect(_on_water_pour_splash)
+	if planting != null:
+		if interactions.water_ml == 0 or planting.water_ml == 0:
+			interactions.water_ml = 0
+			planting.water_ml = 0
+		else:
+			interactions.water_ml = min(interactions.water_ml, planting.water_ml)
+			planting.water_ml = interactions.water_ml
+		interactions.seeds = planting.seed_count
 	var regional_palette: Dictionary = regions.palette_for(region_id)
 	for health_bin in range(4):
 		for moisture_bin in range(4):
@@ -90,11 +125,30 @@ func _ready():
 			mat.set_shader_parameter("world_seed", float(posmod(world_seed, 65521)))
 			mat.set_shader_parameter("variation_strength", terrain_variation_strength)
 			palette.append(mat)
+	var water_container = get_node_or_null("Water")
+	if water_container == null:
+		water_container = Node3D.new()
+		water_container.name = "Water"
+		add_child(water_container)
+	var water_mat = StandardMaterial3D.new()
+	water_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	water_mat.albedo_color = Color(0.18, 0.58, 0.88, 0.72)
+	water_mat.roughness = 0.1
+	water_mat.metallic = 0.15
+	var water_box = BoxMesh.new()
+	water_box.size = Vector3(grid.CELL_SIZE * 0.96, 0.08, grid.CELL_SIZE * 0.96)
 	for z in range(grid.SIZE):
 		for x in range(grid.SIZE):
 			var cell = Vector2i(x, z)
 			var data = grid.cells[z * grid.SIZE + x]
-			if data.tree:
+			if data.get("water", false):
+				var water_mesh = MeshInstance3D.new()
+				water_mesh.mesh = water_box
+				water_mesh.material_override = water_mat
+				water_mesh.position = grid.world_position(cell) + Vector3(0, 0.02, 0)
+				water_container.add_child(water_mesh)
+				water_tiles[cell] = water_mesh
+			elif data.tree:
 				var tree = _vegetation_visual(data)
 				if data.tree_state != "stump" and not tree.has_method("update_growth"):
 					tree.variant = data.get("variant", 0) % 2
@@ -224,10 +278,79 @@ func _unhandled_input(event):
 		_update_hud()
 		get_viewport().set_input_as_handled()
 		return
-	if $GridPlayer.moving or not event.is_action_pressed("interact") or event.is_echo():
+	if $GridPlayer.moving or event.is_echo():
 		return
-	_begin_context_action()
-	get_viewport().set_input_as_handled()
+	if event.is_action_pressed("interact"):
+		_try_interact("interact")
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("chop_gather"):
+		_try_interact("chop_gather")
+		get_viewport().set_input_as_handled()
+
+func _try_interact(action_group: String):
+	if planting != null:
+		if interactions.water_ml == 0 or planting.water_ml == 0:
+			interactions.water_ml = 0
+			planting.water_ml = 0
+		else:
+			interactions.water_ml = min(interactions.water_ml, planting.water_ml)
+			planting.water_ml = interactions.water_ml
+		interactions.seeds = planting.seed_count
+	if interactions.begin($GridPlayer.cell, $GridPlayer.facing, action_group):
+		var target_pos = grid.world_position(interactions.target)
+		var msg = ""
+		if interactions.action_kind == "fill_water":
+			msg = "Şişeye su dolduruluyor... hareket etmek iptal eder"
+			$GridPlayer.start_filling_water(target_pos)
+		elif interactions.action_kind == "water_soil":
+			msg = "Sulanıyor... hareket etmek iptal eder"
+			$GridPlayer.start_watering(target_pos)
+		elif interactions.action_kind == "till_soil":
+			msg = "Toprak çapalanıyor... hareket etmek iptal eder"
+			$GridPlayer.start_tilling(target_pos)
+		elif interactions.action_kind == "plant_sapling":
+			msg = "Tohum ekiliyor... hareket etmek iptal eder"
+		elif interactions.action_kind == "harvest_crop":
+			msg = "Fidan/tohum çapalanıyor... hareket etmek iptal eder"
+			$GridPlayer.start_tilling(target_pos)
+		elif interactions.action_kind == "tree_cut":
+			msg = "Ağaç kesiliyor... hareket etmek iptal eder"
+			$GridPlayer.start_chopping(target_pos)
+			audio_cue.emit("chop", $GridPlayer.position)
+		elif interactions.action_kind == "collect_seeds":
+			msg = "Tohum toplanıyor... hareket etmek iptal eder"
+			$GridPlayer.start_gathering(target_pos)
+		elif interactions.action_kind == "stump_removed":
+			msg = "Removing stump... moving cancels the action"
+			$GridPlayer.start_chopping(target_pos)
+			audio_cue.emit("chop", $GridPlayer.position)
+		hud.notify(msg)
+	else:
+		if action_group == "chop_gather":
+			hud.notify("Ağaç kesmek için ağaca dönün, tohum toplamak için kalıntının üzerine gelin (Space)")
+		else:
+			if $GridPlayer.cell.distance_to(grid.start) <= 1.5:
+				hud.show_modal("bonfire")
+				return
+			var front = $GridPlayer.cell + $GridPlayer.facing
+			if grid.in_bounds(front) and grid.cells[front.y * grid.SIZE + front.x].get("berry_bush", false) and foraging != null:
+				var amount: int = foraging.harvest(front)
+				if amount > 0:
+					survival.add_berries(amount)
+					_discover("food.berry_bush", "Berry bushes supply food")
+					_discover("food.first_harvest", "Food gathered for the journey")
+					hud.notify("Harvested %d berries" % amount)
+					audio_cue.emit("discovery", grid.world_position(front))
+					_update_hud()
+					return
+			if interactions.last_error == "no_seeds":
+				hud.notify("Yeterli tohumunuz yok! Ağaç kalıntısından tohum toplayabilirsiniz.")
+			elif interactions.last_error == "no_water":
+				hud.notify("Yeterli suyunuz yok! (%d ml gerekli) Gölden su doldurabilirsiniz." % interactions.WATER_PER_POUR)
+			elif interactions.last_error == "water_full":
+				hud.notify("Su şişeniz zaten tamamen dolu! (%d ml)" % interactions.MAX_WATER_ML)
+			else:
+				hud.notify("Bulunduğunuz yeri çapalamak/ekmek/sulamak ya da gölden su almak için (E)")
 
 func _on_cell_entered(cell: Vector2i):
 	if transitioning:
@@ -277,20 +400,38 @@ func _end_run(kind: String):
 	hud.show_modal(kind)
 
 func _finish_interaction(event: Dictionary):
+	if $GridPlayer.has_method("stop_chopping"):
+		$GridPlayer.stop_chopping()
+		$GridPlayer.stop_tilling()
+		$GridPlayer.stop_filling_water()
+		$GridPlayer.stop_watering()
+		$GridPlayer.stop_gathering()
+	if event.is_empty() or not event.has("cell"):
+		return
 	var cell: Vector2i = event.cell
-	if event.kind == "tree_cut":
-		var dropped: int = planting.record_seed_drop(grid, event)
-		if dropped > 0: hud.notify("Seed dropped: collect beside the stump")
+	if event.kind == "fill_water":
+		_discover("interaction.fill_water", "Water filled: bottle replenished from lake")
+		hud.notify("Şişeye su dolduruldu (+%d ml)! Mevcut su: %d ml" % [event.get("amount", 500), interactions.water_ml])
+		if water_splash != null:
+			water_splash.position = grid.world_position(cell) + Vector3(0, 0.05, 0)
+			water_splash.restart()
+		if planting != null:
+			planting.water_ml = interactions.water_ml
+	elif event.kind == "tree_cut":
 		cut_cells[cell] = true
-		_discover("interaction.first_tree_cut", "Tree cut: less shade and less fuel")
+		_discover("interaction.first_tree_cut", "Tree cut: shade is lost")
 		audio_cue.emit("tree_fall", grid.world_position(cell))
+		hud.notify("Ağaç kesildi! Kalıntının üzerine gidip Space ile tohum toplayın.")
+		if crop_indicators.has(cell):
+			crop_indicators[cell].queue_free()
+			crop_indicators.erase(cell)
 		if trees.has(cell):
 			var falling = trees[cell]
 			trees.erase(cell)
-			var direction = Vector3(event.direction.x,0,event.direction.y).normalized()
+			var direction = Vector3(event.direction.x, 0, event.direction.y).normalized()
 			falling.rotation = Vector3.ZERO
 			var fall = falling.create_tween()
-			fall.tween_property(falling,"quaternion",Quaternion(Vector3.UP.cross(direction),PI*0.5),0.7).set_trans(Tween.TRANS_SINE)
+			fall.tween_property(falling, "quaternion", Quaternion(Vector3.UP.cross(direction), PI * 0.5), 0.7).set_trans(Tween.TRANS_SINE)
 			fall.tween_callback(falling.queue_free)
 		var stump = NatureProps.instantiate_stump()
 		stump.position = grid.world_position(cell)
@@ -303,10 +444,70 @@ func _finish_interaction(event: Dictionary):
 			log_visual.rotation.y = atan2(event.direction.x, event.direction.y)
 			$Vegetation.add_child(log_visual)
 			logs[landing] = log_visual
+	elif event.kind == "collect_seeds":
+		_discover("interaction.collect_seeds", "Seeds collected: gained 3 seeds from tree remains")
+		hud.notify("Ağaç kalıntısından tohumlar toplandı (+3 Tohum)!")
+		if trees.has(cell):
+			trees[cell].queue_free()
+			trees.erase(cell)
+		if crop_indicators.has(cell):
+			crop_indicators[cell].queue_free()
+			crop_indicators.erase(cell)
+		if planting != null:
+			planting.seed_count = interactions.seeds
+	elif event.kind == "till_soil":
+		_discover("interaction.till_soil", "Soil tilled: prepared for planting")
+		hud.notify("Toprak çapalandı! Tohum ekmeye hazır.")
+		if not tilled_meshes.has(cell):
+			var tilled_patch = MeshInstance3D.new()
+			var patch_mesh = BoxMesh.new()
+			patch_mesh.size = Vector3(grid.CELL_SIZE * 0.98, 0.035, grid.CELL_SIZE * 0.98)
+			var loam_mat = StandardMaterial3D.new()
+			loam_mat.albedo_color = Color(0.24, 0.16, 0.10)
+			loam_mat.roughness = 0.95
+			patch_mesh.material = loam_mat
+			tilled_patch.mesh = patch_mesh
+			tilled_patch.position = grid.world_position(cell) + Vector3(0, 0.015, 0)
+			farmland_container.add_child(tilled_patch)
+			tilled_meshes[cell] = tilled_patch
+		if dirt_puff != null:
+			dirt_puff.position = grid.world_position(cell) + Vector3(0, 0.1, 0)
+			dirt_puff.restart()
+	elif event.kind == "water_soil":
+		_discover("interaction.water_soil", "Soil revitalized: moisture and nutrients restored")
+		hud.notify("Su verildi (-%d ml)! Kalan su: %d ml" % [interactions.WATER_PER_POUR, interactions.water_ml])
+		if water_splash != null:
+			water_splash.position = grid.world_position(cell) + Vector3(0, 0.15, 0)
+			water_splash.restart()
+		if planting != null:
+			planting.water_ml = interactions.water_ml
+	elif event.kind == "plant_sapling":
+		_discover("interaction.plant_sapling", "Seed planted: will grow into a sapling")
+		hud.notify("Tohum ekildi (-1 Tohum)! Büyümesi için su gerekiyor.")
+		var seed_node = FOREST_SEED.instantiate()
+		seed_node.position = grid.world_position(cell)
+		$Vegetation.add_child(seed_node)
+		trees[cell] = seed_node
+		_update_or_create_crop_indicator(cell, "seed", 0.0)
+		if planting != null:
+			planting.seed_count = interactions.seeds
+	elif event.kind == "harvest_crop":
+		hud.notify("Mahsul temizlendi (+1 Tohum)")
+		if trees.has(cell):
+			trees[cell].queue_free()
+			trees.erase(cell)
+		if crop_indicators.has(cell):
+			crop_indicators[cell].queue_free()
+			crop_indicators.erase(cell)
+		if planting != null:
+			planting.seed_count = interactions.seeds
 	elif event.kind == "sapling_removed":
 		if trees.has(cell):
 			trees[cell].queue_free()
 			trees.erase(cell)
+		if crop_indicators.has(cell):
+			crop_indicators[cell].queue_free()
+			crop_indicators.erase(cell)
 		hud.notify("Sapling removed")
 	elif event.kind == "log_cleared":
 		if logs.has(cell):
@@ -317,10 +518,14 @@ func _finish_interaction(event: Dictionary):
 		if trees.has(cell):
 			trees[cell].queue_free()
 			trees.erase(cell)
+		if crop_indicators.has(cell):
+			crop_indicators[cell].queue_free()
+			crop_indicators.erase(cell)
 		if cut_cells.has(cell) and objectives.record_mitigation(region_id):
 			_discover("interaction.firebreak", "Cleared fuel breaks the fire path; shade is lost")
 		hud.notify("Stump removed: fuel cleared and route open")
 	_refresh_visuals()
+	_update_hud()
 
 func _refresh_visuals():
 	terrain_renderer.update_state(grid)
@@ -353,6 +558,22 @@ func _refresh_visuals():
 				recovery_seen = true
 				_discover("flora.recovery", "Vegetation recovers in favorable weather")
 		var cell = Vector2i(i % grid.SIZE, floori(float(i) / grid.SIZE))
+		if data.tree and data.tree_state == "seed":
+			var water_prog = clampf(1.0 - data.get("water_needed", 1.0), 0.0, 1.0)
+			_update_or_create_crop_indicator(cell, "seed", water_prog)
+		elif data.tree and data.tree_state == "sapling":
+			_update_or_create_crop_indicator(cell, "sapling", clampf(data.tree_health, 0.0, 1.0))
+			if trees.has(cell) and trees[cell].scene_file_path != null and trees[cell].scene_file_path.ends_with("forest_seed.tscn"):
+				trees[cell].queue_free()
+				trees.erase(cell)
+				var sapling_node = FOREST_SAPLING.instantiate()
+				sapling_node.position = grid.world_position(cell)
+				$Vegetation.add_child(sapling_node)
+				trees[cell] = sapling_node
+		else:
+			if crop_indicators.has(cell):
+				crop_indicators[cell].queue_free()
+				crop_indicators.erase(cell)
 		if data.tree and data.get("planted", false) and data.tree_state != "stump":
 			var young: bool = data.get("growth_age", 0.0) < planting.GROWTH_SECONDS
 			if trees.has(cell) and trees[cell].has_method("update_growth") != young:
@@ -373,6 +594,16 @@ func _refresh_visuals():
 		if logs.has(cell) and not data.get("log", false):
 			logs[cell].queue_free()
 			logs.erase(cell)
+	for cell in water_tiles.keys():
+		var node: MeshInstance3D = water_tiles[cell]
+		var data = grid.cells[cell.y * grid.SIZE + cell.x]
+		var depth = float(data.get("water_depth", data.get("water_level", 0.0)))
+		if depth < 0.12:
+			node.visible = false
+		else:
+			node.visible = true
+			node.scale = Vector3(clampf(0.6 + depth * 0.4, 0.6, 1.0), clampf(depth, 0.2, 1.0), clampf(0.6 + depth * 0.4, 0.6, 1.0))
+			node.position.y = lerpf(-0.04, 0.02, depth)
 	if effects != null:
 		effects.update_state(grid, climate.weather)
 	if ground_cover != null:
@@ -382,7 +613,7 @@ func _refresh_visuals():
 
 func _update_hud():
 	var safe = $GridPlayer.cell.distance_to(grid.start) <= 2.2
-	hud.update_status(survival.health, survival.exposure, climate.temperature, climate.weather, climate.warming_pressure(), SaveManager.progression.knowledge, safe, interactions.target.x >= 0)
+	hud.update_status(survival.health, survival.exposure, climate.temperature, climate.weather, climate.warming_pressure(), SaveManager.progression.knowledge, safe, interactions.target.x >= 0, interactions.seeds, interactions.water_ml)
 	hud.set_environment_context(climate.fire_at($GridPlayer.cell), objectives.summary(), objectives.ready_for_clearing())
 	hud.set_region(regions.region_name(region_id))
 	hud.update_seeds(planting.seed_count)
@@ -843,3 +1074,105 @@ func _update_bonfire_visuals():
 		flame.scale = Vector3.ONE * (1.0 if i == 1 else 0.72) * lerpf(0.25, 1.0, intensity)
 	$Bonfire/Smoke.emitting = intensity > 0.0
 	$Bonfire/Warmth.light_energy = 0.5 * intensity
+
+
+func _create_water_splash():
+	water_splash = CPUParticles3D.new()
+	water_splash.name = "WaterSplash"
+	water_splash.emitting = false
+	water_splash.one_shot = true
+	water_splash.explosiveness = 0.92
+	water_splash.amount = 24
+	water_splash.lifetime = 0.55
+	water_splash.direction = Vector3(0, 1, 0)
+	water_splash.spread = 55.0
+	water_splash.initial_velocity_min = 2.0
+	water_splash.initial_velocity_max = 4.0
+	water_splash.gravity = Vector3(0, -9.8, 0)
+	var water_mat = StandardMaterial3D.new()
+	water_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	water_mat.albedo_color = Color(0.35, 0.72, 1.0, 0.75)
+	water_mat.roughness = 0.1
+	var drop = SphereMesh.new()
+	drop.radius = 0.04
+	drop.height = 0.08
+	drop.material = water_mat
+	water_splash.mesh = drop
+	add_child(water_splash)
+
+func _create_wood_chips():
+	wood_chips = CPUParticles3D.new()
+	wood_chips.name = "WoodChips"
+	wood_chips.emitting = false
+	wood_chips.one_shot = true
+	wood_chips.explosiveness = 0.95
+	wood_chips.amount = 20
+	wood_chips.lifetime = 0.45
+	wood_chips.direction = Vector3(0, 1, 0)
+	wood_chips.spread = 65.0
+	wood_chips.initial_velocity_min = 2.0
+	wood_chips.initial_velocity_max = 4.2
+	wood_chips.gravity = Vector3(0, -9.8, 0)
+	var chip_mat = StandardMaterial3D.new()
+	chip_mat.albedo_color = Color(0.82, 0.66, 0.45)
+	chip_mat.roughness = 0.9
+	var chip = BoxMesh.new()
+	chip.size = Vector3(0.045, 0.045, 0.045)
+	chip.material = chip_mat
+	wood_chips.mesh = chip
+	add_child(wood_chips)
+
+func _create_dirt_puff():
+	dirt_puff = CPUParticles3D.new()
+	dirt_puff.name = "DirtPuff"
+	dirt_puff.emitting = false
+	dirt_puff.one_shot = true
+	dirt_puff.explosiveness = 0.95
+	dirt_puff.amount = 16
+	dirt_puff.lifetime = 0.4
+	dirt_puff.direction = Vector3(0, 1, 0)
+	dirt_puff.spread = 50.0
+	dirt_puff.initial_velocity_min = 1.5
+	dirt_puff.initial_velocity_max = 3.2
+	dirt_puff.gravity = Vector3(0, -9.8, 0)
+	var dirt_mat = StandardMaterial3D.new()
+	dirt_mat.albedo_color = Color(0.24, 0.16, 0.10)
+	dirt_mat.roughness = 0.95
+	var lump = BoxMesh.new()
+	lump.size = Vector3(0.04, 0.04, 0.04)
+	lump.material = dirt_mat
+	dirt_puff.mesh = lump
+	add_child(dirt_puff)
+
+func _update_or_create_crop_indicator(cell: Vector2i, type: String, progress_val: float):
+	var indicator: Node3D
+	if crop_indicators.has(cell):
+		indicator = crop_indicators[cell]
+	else:
+		indicator = Node3D.new()
+		indicator.set_script(CROP_INDICATOR)
+		indicator.position = grid.world_position(cell) + Vector3(0, 0.85, 0)
+		add_child(indicator)
+		crop_indicators[cell] = indicator
+	if indicator.has_method("update_state"):
+		indicator.update_state(type, progress_val)
+
+func _on_chop_impact(pos: Vector3):
+	if wood_chips != null:
+		wood_chips.position = pos
+		wood_chips.restart()
+
+func _on_till_impact(pos: Vector3):
+	if dirt_puff != null:
+		dirt_puff.position = pos
+		dirt_puff.restart()
+
+func _on_water_fill_splash(pos: Vector3):
+	if water_splash != null:
+		water_splash.position = pos
+		water_splash.restart()
+
+func _on_water_pour_splash(pos: Vector3):
+	if water_splash != null:
+		water_splash.position = pos
+		water_splash.restart()

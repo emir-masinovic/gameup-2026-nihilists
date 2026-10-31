@@ -20,6 +20,8 @@ light_color = Color(1, 0.91, 0.74, 1)
 light_energy = 1.15
 shadow_enabled = true
 [node name="Terrain" type="Node3D" parent="."]
+[node name="Farmland" type="Node3D" parent="."]
+[node name="Water" type="Node3D" parent="."]
 [node name="Vegetation" type="Node3D" parent="."]
 [node name="GridPlayer" parent="." instance=ExtResource("2")]
 [node name="CameraRig" type="Node3D" parent="."]

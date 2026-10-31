@@ -192,7 +192,7 @@ func run() -> void:
 	check(cut.get("kind") == "tree_cut" and cut.get("landing") == scenario.landing, "Actual cut produces expected stump and log")
 	world._finish_interaction(cut)
 	check(world.cut_cells.has(scenario.tree) and world.trees.has(scenario.tree) and world.logs.has(scenario.landing), "Authoritative cut history has matching stump/log graphics")
-	check(not world.grid.traversable(scenario.tree) and not world.grid.traversable(scenario.landing), "Stump and fallen log both block their actual cells")
+	check(world.grid.traversable(scenario.tree) and not world.grid.traversable(scenario.landing), "Stump is traversable for seed collection and fallen log blocks its cell")
 	var old_stump_id = world.trees[scenario.tree].get_instance_id()
 	var old_log_id = world.logs[scenario.landing].get_instance_id()
 	var dry_cells: Array = dry_grid.cells.duplicate(true)

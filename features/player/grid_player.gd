@@ -1,5 +1,10 @@
 extends Node3D
 signal cell_entered(cell: Vector2i)
+signal chop_impact(impact_position: Vector3)
+signal till_impact(impact_position: Vector3)
+signal water_fill_splash(impact_position: Vector3)
+signal water_pour_splash(impact_position: Vector3)
+
 const CARDINAL_DIRECTIONS = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
 const INPUT_ALIGNMENT_HYSTERESIS = 0.08
 const MAPPING_ALIGNMENT_HYSTERESIS = 0.16
@@ -10,6 +15,69 @@ var moving = false
 var require_release = false
 var move_tween: Tween
 var _screen_directions: Dictionary = {}
+
+var is_chopping: bool:
+	get: return $Body.is_chopping if has_node("Body") else false
+var is_tilling: bool:
+	get: return $Body.is_tilling if has_node("Body") else false
+var is_filling_water: bool:
+	get: return $Body.is_filling_water if has_node("Body") else false
+var is_watering: bool:
+	get: return $Body.is_watering if has_node("Body") else false
+var is_gathering: bool:
+	get: return $Body.is_gathering if has_node("Body") else false
+
+func _ready():
+	if has_node("Body"):
+		var body = $Body
+		if body.has_signal("chop_impact"): body.chop_impact.connect(func(pos): chop_impact.emit(pos))
+		if body.has_signal("till_impact"): body.till_impact.connect(func(pos): till_impact.emit(pos))
+		if body.has_signal("water_fill_splash"): body.water_fill_splash.connect(func(pos): water_fill_splash.emit(pos))
+		if body.has_signal("water_pour_splash"): body.water_pour_splash.connect(func(pos): water_pour_splash.emit(pos))
+
+func start_chopping(target_world_pos: Vector3):
+	if has_node("Body") and $Body.has_method("start_chopping"):
+		$Body.start_chopping(target_world_pos)
+
+func stop_chopping():
+	if has_node("Body") and $Body.has_method("stop_chopping"):
+		$Body.stop_chopping()
+
+func start_tilling(target_world_pos: Vector3):
+	if has_node("Body") and $Body.has_method("start_tilling"):
+		$Body.start_tilling(target_world_pos)
+
+func stop_tilling():
+	if has_node("Body") and $Body.has_method("stop_tilling"):
+		$Body.stop_tilling()
+
+func start_filling_water(target_world_pos: Vector3):
+	if has_node("Body") and $Body.has_method("start_filling_water"):
+		$Body.start_filling_water(target_world_pos)
+
+func stop_filling_water():
+	if has_node("Body") and $Body.has_method("stop_filling_water"):
+		$Body.stop_filling_water()
+
+func start_watering(target_world_pos: Vector3):
+	if has_node("Body") and $Body.has_method("start_watering"):
+		$Body.start_watering(target_world_pos)
+
+func stop_watering():
+	if has_node("Body") and $Body.has_method("stop_watering"):
+		$Body.stop_watering()
+
+func start_gathering(target_world_pos: Vector3):
+	if has_node("Body") and $Body.has_method("start_gathering"):
+		$Body.start_gathering(target_world_pos)
+
+func stop_gathering():
+	if has_node("Body") and $Body.has_method("stop_gathering"):
+		$Body.stop_gathering()
+
+func _update_animation(delta: float):
+	if has_node("Body") and $Body.has_method("_update_animation"):
+		$Body._update_animation(delta)
 
 func configure(data: RefCounted):
 	grid = data

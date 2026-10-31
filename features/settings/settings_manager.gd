@@ -13,7 +13,7 @@ var camera_mode = "Follow Player"
 const DEFAULT_BINDINGS = {
 	"move_north": [KEY_W, KEY_UP], "move_south": [KEY_S, KEY_DOWN],
 	"move_west": [KEY_A, KEY_LEFT], "move_east": [KEY_D, KEY_RIGHT],
-	"interact": [KEY_E, KEY_SPACE], "eat": [KEY_F, 0], "pause": [KEY_ESCAPE, KEY_P],
+	"interact": [KEY_E, 0], "chop_gather": [KEY_SPACE, 0], "eat": [KEY_F, 0], "pause": [KEY_ESCAPE, KEY_P],
 	"camera_mode_cycle": [KEY_C, 0],
 	"camera_orbit": [-MOUSE_BUTTON_MIDDLE, -MOUSE_BUTTON_RIGHT],
 	"camera_zoom_in": [-MOUSE_BUTTON_WHEEL_UP, 0],

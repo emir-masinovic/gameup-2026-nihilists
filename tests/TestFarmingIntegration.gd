@@ -172,23 +172,18 @@ func scene_checks():
 	native.tree_state = "healthy"
 	native.tree_health = 1.0
 	player.facing = Vector2i.RIGHT
-	world._begin_context_action()
+	world._try_interact("chop_gather")
 	world._tick_context_action(1.3)
-	check(native.tree_state == "stump" and not world.grid.traversable(native_cell) and native.pending_seeds == 1 and world.planting.seed_count == 2, "Actual chop preserves blocked stump and creates drop without auto-award")
+	check(native.tree_state == "stump" and world.grid.traversable(native_cell) and world.planting.seed_count == 2, "Actual chop creates traversable stump without auto-awarding seeds")
 	check(world.hud.get_node("PlayerStatus/Rows/Supplies/Seeds").text == "2", "HUD does not award seeds at chop completion")
 	check(world.grid.cells[5*world.grid.SIZE+10].log, "Tree still falls away and creates blocked log")
-	world.planting.seed_count = 9
-	var full_target: Dictionary = world.context_action.select(world._interaction_candidates(),player.cell,player.facing)
-	check(full_target.get("object_kind") == "tree" and full_target.get("action") == "Remove", "Full seed pouch never blocks stump clearing; drop can remain on ground")
-	world.planting.seed_count = 2
-	world._begin_context_action()
-	check(world.context_action.active.get("object_kind") == "seeds", "Adjacent stump offers Collect Seeds without walking onto it")
+	# Step onto the cut tree remains/stump to collect seeds
+	player.cell = native_cell
+	player.position = world.grid.world_position(player.cell)
+	world._try_interact("chop_gather")
 	world._tick_context_action(1.0)
-	check(world.planting.seed_count == 3 and native.tree_state == "stump" and not world.seed_visuals.has(native_cell), "Collecting removes drop only and preserves stump")
-	check(world.hud.get_node("PlayerStatus/Rows/Supplies/Seeds").text == "3", "HUD updates only after explicit seed collection")
-	world._begin_context_action()
-	world._tick_context_action(1.3)
-	check(not native.tree and world.grid.traversable(native_cell), "Next interaction removes stump normally")
+	check(world.planting.seed_count == 5 and not native.tree and world.grid.traversable(native_cell), "Collecting seeds on stump grants 3 seeds and clears stump remains")
+	check(world.hud.get_node("PlayerStatus/Rows/Supplies/Seeds").text == "5", "HUD updates only after explicit seed collection")
 	world.region_state.grid.cells[6*world.grid.SIZE+7].pending_seeds = 1
 	var water_before: int = world.planting.water_ml
 	flow.change_region("wetlands")

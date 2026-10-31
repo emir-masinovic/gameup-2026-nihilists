@@ -26,12 +26,28 @@ func generate(world_seed: int):
 			var vegetation = rng.randf() < minf(density, 0.78)
 			if _protected_route(cell):
 				vegetation = false
-			cells.append({"tree": vegetation, "shade": cosmetic_rng.randf(),
-				"rotation": cosmetic_rng.randf_range(0.0, TAU), "scale": cosmetic_rng.randf_range(0.8, 1.2),
-				"terrain": "grass" if rng.randf() > 0.15 else "soil", "water_level": 0.0,
-				"variant": cosmetic_rng.randi_range(0, 3), "log": false,
-				"burning": false, "burned": false, "fuel": 1.0 if vegetation else 0.45, "fire_time": 0.0})
-	# A single small connected pond, kept off the central guaranteed dry cross.
+			cells.append({
+				"tree": vegetation,
+				"tree_state": "healthy" if vegetation else "removed",
+				"tree_health": 1.0 if vegetation else 0.0,
+				"shade": cosmetic_rng.randf(),
+				"rotation": cosmetic_rng.randf_range(0.0, TAU),
+				"scale": cosmetic_rng.randf_range(0.8, 1.2),
+				"terrain": "grass" if rng.randf() > 0.15 else "soil",
+				"water": false,
+				"water_level": 0.0,
+				"water_depth": 0.0,
+				"tilled": false,
+				"prepared": false,
+				"water_needed": 1.0,
+				"variant": cosmetic_rng.randi_range(0, 3),
+				"log": false,
+				"burning": false,
+				"burned": false,
+				"fuel": 1.0 if vegetation else 0.45,
+				"fire_time": 0.0
+			})
+	# A single small connected pond/lake, kept off the central guaranteed dry cross.
 	var pond = Vector2i(rng.randi_range(2, 5), rng.randi_range(2, 5))
 	if rng.randf() < 0.5:
 		pond.x = SIZE - 1 - pond.x
@@ -49,11 +65,17 @@ func generate(world_seed: int):
 		if frontier.is_empty():
 			break
 		pond_cells.append(frontier[rng.randi_range(0, frontier.size() - 1)])
+
+	# Requirement: "Hiçbir ağaç, gölün veya su birikintisinin içinde oluşmamalı"
 	for cell in pond_cells:
 		var data: Dictionary = cells[cell.y * SIZE + cell.x]
 		data.terrain = "water"
+		data.water = true
 		data.water_level = 1.0
+		data.water_depth = 1.0
 		data.tree = false
+		data.tree_state = "removed"
+		data.tree_health = 0.0
 		data.fuel = 0.0
 
 func _protected_route(cell: Vector2i) -> bool:
@@ -66,7 +88,22 @@ func traversable(cell: Vector2i) -> bool:
 	if not in_bounds(cell):
 		return false
 	var data: Dictionary = cells[cell.y * SIZE + cell.x]
-	return not data.tree and not data.get("log", false) and (data.get("terrain", "grass") != "water" or data.get("water_level", 0.0) <= 0.1)
+	if data.get("tree", false):
+		var state = data.get("tree_state", "healthy")
+		# Stumps, seeds, and saplings are traversable so player can stand on them to collect seeds or water.
+		if state not in ["stump", "seed", "sapling"]:
+			return false
+	if data.get("log", false):
+		return false
+	var is_water = data.get("terrain", "grass") == "water" or data.get("water", false)
+	if is_water:
+		if data.get("water", false):
+			if float(data.get("water_depth", 1.0)) > 0.25:
+				return false
+		else:
+			if float(data.get("water_level", 1.0)) > 0.1:
+				return false
+	return true
 
 func world_position(cell: Vector2i) -> Vector3:
 	return Vector3((cell.x - start.x) * CELL_SIZE, 0, (cell.y - start.y) * CELL_SIZE)

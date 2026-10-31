@@ -46,6 +46,10 @@ func configure(grid: RefCounted, world_seed: int):
 		data.fire_time = 0.0
 		data.burn_recovery = 0.0
 		data.fuel = 0.0 if data.get("terrain", "grass") == "water" else (1.0 if data.tree else 0.45)
+		data.water = data.get("water", false) or data.get("terrain", "grass") == "water"
+		data.water_depth = data.get("water_depth", 1.0 if data.water else 0.0)
+		data.tilled = data.get("tilled", false)
+		data.water_needed = data.get("water_needed", 1.0)
 	_update_weather()
 
 func tick(seconds: float = 1.0):
@@ -90,9 +94,12 @@ func _simulate(seconds: float):
 			if _grid.in_bounds(neighbor):
 				var adjacent: Dictionary = _grid.cells[neighbor.y * _grid.SIZE + neighbor.x]
 				water_help = maxf(water_help, adjacent.get("water_level", 0.0) * 0.0025)
-		if terrain == "water":
-			data.water_level = clampf(data.water_level + (rain * 0.12 - drying * 0.045) * seconds, 0.0, 1.0)
-			data.moisture = maxf(data.water_level, clampf(data.moisture + (rain - drying * 0.2) * seconds, 0.0, 1.0))
+		if terrain == "water" or data.get("water", false):
+			var cur_water = float(data.water_depth if data.get("water", false) else data.get("water_level", 1.0))
+			cur_water = clampf(cur_water + (rain * 0.12 - drying * 0.045) * seconds, 0.0, 1.0)
+			data.water_level = cur_water
+			data.water_depth = cur_water
+			data.moisture = maxf(cur_water, clampf(data.moisture + (rain - drying * 0.2) * seconds, 0.0, 1.0))
 		else:
 			data.moisture = clampf(data.moisture + (rain + water_help - drying / retention) * seconds, 0.0, 1.0)
 		data.trampled = maxf(0.0, data.get("trampled", 0.0) - 0.001 * seconds)
@@ -106,17 +113,23 @@ func _simulate(seconds: float):
 		data.health = clampf(data.health + (recovery * (1.0 - data.trampled) - stress) * seconds, 0.0, 1.0)
 		if data.get("burned", false):
 			data.health = minf(data.health, data.burn_recovery)
-		if data.tree and data.tree_state == "sapling":
+		if data.tree and data.tree_state == "seed":
+			var hydration = (0.15 if weather == "rain" else (maxf(data.moisture - 0.3, 0.0) * 0.14)) * seconds
+			data.water_needed = maxf(0.0, data.get("water_needed", 1.0) - hydration)
+			if data.water_needed <= 0.0:
+				data.tree_state = "sapling"
+				data.tree_health = 0.25
+		elif data.tree and data.tree_state == "sapling":
 			var local_temperature = temperature - shades[i] * 4.0
 			var favorable = data.moisture > 0.35 and local_temperature >= 8.0 and local_temperature <= 34.0 and not data.get("burning", false) and not data.get("burned", false)
 			if favorable:
-				data.growth_age += seconds
+				data.growth_age = data.get("growth_age", 0.0) + seconds
 				data.tree_health = minf(1.0, data.tree_health + 0.002 * seconds)
 			else:
 				data.tree_health = maxf(0.0, data.tree_health - (stress + (0.003 if local_temperature < 3.0 else 0.0)) * seconds)
 			if data.tree_health <= 0.0:
 				data.tree_state = "dead"
-			elif data.growth_age >= preload("res://features/levels/forest/StatePlanting.gd").GROWTH_SECONDS:
+			elif data.get("growth_age", 0.0) >= preload("res://features/levels/forest/StatePlanting.gd").GROWTH_SECONDS:
 				data.tree_state = "healthy"
 				data.fuel = 1.0
 		if data.tree and data.tree_state == "healthy":
@@ -198,6 +211,23 @@ func fire_at(cell: Vector2i) -> float:
 			hazard = maxf(hazard, 1.0 if offset == Vector2i.ZERO else 0.5)
 	return hazard
 
+func water_proximity(cell: Vector2i) -> float:
+	if _grid == null or not _grid.in_bounds(cell):
+		return 0.0
+	var cooling = 0.0
+	for dy in range(-2, 3):
+		for dx in range(-2, 3):
+			var neighbor = cell + Vector2i(dx, dy)
+			if not _grid.in_bounds(neighbor):
+				continue
+			var data: Dictionary = _grid.cells[neighbor.y * _grid.SIZE + neighbor.x]
+			if (data.get("water", false) or data.get("terrain", "") == "water") and maxf(float(data.get("water_depth", 0.0)), float(data.get("water_level", 0.0))) > 0.15:
+				var dist = cell.distance_to(neighbor)
+				if dist <= 2.2:
+					var depth = maxf(float(data.get("water_depth", 1.0)), float(data.get("water_level", 1.0)))
+					cooling = maxf(cooling, depth * (1.0 - dist / 2.5))
+	return clampf(cooling, 0.0, 0.85)
+
 func shade_at(cell: Vector2i) -> float:
 	if _grid == null or not _grid.in_bounds(cell):
 		return 0.0
@@ -207,9 +237,14 @@ func shade_at(cell: Vector2i) -> float:
 		if not _grid.in_bounds(neighbor):
 			continue
 		var data: Dictionary = _grid.cells[neighbor.y * _grid.SIZE + neighbor.x]
-		if data.tree and data.get("tree_state", "removed") == "healthy":
-			shade += data.get("tree_health", 0.0) * (0.8 if offset == Vector2i.ZERO else 0.3)
-	return clampf(shade, 0.0, 0.9)
+		if data.tree:
+			var state = data.get("tree_state", "removed")
+			if state == "healthy":
+				shade += data.get("tree_health", 0.0) * (0.8 if offset == Vector2i.ZERO else 0.3)
+			elif state == "sapling":
+				shade += data.get("tree_health", 0.0) * 0.4 * (0.8 if offset == Vector2i.ZERO else 0.3)
+	var cooling = water_proximity(cell) * 0.4
+	return clampf(shade + cooling, 0.0, 0.9)
 
 func trample(cell: Vector2i, amount: float = 0.12):
 	if _grid == null or not _grid.in_bounds(cell) or not is_finite(amount) or amount <= 0.0:
