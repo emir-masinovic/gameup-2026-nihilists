@@ -26,6 +26,8 @@ var is_watering: bool:
 	get: return $Body.is_watering if has_node("Body") else false
 var is_gathering: bool:
 	get: return $Body.is_gathering if has_node("Body") else false
+var is_drinking: bool:
+	get: return $Body.is_drinking if has_node("Body") else false
 
 func _ready():
 	if has_node("Body"):
@@ -74,6 +76,14 @@ func start_gathering(target_world_pos: Vector3):
 func stop_gathering():
 	if has_node("Body") and $Body.has_method("stop_gathering"):
 		$Body.stop_gathering()
+
+func start_drinking(target_world_pos: Vector3):
+	if has_node("Body") and $Body.has_method("start_drinking"):
+		$Body.start_drinking(target_world_pos)
+
+func stop_drinking():
+	if has_node("Body") and $Body.has_method("stop_drinking"):
+		$Body.stop_drinking()
 
 func _update_animation(delta: float):
 	if has_node("Body") and $Body.has_method("_update_animation"):

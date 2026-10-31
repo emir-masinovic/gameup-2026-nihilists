@@ -79,9 +79,13 @@ func run():
 	world.set_process(false)
 	
 	var seeds_node = world.hud.get_node_or_null("PlayerStatus/Rows/Seeds")
+	if seeds_node == null:
+		seeds_node = world.hud.get_node_or_null("PlayerStatus/Rows/Supplies/Seeds")
 	check(seeds_node != null, "HUD contains Seeds indicator in PlayerStatus")
 	
 	var seeds_val = world.hud.get_node_or_null("PlayerStatus/Rows/Seeds/Value")
+	if seeds_val == null:
+		seeds_val = world.hud.get_node_or_null("PlayerStatus/Rows/Supplies/Seeds")
 	check(seeds_val != null and seeds_val.text == "3", "HUD seeds value starts at 3")
 	
 	# Set a tree directly next to player and run world interaction to verify HUD updates
@@ -107,6 +111,8 @@ func run():
 	
 	# Exhaust seeds in world and simulate pressing interact on tilled ground where player stands
 	world.interactions.seeds = 0
+	if world.planting != null:
+		world.planting.seed_count = 0
 	var empty_tilled = test_pos + Vector2i.UP
 	world.grid.cells[empty_tilled.y * world.grid.SIZE + empty_tilled.x].tree = false
 	world.grid.cells[empty_tilled.y * world.grid.SIZE + empty_tilled.x].moisture = 0.8

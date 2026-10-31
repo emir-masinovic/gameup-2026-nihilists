@@ -24,6 +24,9 @@ var _water_elapsed: float = 0.0
 var _water_poured: bool = false
 var is_gathering: bool = false
 var _gather_elapsed: float = 0.0
+var is_drinking: bool = false
+var _drink_target_pos: Vector3 = Vector3.ZERO
+var _drink_elapsed: float = 0.0
 signal till_impact(impact_position: Vector3)
 signal water_fill_splash(impact_position: Vector3)
 signal water_pour_splash(impact_position: Vector3)
@@ -61,6 +64,7 @@ func _cache_nodes():
 func _on_step(_cell: Vector2i):
 	stop_chopping()
 	stop_farming()
+	stop_drinking()
 	_step_count += 1
 	_step_elapsed = 0.0
 	_step_planted = false
@@ -325,6 +329,38 @@ func _update_animation(delta: float):
 		if _arm_right:
 			_arm_right.rotation.x = lerpf(0.0, -0.85 - reach, kneel)
 			_arm_right.rotation.z = lerpf(0.0, -0.2, kneel)
+	elif is_drinking:
+		_drink_elapsed += delta
+		# Character kneels down towards water, scoops water with cupped hands up to helmet/face to drink
+		var cycle = fmod(_drink_elapsed, 0.9)
+		var kneel = minf(_drink_elapsed * 3.5, 1.0)
+		_body.position.y = lerpf(0.0, -0.16, kneel)
+		_body.rotation.x = lerpf(0.0, -0.38, kneel)
+		if _leg_left:
+			_leg_left.rotation.x = lerpf(0.0, -0.42, kneel)
+		if _leg_right:
+			_leg_right.rotation.x = lerpf(0.0, 0.38, kneel)
+		if cycle < 0.45:
+			# Reach cupped hands down into the water
+			var t = cycle / 0.45
+			var ease_down = sin(t * PI * 0.5)
+			if _arm_left:
+				_arm_left.rotation.x = lerpf(0.0, -0.85, ease_down)
+				_arm_left.rotation.z = lerpf(0.08, 0.28, ease_down)
+			if _arm_right:
+				_arm_right.rotation.x = lerpf(0.0, -0.85, ease_down)
+				_arm_right.rotation.z = lerpf(-0.08, -0.28, ease_down)
+		else:
+			# Bring cupped hands up to helmet visor to drink, head tilting slightly
+			var t = (cycle - 0.45) / 0.45
+			var ease_up = sin(t * PI * 0.5)
+			if _arm_left:
+				_arm_left.rotation.x = lerpf(-0.85, -1.55, ease_up)
+				_arm_left.rotation.z = lerpf(0.28, 0.42, ease_up)
+			if _arm_right:
+				_arm_right.rotation.x = lerpf(-0.85, -1.55, ease_up)
+				_arm_right.rotation.z = lerpf(-0.28, -0.42, ease_up)
+			_body.rotation.x = lerpf(-0.38, -0.18, ease_up)
 	else:
 		# Return limbs smoothly to relaxed stance
 		var blend = delta * 12.0
@@ -466,8 +502,29 @@ func stop_gathering():
 	_gather_elapsed = 0.0
 
 
+func start_drinking(target_world_pos: Vector3):
+	stop_farming()
+	stop_chopping()
+	is_drinking = true
+	_drink_target_pos = target_world_pos
+	_drink_elapsed = 0.0
+	_cache_nodes()
+	if _bottle != null: _bottle.visible = false
+	if _axe != null: _axe.visible = false
+	if _hoe != null: _hoe.visible = false
+	var dir_to_water = target_world_pos - global_position
+	if dir_to_water.length_squared() > 0.001:
+		_target_yaw = atan2(-dir_to_water.x, -dir_to_water.z)
+		if _body != null:
+			_body.rotation.y = _target_yaw
+
+func stop_drinking():
+	is_drinking = false
+	_drink_elapsed = 0.0
+
 func stop_farming():
 	stop_tilling()
 	stop_filling_water()
 	stop_watering()
 	stop_gathering()
+	stop_drinking()

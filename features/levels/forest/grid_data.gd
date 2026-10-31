@@ -91,7 +91,7 @@ func traversable(cell: Vector2i) -> bool:
 	if data.get("tree", false):
 		var state = data.get("tree_state", "healthy")
 		# Stumps, seeds, and saplings are traversable so player can stand on them to collect seeds or water.
-		if state not in ["stump", "seed", "sapling"]:
+		if state in ["healthy", "dead"]:
 			return false
 	if data.get("log", false):
 		return false

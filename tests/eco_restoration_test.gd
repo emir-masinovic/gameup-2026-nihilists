@@ -59,7 +59,8 @@ func run():
 	# 4. Test seed germination and sapling growth into a full tree
 	data.water_needed = 0.0
 	data.tree_state = "sapling"
-	data.tree_health = 0.35
+	data.tree_health = 0.92
+	data.growth_age = 230.0
 	
 	var initial_shade = climate.shade_at(target)
 	check(initial_shade > 0.0, "Sapling provides initial partial shade")

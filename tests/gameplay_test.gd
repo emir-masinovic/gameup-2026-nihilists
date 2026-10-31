@@ -39,7 +39,7 @@ func run():
 	var event = world.interactions.tick(1.0, player.cell)
 	check(event.direction == Vector2i.RIGHT and event.cell == tree_cell, "Fall direction away from player")
 	world._finish_interaction(event)
-	check(not world.grid.traversable(tree_cell), "Stump keeps original cell blocked")
+	check(world.grid.traversable(tree_cell), "Stump is traversable for seed collection")
 	check(world.grid.cells[tree_cell.y * world.grid.SIZE + tree_cell.x].tree_state == "stump", "Cut reflected in climate data")
 	check(world.interactions.begin(player.cell, Vector2i.RIGHT), "Second action targets stump")
 	event = world.interactions.tick(2.0, player.cell)

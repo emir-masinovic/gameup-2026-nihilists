@@ -82,6 +82,8 @@ func begin(player: Vector2i, facing: Vector2i, action_group: String = "") -> boo
 		_interaction_kind = "stump_removed"
 		duration = 0.8
 		return true
+	if front_cell != null and front_cell.get("tree", false) and front_cell.get("tree_state") in ["seed", "sapling"]:
+		return _begin_interact(player, front, current_cell, front_cell)
 	if front_cell != null and front_cell.get("tree", false):
 		return _begin_chop_gather(player, front, current_cell, front_cell)
 	if front_cell != null and front_cell.get("log", false):
@@ -115,7 +117,18 @@ func _begin_chop_gather(player: Vector2i, front: Vector2i, current_cell: Diction
 		duration = 0.8
 		return true
 
-	# Priority 2: Facing tree (healthy, dead, or juvenile sapling/planted tree)
+	# Priority 2: Facing water source (Lake / Puddle) -> Directly drink water (Space key)
+	# Requirement: "Gölün veya su birikintisinin yanına gidildiğinde space tuşu ile su içmeli karakter"
+	if front_cell != null and _is_water_cell(front_cell):
+		target = front
+		origin = player
+		progress = 0.0
+		action_kind = "drink_water"
+		_interaction_kind = "drink_water"
+		duration = 0.9
+		return true
+
+	# Priority 3: Facing tree (healthy, dead, or juvenile sapling/planted tree)
 	if front_cell != null and front_cell.get("tree", false):
 		var k = kind_for(front_cell)
 		if k in ["tree_cut", "sapling_removed"]:
@@ -217,7 +230,9 @@ func tick(delta: float, player: Vector2i) -> Dictionary:
 
 	var event = {"cell": target, "direction": target - player, "kind": action_kind}
 
-	if action_kind == "fill_water":
+	if action_kind == "drink_water":
+		event.kind = "drink_water"
+	elif action_kind == "fill_water":
 		var filled = mini(WATER_PER_FILL, MAX_WATER_ML - water_ml)
 		water_ml = mini(MAX_WATER_ML, water_ml + WATER_PER_FILL)
 		event["amount"] = filled

@@ -299,7 +299,10 @@ func _try_interact(action_group: String):
 	if interactions.begin($GridPlayer.cell, $GridPlayer.facing, action_group):
 		var target_pos = grid.world_position(interactions.target)
 		var msg = ""
-		if interactions.action_kind == "fill_water":
+		if interactions.action_kind == "drink_water":
+			msg = "Gölden su içiliyor... hareket etmek iptal eder"
+			$GridPlayer.start_drinking(target_pos)
+		elif interactions.action_kind == "fill_water":
 			msg = "Şişeye su dolduruluyor... hareket etmek iptal eder"
 			$GridPlayer.start_filling_water(target_pos)
 		elif interactions.action_kind == "water_soil":
@@ -327,7 +330,7 @@ func _try_interact(action_group: String):
 		hud.notify(msg)
 	else:
 		if action_group == "chop_gather":
-			hud.notify("Ağaç kesmek için ağaca dönün, tohum toplamak için kalıntının üzerine gelin (Space)")
+			hud.notify("Ağaç kesmek veya gölden su içmek için dönün, tohum için kalıntının üzerine gelin (Space)")
 		else:
 			if $GridPlayer.cell.distance_to(grid.start) <= 1.5:
 				hud.show_modal("bonfire")
@@ -406,10 +409,17 @@ func _finish_interaction(event: Dictionary):
 		$GridPlayer.stop_filling_water()
 		$GridPlayer.stop_watering()
 		$GridPlayer.stop_gathering()
+		$GridPlayer.stop_drinking()
 	if event.is_empty() or not event.has("cell"):
 		return
 	var cell: Vector2i = event.cell
-	if event.kind == "fill_water":
+	if event.kind == "drink_water":
+		survival.drink()
+		_discover("water.freshwater", "Freshwater source found")
+		audio_cue.emit("discovery", grid.world_position(cell))
+		hud.notify("Gölden su içildi! Susuzluk giderildi (%d%%)." % roundi(survival.thirst))
+		_update_hud()
+	elif event.kind == "fill_water":
 		_discover("interaction.fill_water", "Water filled: bottle replenished from lake")
 		hud.notify("Şişeye su dolduruldu (+%d ml)! Mevcut su: %d ml" % [event.get("amount", 500), interactions.water_ml])
 		if water_splash != null:
