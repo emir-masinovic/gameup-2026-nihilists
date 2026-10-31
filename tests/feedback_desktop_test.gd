@@ -53,7 +53,7 @@ func run():
 		flow.new_game()
 		await process_frame
 		await process_frame
-		check(in_view(current_scene.get_node("HUD/Info")), "HUD fits viewport")
+		check(in_view(current_scene.hud.get_node("PlayerStatus")) and in_view(current_scene.hud.get_node("WorldStatus")), "HUD panels fit viewport")
 		flow.open_pause()
 		await process_frame
 		await capture("pause_%d" % size_value.x)

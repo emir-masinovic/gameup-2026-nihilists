@@ -12,7 +12,7 @@ Keep scenes, scripts, resources, and local media with their feature. Use snake_c
 - `features/levels/prototype/prototype.tscn`: original bootstrap, retained unchanged.
 - `tests/`: foundation, mouse bindings, camera/grid, projection, desktop video, persistence, climate, progression, and gameplay integration tests.
 
-Required script/shader UID companions and font import descriptors are tracked. `.godot/` import, editor, shader and UID caches are ignored. No external world asset packs are used. Alegreya Sans Regular comes from the official Google Fonts repository (`ofl/alegreyasans`); its SIL Open Font License is included at `features/menus/fonts/OFL.txt`.
+Required script/shader UID companions and font import descriptors are tracked. `.godot/` import, editor, shader and UID caches are ignored. Ten sparse decorative rocks use two small Kenney Nature Kit GLBs under `features/levels/forest/props/`; source originals stay in central-assets. The included CC0 license and ATTRIBUTION.md record provenance. Models use embedded materials, have no external textures or gameplay collision, and do not change grid passability or simulation seeds. Procedural trees remain to preserve foliage-state and falling-pivot behavior. Alegreya Sans Regular comes from the official Google Fonts repository (`ofl/alegreyasans`); its SIL Open Font License is included at `features/menus/fonts/OFL.txt`.
 
 ## Menus, settings and scene flow
 
@@ -34,7 +34,7 @@ The level schedules one simulation second per tick. Its exported `simulation_tim
 
 Moisture/health remain within 0-1. Heat dries soil, drought and heat stress vegetation, rain/cool conditions can restore moisture and surviving vegetation. Healthy adjacent trees contribute shade proportional to health. Dead, cut and removed trees do not recover or provide shade. Repeated steps trample grass by 0.12 health each; favorable conditions allow recovery. Recovery discovery requires an actual rise after visible damage.
 
-Rendering uses 16 shared moisture/health terrain materials and four shared foliage materials, updated on simulation ticks. Grid boundaries are derivative-antialiased shader patterns on closed tile meshes, not depth-conflicting overlays. Weather adjusts sunlight color. World geometry remains procedural and bounded.
+Rendering uses 16 shared moisture/health terrain materials and four shared foliage materials, updated on simulation ticks. The terrain shader adds seed-dependent broad green/dirt clusters and restrained fine variation, modulated by the authoritative vegetation health. No per-tile material instances are created. Grid boundaries are derivative-antialiased shader patterns on closed tile meshes, not depth-conflicting overlays. A separate presentation clock drives a tunable 240-second day/night cycle: one directional light changes yaw/elevation continuously and dims to cool moonlight, with a 0.56 ambient-energy floor. Weather changes light color independently of the warming trend. User shadow settings still apply. Three opaque low-poly bonfire flame meshes share a vertex-flicker shader and pause with the world. World geometry remains procedural and bounded.
 
 ## Interaction, survival and run lifecycle
 
@@ -42,7 +42,7 @@ GridPlayer emits cell-entry events and keeps movement separate from generation. 
 
 SurvivalState owns health, heat exposure and latched death. Unfavorable heat increases exposure, shade/resistance reduce accumulation, safer conditions cool the player, and severe exposure damages health. Bonfire shelter within 2.2 cells cools and heals. Death and reaching the golden clearing open modal end states with a new-attempt button. A fresh world/model resets all temporary state. The clearing is a deliberately simple, quickly reachable prototype goal; ten-minute pacing still needs playtesting.
 
-RunHUD is an always-processing scene for health/exposure, climate trend versus weather, concise objective, timed discovery notices, and bonfire/end-state modals. These modals pause gameplay and camera input. Interact within 1.5 cells of spawn opens bonfire progression. Escape returns from the bonfire; end states require an explicit restart/menu choice.
+RunHUD is an always-processing scene with compact upper-left health/heat bars and original drawn icons, and upper-right temperature/weather, long-term trend and Knowledge. The regular HUD has no quest/distance counter or instructional block. A contextual bonfire prompt appears only in shelter, and discoveries use temporary notices. Bonfire/end-state modals remain separate. These modals pause gameplay and camera input. Interact within 1.5 cells of spawn opens bonfire progression. Escape returns from the bonfire; end states require an explicit restart/menu choice.
 
 ## Permanent progression
 
@@ -56,9 +56,10 @@ Run Godot 4.7.2 from the root with `--headless --editor --import --quit`, then `
 
 - `foundation_test`, `mouse_bindings_test`, `camera_grid_test`, `grid_world_test`, `playtest_feedback_test`.
 - `climate_test`, `progression_test`, `interactions_test`, `gameplay_test`, `camera_projection_test`.
+- `movement_camera_test`, `settings_layout_test`, `world_presentation_test`, `hud_polish_test`.
 - `settings_restart_test` twice: first with `-- --write`, then without it.
 
-`desktop_test`, `video_desktop_test`, `feedback_desktop_test` and `gameplay_desktop_test` require a real display. Set `NIHILISTS_CAPTURE_DIR` to an existing directory outside the repository for optional captures. Gameplay tests use separate save filenames. Camera invariance tests freeze the level clock so intentional climate/trampling changes are not mistaken for camera mutations.
+`desktop_test`, `video_desktop_test`, `feedback_desktop_test`, `gameplay_desktop_test` and `polish_desktop_test` require a real display. The polish capture test covers day/night shadows Off/High, flame movement and imported decorative props. Set `NIHILISTS_CAPTURE_DIR` to an existing directory outside the repository for optional captures. Gameplay tests use separate save filenames. Camera invariance tests freeze the level clock so intentional climate/trampling changes are not mistaken for camera mutations.
 
 For native resolution/fullscreen testing, disable **Embed Game on Next Play** in the editor Game menu or launch with `--path` without `--editor`. Embedded Game view owns its own sizing and cannot change window mode. To compare FPS caps, run standalone with VSync off and use `video_desktop_test`; repeat with VSync on to observe display/driver limits. No permanent FPS counter is added.
 

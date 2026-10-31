@@ -90,8 +90,8 @@ func run():
 	await process_frame
 	await process_frame
 	var world = current_scene
-	var hud = world.get_node("HUD/Info")
-	check(hud.text == "FOREST" and hud.anchor_right == 1.0 and hud.horizontal_alignment == HORIZONTAL_ALIGNMENT_RIGHT, "Only FOREST at upper right")
+	var hud = world.hud
+	check(hud.has_node("PlayerStatus") and hud.has_node("WorldStatus") and not hud.has_node("Objective"), "Compact separated status HUD")
 	var ground = world.get_node("Terrain").get_child(0)
 	check(ground.mesh.size.x == world.grid.CELL_SIZE and ground.mesh.size.z == world.grid.CELL_SIZE, "No subpixel tile gaps; same grid spacing")
 	for quality in [0, 1, 2, 3]:

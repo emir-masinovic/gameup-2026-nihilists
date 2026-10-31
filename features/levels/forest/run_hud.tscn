@@ -1,6 +1,30 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=7 format=3]
 [ext_resource type="Script" path="res://features/levels/forest/run_hud.gd" id="1"]
 [ext_resource type="Theme" path="res://features/menus/theme_forest.tres" id="2"]
+[ext_resource type="Script" path="res://features/levels/forest/status_icon.gd" id="3"]
+[sub_resource type="StyleBoxFlat" id="Surface"]
+bg_color = Color(0.055, 0.10, 0.075, 0.92)
+content_margin_left = 12.0
+content_margin_right = 12.0
+content_margin_top = 10.0
+content_margin_bottom = 10.0
+corner_radius_top_left = 9
+corner_radius_top_right = 9
+corner_radius_bottom_left = 9
+corner_radius_bottom_right = 9
+[sub_resource type="StyleBoxFlat" id="HealthFill"]
+bg_color = Color(0.48, 0.70, 0.40, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_left = 4
+corner_radius_bottom_right = 4
+[sub_resource type="StyleBoxFlat" id="HeatFill"]
+bg_color = Color(0.91, 0.62, 0.26, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_left = 4
+corner_radius_bottom_right = 4
+
 [node name="RunHUD" type="Control"]
 anchors_preset = 15
 anchor_right = 1.0
@@ -8,28 +32,109 @@ anchor_bottom = 1.0
 mouse_filter = 2
 script = ExtResource("1")
 theme = ExtResource("2")
-[node name="Stats" type="Label" parent="."]
-offset_left = 24.0
-offset_top = 24.0
-offset_right = 700.0
-offset_bottom = 155.0
-text = "Forest climate"
-[node name="Objective" type="Label" parent="."]
+[node name="PlayerStatus" type="PanelContainer" parent="."]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 318.0
+offset_bottom = 104.0
+theme_override_styles/panel = SubResource("Surface")
+[node name="Rows" type="VBoxContainer" parent="PlayerStatus"]
+theme_override_constants/separation = 8
+[node name="Health" type="HBoxContainer" parent="PlayerStatus/Rows"]
+theme_override_constants/separation = 8
+[node name="Icon" type="Control" parent="PlayerStatus/Rows/Health"]
+custom_minimum_size = Vector2(24, 24)
+script = ExtResource("3")
+kind = "heart"
+[node name="Label" type="Label" parent="PlayerStatus/Rows/Health"]
+custom_minimum_size = Vector2(50, 0)
+text = "Health"
+theme_override_font_sizes/font_size = 18
+[node name="Bar" type="ProgressBar" parent="PlayerStatus/Rows/Health"]
+custom_minimum_size = Vector2(100, 12)
+size_flags_vertical = 4
+size_flags_horizontal = 3
+show_percentage = false
+theme_override_styles/fill = SubResource("HealthFill")
+[node name="Value" type="Label" parent="PlayerStatus/Rows/Health"]
+custom_minimum_size = Vector2(38, 0)
+text = "100"
+horizontal_alignment = 2
+theme_override_font_sizes/font_size = 18
+[node name="Heat" type="HBoxContainer" parent="PlayerStatus/Rows"]
+theme_override_constants/separation = 8
+[node name="Icon" type="Control" parent="PlayerStatus/Rows/Heat"]
+custom_minimum_size = Vector2(24, 24)
+script = ExtResource("3")
+kind = "heat"
+[node name="Label" type="Label" parent="PlayerStatus/Rows/Heat"]
+custom_minimum_size = Vector2(50, 0)
+text = "Heat"
+theme_override_font_sizes/font_size = 18
+[node name="Bar" type="ProgressBar" parent="PlayerStatus/Rows/Heat"]
+custom_minimum_size = Vector2(100, 12)
+size_flags_vertical = 4
+size_flags_horizontal = 3
+show_percentage = false
+theme_override_styles/fill = SubResource("HeatFill")
+[node name="Value" type="Label" parent="PlayerStatus/Rows/Heat"]
+custom_minimum_size = Vector2(38, 0)
+text = "100"
+horizontal_alignment = 2
+theme_override_font_sizes/font_size = 18
+[node name="WorldStatus" type="PanelContainer" parent="."]
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -370.0
-offset_top = 60.0
-offset_right = -24.0
-offset_bottom = 150.0
-horizontal_alignment = 2
-text = "Reach the golden clearing"
+offset_left = -280.0
+offset_right = -20.0
+offset_top = 20.0
+offset_bottom = 124.0
+theme_override_styles/panel = SubResource("Surface")
+[node name="Rows" type="VBoxContainer" parent="WorldStatus"]
+theme_override_constants/separation = 4
+[node name="Climate" type="HBoxContainer" parent="WorldStatus/Rows"]
+theme_override_constants/separation = 8
+[node name="Icon" type="Control" parent="WorldStatus/Rows/Climate"]
+custom_minimum_size = Vector2(24, 24)
+script = ExtResource("3")
+kind = "weather"
+[node name="Value" type="Label" parent="WorldStatus/Rows/Climate"]
+text = "24 C | Clear"
+theme_override_font_sizes/font_size = 18
+[node name="Trend" type="Label" parent="WorldStatus/Rows"]
+text = "+0.0 C warming"
+theme_override_font_sizes/font_size = 16
+tooltip_text = "Long-term warming above the starting climate; separate from passing weather."
+[node name="Knowledge" type="HBoxContainer" parent="WorldStatus/Rows"]
+theme_override_constants/separation = 8
+[node name="Icon" type="Control" parent="WorldStatus/Rows/Knowledge"]
+custom_minimum_size = Vector2(24, 24)
+script = ExtResource("3")
+kind = "leaf"
+[node name="Value" type="Label" parent="WorldStatus/Rows/Knowledge"]
+text = "0 Knowledge"
+theme_override_font_sizes/font_size = 18
+[node name="Context" type="Label" parent="."]
+anchor_left = 0.5
+anchor_right = 0.5
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = -260.0
+offset_right = 260.0
+offset_top = -48.0
+offset_bottom = -18.0
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 18
 [node name="Toast" type="Label" parent="."]
+anchor_right = 1.0
+autowrap_mode = 2
+theme_override_font_sizes/font_size = 18
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 24.0
-offset_top = -100.0
-offset_right = 780.0
-offset_bottom = -24.0
+offset_top = -110.0
+offset_right = -20.0
+offset_bottom = -62.0
 [node name="Timer" type="Timer" parent="Toast"]
 wait_time = 5.0
 one_shot = true
