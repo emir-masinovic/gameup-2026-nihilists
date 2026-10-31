@@ -56,7 +56,7 @@ The active world exposes `grid`, `climate`, `region_state`, `regions` and `survi
 
 ## Rendering, assets and validation
 
-Terrain uses at most18 shared material batches; vegetation, fire and rain use bounded shared resources. Terrain receives tree/prop shadows but does not cast self-shadow acne. Climate drives foliage/ground appearance; shader motion is cosmetic. Day/night lighting and bonfire flame/smoke remain independent of simulation authority. SoundPalette is a SceneFlow child with four UI and eight world voices routed to SFX; Dummy headless output validates dispatch without decoder playback. Finished ambience/music is pending.
+Terrain uses at most19 shared material batches, including persistent brown generated soil with no grass cover; vegetation, fire and rain use bounded shared resources. Terrain receives tree/prop shadows but does not cast self-shadow acne. Climate drives foliage/ground appearance; shader motion is cosmetic. Day/night lighting and bonfire flame/smoke remain independent of simulation authority. SoundPalette is a SceneFlow child with four UI and eight world voices routed to SFX; Dummy headless output validates dispatch without decoder playback. Finished ambience/music is pending.
 
 Kenney model/audio license and attribution files remain beside selected assets; central originals are untouched. Alegreya Sans retains its OFL under `features/menus/fonts/`. Preserve notices with distributions.
 

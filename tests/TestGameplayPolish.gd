@@ -69,18 +69,24 @@ func run():
 	# A custom candidate list is unnecessary: the existing selector owns its tie-breaks.
 	player.facing = Vector2i.LEFT
 	world._update_interaction_marker()
-	check(world.selected_interaction.cell == target and world.interaction_marker.mesh is PlaneMesh and world.planting_tile.size == Vector2(2,2), "Exactly the selected soil uses a cell-sized tile overlay")
+	check(world.selected_interaction.cell == target and world.interaction_marker.mesh is TorusMesh and world.interaction_marker.visible, "Selected planting soil uses the shared readable interaction ring")
 	if DisplayServer.get_name() != "headless" and OS.has_environment("NIHILISTS_CAPTURE_DIR"):
 		await RenderingServer.frame_post_draw
-		root.get_texture().get_image().save_png(OS.get_environment("NIHILISTS_CAPTURE_DIR").path_join("planting-tile.png"))
+		root.get_texture().get_image().save_png(OS.get_environment("NIHILISTS_CAPTURE_DIR").path_join("planting-ring.png"))
+	world.terrain_renderer.update_state(world.grid)
+	check(world.terrain_renderer.batches[18].multimesh.visible_instance_count > 0 and world.terrain_renderer.batches[18].material_override.get_shader_parameter("terrain_color") == Color("554636"), "Generated soil has a shared brown terrain material independent of highlighting")
+	check(world.hud.get_node("Context").get_theme_stylebox("normal") is StyleBoxFlat, "Interaction caption has a dark padded background")
+	for batch in world.ground_cover.batches:
+		for index in batch.indices:
+			check(world.grid.cells[index].terrain != "soil", "Grass/shrub decoration leaves soil patches bare")
 	data.burning = true
 	world._update_interaction_marker()
-	check(world.interaction_marker.mesh != world.planting_tile or not world.interaction_marker.visible, "Invalid planting clears tile overlay immediately")
+	check(not world.interaction_marker.visible or not world.interaction_marker.position.is_equal_approx(world.grid.world_position(target) + Vector3(0,0.12,0)), "Invalid planting clears its ring immediately")
 	data.burning = false
 	world._begin_context_action()
 	world._tick_context_action(1.1)
 	world._update_interaction_marker()
-	check(world.interaction_marker.mesh != world.planting_tile, "Plant completion replaces tile with sapling interaction ring")
+	check(world.interaction_marker.mesh is TorusMesh, "Plant completion retains sapling removal ring")
 	world.survival.hunger = 64.0
 	world.survival.thirst = 72.0
 	world.survival.wetness = 25.0
@@ -93,6 +99,8 @@ func run():
 		await process_frame
 		var panel = world.hud.get_node("PlayerStatus")
 		var supplies = world.hud.get_node("PlayerStatus/Rows/Supplies")
+		var caption = world.hud.get_node("Context")
+		check(caption.visible and caption.get_global_rect().position.y >= 0.0 and caption.get_global_rect().end.y <= size_value.y and caption.size.y < 64.0, "Padded interaction caption stays readable inside viewport at " + str(size_value))
 		check(panel.get_global_rect().end.x < size_value.x and panel.size.y < 200.0 and supplies.get_global_rect().end.x <= panel.get_global_rect().end.x, "Compact resources fit HUD at " + str(size_value))
 		check(supplies.get_node("Food").text == "64" and supplies.get_node("Water").text == "72" and supplies.get_node("Seeds").text == str(world.planting.seed_count), "Numeric resource values update")
 		if DisplayServer.get_name() != "headless" and OS.has_environment("NIHILISTS_CAPTURE_DIR"):

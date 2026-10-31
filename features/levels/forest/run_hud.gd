@@ -72,6 +72,7 @@ func update_status(health: float, exposure: float, temperature: float, weather: 
 	$WorldStatus/Rows/Trend.text = "+%.1f C warming" % trend
 	$WorldStatus/Rows/Knowledge/Value.text = "%d Knowledge" % knowledge
 	$Context.text = "Chopping..." if chopping else "Bonfire shelter - Interact to rest" if safe else ""
+	$Context.visible = not $Context.text.is_empty()
 
 func damage_feedback(damaged: bool):
 	$PlayerStatus/Rows/Health.modulate = Color(1, 0.55, 0.45) if damaged else Color.WHITE
@@ -88,6 +89,7 @@ func set_environment_context(fire_hazard: float, notes: String, ready: bool):
 	$PlayerStatus/Rows/Heat/Icon.modulate = Color(1,0.4,0.2) if fire_hazard > 0 else Color.WHITE
 	if fire_hazard > 0:
 		$Context.text = "Fire nearby - seek wet ground or a cleared path"
+		$Context.show()
 
 func set_region(title: String):
 	$WorldStatus/Rows/Region.text = title
@@ -110,8 +112,10 @@ func update_interaction(target: Dictionary, progress: float, active: bool, bindi
 	$InteractionProgress.value = 100.0 * progress / maxf(float(target.get("duration", 1.0)), 0.01)
 	if target.is_empty():
 		$Context.text = "Fire nearby — seek shelter or a cleared path" if current_fire_hazard > 0.0 else ""
+		$Context.visible = not $Context.text.is_empty()
 		return
 	var description = str(target.get("action", "Interact")) if target.get("available", true) else str(target.get("reason", "Unavailable"))
+	$Context.show()
 	$Context.text = "%s — [%s] %s%s" % [target.get("name", "Object"), binding, description, "..." if active else ""]
 
 func update_seeds(count: int):

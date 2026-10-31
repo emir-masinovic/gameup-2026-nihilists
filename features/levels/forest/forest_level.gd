@@ -37,9 +37,7 @@ var regions: RefCounted
 var region_id = "forest"
 var region_state = {}
 var transitioning = false
-var planting_tile: PlaneMesh
 var interaction_ring: TorusMesh
-var planting_material: StandardMaterial3D
 var interaction_marker: MeshInstance3D
 var habitat_marker: MeshInstance3D
 var previous_objective = ""
@@ -384,6 +382,8 @@ func _update_hud():
 		if not previous_objective.is_empty():
 			hud.notify(objectives.summary())
 		previous_objective = objectives.summary()
+	# Keep the caption authoritative after legacy status/context updates.
+	_update_interaction_marker()
 
 func _create_landmarks():
 	var fire = Node3D.new()
@@ -585,23 +585,16 @@ func _create_region_markers():
 		habitat_marker.mesh = habitat_ring
 	interaction_marker = MeshInstance3D.new()
 	var ring = TorusMesh.new()
-	ring.inner_radius = 0.63
-	ring.outer_radius = 0.70
+	ring.inner_radius = 0.66
+	ring.outer_radius = 0.79
 	ring.rings = 16
 	ring.ring_segments = 6
 	interaction_ring = ring
-	planting_tile = PlaneMesh.new()
-	planting_tile.size = Vector2.ONE * grid.CELL_SIZE
-	planting_material = StandardMaterial3D.new()
-	planting_material.albedo_color = Color(0.25, 0.85, 1.0, 0.48)
-	planting_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	planting_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	interaction_marker.mesh = ring
 	var material = StandardMaterial3D.new()
 	material.albedo_color = Color("edcf86")
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	interaction_marker.material_override = material
-	interaction_marker.set_meta("ring_material", material)
 	interaction_marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(interaction_marker)
 
@@ -620,9 +613,6 @@ func _update_interaction_marker():
 				break
 	interaction_marker.visible = not display.is_empty() and display.get("available", true) and not $GridPlayer.moving and not get_tree().paused
 	if interaction_marker.visible:
-		var planting_target: bool = display.get("object_kind", "") == "plant"
-		interaction_marker.mesh = planting_tile if planting_target else interaction_ring
-		interaction_marker.material_override = planting_material if planting_target else interaction_marker.get_meta("ring_material")
 		interaction_marker.position = grid.world_position(display.cell) + Vector3(0,0.12,0)
 	hud.update_interaction(display, context_action.progress, active_display, _binding_label("interact"))
 

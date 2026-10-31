@@ -22,7 +22,7 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	var indices: Array[int] = []
 	for i in range(grid.cells.size()):
 		var cell = grid.cells[i]
-		if cell.get("terrain", "grass") == "water":
+		if cell.get("terrain", "grass") in ["water", "soil"]:
 			continue
 		if (shrubs and cell.tree and cell.shade > 0.8) or (not shrubs and not cell.tree and cell.shade > 0.5 and cell.shade < 0.6):
 			indices.append(i)

@@ -1,5 +1,5 @@
 extends Node3D
-# Shared climate beds plus one shrinking water-surface batch. Logic owns wetness.
+# Shared climate beds, persistent authored soil and shrinking pond surfaces.
 var batches: Array[MultiMeshInstance3D] = []
 var tile_mesh: BoxMesh
 
@@ -12,6 +12,12 @@ func configure(grid: RefCounted, palette: Array[ShaderMaterial], water: Material
 	materials.assign(palette)
 	materials.append(water)
 	materials.append(charred)
+	# Generated soil cells retain brown earth even when climate health is high.
+	# This is terrain presentation, independent of selection, inventory and player.
+	var soil = palette[0].duplicate()
+	soil.set_shader_parameter("terrain_color", Color("554636"))
+	soil.set_shader_parameter("terrain_health", 0.0)
+	materials.append(soil)
 	for i in range(materials.size()):
 		var batch = MultiMeshInstance3D.new()
 		batch.multimesh = MultiMesh.new()
@@ -48,9 +54,11 @@ func update_state(grid: RefCounted):
 			health = 0.0
 			moisture = minf(moisture, 0.49)
 		var group = clampi(int(health * 3.99), 0, 3) * 4 + clampi(int(moisture * 3.99), 0, 3)
+		var cell = Vector2i(i % grid.SIZE, floori(float(i) / grid.SIZE))
+		if data.get("terrain", "grass") == "soil" and cell.distance_to(grid.start) >= 2.5 and cell.x != grid.start.x and cell.y != grid.start.y:
+			group = 18
 		if data.get("burned", false) and data.get("burn_recovery", 0.0) < 0.2:
 			group = 17
-		var cell = Vector2i(i % grid.SIZE, floori(float(i) / grid.SIZE))
 		var at: Vector3 = grid.world_position(cell)
 		batches[group].multimesh.set_instance_transform(counts[group], Transform3D(Basis.IDENTITY, at + Vector3(0,-0.15,0)))
 		counts[group] += 1

@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 [ext_resource type="Script" path="res://features/levels/forest/run_hud.gd" id="1"]
 [ext_resource type="Theme" path="res://features/menus/theme_forest.tres" id="2"]
 [ext_resource type="Script" path="res://features/levels/forest/status_icon.gd" id="3"]
@@ -12,6 +12,16 @@ corner_radius_top_left = 9
 corner_radius_top_right = 9
 corner_radius_bottom_left = 9
 corner_radius_bottom_right = 9
+[sub_resource type="StyleBoxFlat" id="Caption"]
+bg_color = Color(0.025, 0.045, 0.035, 0.9)
+content_margin_left = 14.0
+content_margin_right = 14.0
+content_margin_top = 6.0
+content_margin_bottom = 6.0
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_left = 8
+corner_radius_bottom_right = 8
 [sub_resource type="StyleBoxFlat" id="HealthFill"]
 bg_color = Color(0.48, 0.70, 0.40, 1)
 corner_radius_top_left = 4
@@ -169,10 +179,15 @@ anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = -260.0
 offset_right = 260.0
-offset_top = -48.0
-offset_bottom = -18.0
+offset_top = -50.0
+offset_bottom = -14.0
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("Caption")
+theme_override_colors/font_color = Color(0.96, 0.97, 0.9, 1)
+vertical_alignment = 1
+autowrap_mode = 2
+mouse_filter = 2
 [node name="InteractionProgress" type="ProgressBar" parent="."]
 visible = false
 anchor_left = 0.5
