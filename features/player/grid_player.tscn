@@ -1,47 +1,204 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://features/player/grid_player.gd" id="1"]
-[sub_resource type="StandardMaterial3D" id="Coat"]
-albedo_color = Color(0.95, 0.56, 0.14, 1)
+
+[sub_resource type="StandardMaterial3D" id="SuitWhite"]
+albedo_color = Color(0.92, 0.94, 0.96, 1)
+roughness = 0.55
+
+[sub_resource type="StandardMaterial3D" id="SuitDark"]
+albedo_color = Color(0.16, 0.18, 0.22, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="VisorGlass"]
+albedo_color = Color(0.11, 0.13, 0.17, 1)
+metallic = 0.88
+roughness = 0.14
+
+[sub_resource type="StandardMaterial3D" id="SuitAccent"]
+albedo_color = Color(0.15, 0.75, 0.8, 1)
+emission_enabled = true
+emission = Color(0.12, 0.65, 0.7, 1)
+emission_energy_multiplier = 0.8
+
+[sub_resource type="StandardMaterial3D" id="TankMat"]
+albedo_color = Color(0.82, 0.85, 0.88, 1)
+roughness = 0.35
+metallic = 0.25
+
+[sub_resource type="StandardMaterial3D" id="MarkerMat"]
+transparency = 1
+albedo_color = Color(0.95, 0.56, 0.14, 0.65)
 roughness = 1.0
-[sub_resource type="CapsuleMesh" id="Torso"]
-material = SubResource("Coat")
-radius = 0.28
-height = 0.85
-radial_segments = 8
-rings = 2
-[sub_resource type="StandardMaterial3D" id="Skin"]
-albedo_color = Color(0.88, 0.69, 0.48, 1)
-[sub_resource type="SphereMesh" id="Head"]
-material = SubResource("Skin")
-radius = 0.22
-height = 0.44
-radial_segments = 8
-rings = 4
-[sub_resource type="StandardMaterial3D" id="Dark"]
-albedo_color = Color(0.12, 0.17, 0.18, 1)
-[sub_resource type="BoxMesh" id="Pack"]
-material = SubResource("Dark")
-size = Vector3(0.4, 0.4, 0.23)
-[sub_resource type="CylinderMesh" id="Marker"]
-material = SubResource("Coat")
+
+[sub_resource type="CylinderMesh" id="MarkerMesh"]
+material = SubResource("MarkerMat")
 top_radius = 0.42
 bottom_radius = 0.42
 height = 0.025
 radial_segments = 12
 
+[sub_resource type="CapsuleMesh" id="TorsoMesh"]
+material = SubResource("SuitWhite")
+radius = 0.25
+height = 0.58
+radial_segments = 10
+rings = 3
+
+[sub_resource type="BoxMesh" id="BadgeMesh"]
+material = SubResource("SuitAccent")
+size = Vector3(0.16, 0.12, 0.05)
+
+[sub_resource type="BoxMesh" id="BeltMesh"]
+material = SubResource("SuitDark")
+size = Vector3(0.46, 0.08, 0.32)
+
+[sub_resource type="SphereMesh" id="HeadMesh"]
+material = SubResource("SuitWhite")
+radius = 0.23
+height = 0.46
+radial_segments = 12
+rings = 6
+
+[sub_resource type="SphereMesh" id="VisorMesh"]
+material = SubResource("VisorGlass")
+radius = 0.17
+height = 0.28
+radial_segments = 10
+rings = 5
+
+[sub_resource type="CylinderMesh" id="EarMesh"]
+material = SubResource("SuitDark")
+top_radius = 0.06
+bottom_radius = 0.06
+height = 0.05
+radial_segments = 8
+
+[sub_resource type="BoxMesh" id="PackMesh"]
+material = SubResource("SuitDark")
+size = Vector3(0.34, 0.38, 0.16)
+
+[sub_resource type="CylinderMesh" id="TankMesh"]
+material = SubResource("TankMat")
+top_radius = 0.055
+bottom_radius = 0.055
+height = 0.32
+radial_segments = 8
+
+[sub_resource type="CapsuleMesh" id="ArmMesh"]
+material = SubResource("SuitWhite")
+radius = 0.07
+height = 0.28
+radial_segments = 8
+rings = 2
+
+[sub_resource type="SphereMesh" id="GloveMesh"]
+material = SubResource("SuitDark")
+radius = 0.075
+height = 0.15
+radial_segments = 8
+rings = 3
+
+[sub_resource type="CapsuleMesh" id="LegMesh"]
+material = SubResource("SuitWhite")
+radius = 0.075
+height = 0.26
+radial_segments = 8
+rings = 2
+
+[sub_resource type="BoxMesh" id="BootMesh"]
+material = SubResource("SuitDark")
+size = Vector3(0.15, 0.11, 0.22)
+
 [node name="GridPlayer" type="Node3D"]
 script = ExtResource("1")
+
 [node name="Marker" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.025, 0)
-mesh = SubResource("Marker")
+mesh = SubResource("MarkerMesh")
+
 [node name="Body" type="Node3D" parent="."]
+
 [node name="Torso" type="MeshInstance3D" parent="Body"]
 position = Vector3(0, 0.56, 0)
-mesh = SubResource("Torso")
+mesh = SubResource("TorsoMesh")
+
+[node name="ChestBadge" type="MeshInstance3D" parent="Body"]
+position = Vector3(0, 0.64, -0.21)
+mesh = SubResource("BadgeMesh")
+
+[node name="Belt" type="MeshInstance3D" parent="Body"]
+position = Vector3(0, 0.36, 0)
+mesh = SubResource("BeltMesh")
+
 [node name="Head" type="MeshInstance3D" parent="Body"]
-position = Vector3(0, 1.15, 0)
-mesh = SubResource("Head")
+position = Vector3(0, 0.98, 0)
+mesh = SubResource("HeadMesh")
+
+[node name="Visor" type="MeshInstance3D" parent="Body/Head"]
+transform = Transform3D(1, 0, 0, 0, 0.75, 0, 0, 0, 0.65, 0, 0.01, -0.11)
+mesh = SubResource("VisorMesh")
+
+[node name="EarLeft" type="MeshInstance3D" parent="Body/Head"]
+transform = Transform3D(0, -1, 0, 1, 0, 0, 0, 0, 1, -0.24, 0, 0)
+mesh = SubResource("EarMesh")
+
+[node name="EarRight" type="MeshInstance3D" parent="Body/Head"]
+transform = Transform3D(0, 1, 0, -1, 0, 0, 0, 0, 1, 0.24, 0, 0)
+mesh = SubResource("EarMesh")
+
 [node name="Backpack" type="MeshInstance3D" parent="Body"]
-position = Vector3(0, 0.65, 0.3)
-mesh = SubResource("Pack")
+position = Vector3(0, 0.62, 0.21)
+mesh = SubResource("PackMesh")
+
+[node name="TankLeft" type="MeshInstance3D" parent="Body/Backpack"]
+position = Vector3(-0.09, 0.02, 0.09)
+mesh = SubResource("TankMesh")
+
+[node name="TankRight" type="MeshInstance3D" parent="Body/Backpack"]
+position = Vector3(0.09, 0.02, 0.09)
+mesh = SubResource("TankMesh")
+
+[node name="ArmLeft" type="Node3D" parent="Body"]
+position = Vector3(-0.28, 0.68, 0)
+
+[node name="ArmMesh" type="MeshInstance3D" parent="Body/ArmLeft"]
+position = Vector3(0, -0.12, 0)
+mesh = SubResource("ArmMesh")
+
+[node name="Glove" type="MeshInstance3D" parent="Body/ArmLeft"]
+position = Vector3(0, -0.25, 0)
+mesh = SubResource("GloveMesh")
+
+[node name="ArmRight" type="Node3D" parent="Body"]
+position = Vector3(0.28, 0.68, 0)
+
+[node name="ArmMesh" type="MeshInstance3D" parent="Body/ArmRight"]
+position = Vector3(0, -0.12, 0)
+mesh = SubResource("ArmMesh")
+
+[node name="Glove" type="MeshInstance3D" parent="Body/ArmRight"]
+position = Vector3(0, -0.25, 0)
+mesh = SubResource("GloveMesh")
+
+[node name="LegLeft" type="Node3D" parent="Body"]
+position = Vector3(-0.13, 0.35, 0)
+
+[node name="LegMesh" type="MeshInstance3D" parent="Body/LegLeft"]
+position = Vector3(0, -0.11, 0)
+mesh = SubResource("LegMesh")
+
+[node name="Boot" type="MeshInstance3D" parent="Body/LegLeft"]
+position = Vector3(0, -0.26, -0.03)
+mesh = SubResource("BootMesh")
+
+[node name="LegRight" type="Node3D" parent="Body"]
+position = Vector3(0.13, 0.35, 0)
+
+[node name="LegMesh" type="MeshInstance3D" parent="Body/LegRight"]
+position = Vector3(0, -0.11, 0)
+mesh = SubResource("LegMesh")
+
+[node name="Boot" type="MeshInstance3D" parent="Body/LegRight"]
+position = Vector3(0, -0.26, -0.03)
+mesh = SubResource("BootMesh")

@@ -22,6 +22,8 @@ var tick_accumulator = 0.0
 var ended = false
 var hud: Control
 var recovery_seen = false
+var rain_particles: CPUParticles3D
+var heat_particles: CPUParticles3D
 
 func _ready():
 	if not OS.get_cmdline_user_args().has("--fixed-seed"):
@@ -74,8 +76,10 @@ func _ready():
 	_apply_shadow_quality()
 	_create_landmarks()
 	_create_kenney_props()
+	_create_weather_effects()
 	_update_lighting()
 	_refresh_visuals()
+	_update_weather_effects()
 	_update_hud()
 
 func _apply_shadow_quality():
@@ -104,6 +108,7 @@ func _process(delta):
 		if shade > 0.0:
 			_discover("interaction.tree_shade", "Trees reduce heat exposure")
 		_refresh_visuals()
+		_update_weather_effects()
 		if survival.dead:
 			_end_run("death")
 		_update_hud()
@@ -194,6 +199,7 @@ func _refresh_visuals():
 			for child in tree.get_children():
 				if child is MeshInstance3D and child.name.begins_with("Crown"):
 					child.material_override = leaf_materials[bucket]
+					child.visible = data.tree_state != "dead"
 
 func _update_hud():
 	var safe = $GridPlayer.cell.distance_to(grid.start) <= 2.2
@@ -298,3 +304,65 @@ func _create_kenney_props():
 		prop.scale = Vector3.ONE * 1.5
 		prop.add_to_group("forest_props")
 		add_child(prop)
+
+func _create_weather_effects():
+	var center = grid.world_position(Vector2i(grid.SIZE / 2, grid.SIZE / 2))
+	
+	rain_particles = CPUParticles3D.new()
+	rain_particles.name = "RainParticles"
+	rain_particles.emitting = false
+	rain_particles.amount = 140
+	rain_particles.lifetime = 1.2
+	rain_particles.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	rain_particles.emission_box_extents = Vector3(18.0, 1.0, 18.0)
+	rain_particles.direction = Vector3(-0.2, -1.0, -0.1)
+	rain_particles.spread = 4.0
+	rain_particles.initial_velocity_min = 18.0
+	rain_particles.initial_velocity_max = 24.0
+	
+	var rain_mat = StandardMaterial3D.new()
+	rain_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	rain_mat.albedo_color = Color(0.75, 0.88, 1.0, 0.45)
+	rain_mat.roughness = 0.2
+	
+	var drop = BoxMesh.new()
+	drop.size = Vector3(0.025, 0.38, 0.025)
+	drop.material = rain_mat
+	rain_particles.mesh = drop
+	rain_particles.position = center + Vector3(0, 12.0, 0)
+	add_child(rain_particles)
+
+	heat_particles = CPUParticles3D.new()
+	heat_particles.name = "HeatParticles"
+	heat_particles.emitting = false
+	heat_particles.amount = 40
+	heat_particles.lifetime = 2.4
+	heat_particles.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	heat_particles.emission_box_extents = Vector3(18.0, 0.2, 18.0)
+	heat_particles.direction = Vector3(0.0, 1.0, 0.0)
+	heat_particles.spread = 15.0
+	heat_particles.initial_velocity_min = 0.5
+	heat_particles.initial_velocity_max = 1.2
+
+	var heat_mat = StandardMaterial3D.new()
+	heat_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	heat_mat.albedo_color = Color(1.0, 0.65, 0.25, 0.55)
+	heat_mat.emission_enabled = true
+	heat_mat.emission = Color(1.0, 0.5, 0.15)
+	heat_mat.emission_energy_multiplier = 0.8
+
+	var ember = SphereMesh.new()
+	ember.radius = 0.035
+	ember.height = 0.07
+	ember.radial_segments = 5
+	ember.rings = 3
+	ember.material = heat_mat
+	heat_particles.mesh = ember
+	heat_particles.position = center + Vector3(0, 0.2, 0)
+	add_child(heat_particles)
+
+func _update_weather_effects():
+	if rain_particles != null:
+		rain_particles.emitting = (climate.weather == "rain")
+	if heat_particles != null:
+		heat_particles.emitting = (climate.weather == "heat")

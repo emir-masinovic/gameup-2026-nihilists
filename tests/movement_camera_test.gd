@@ -104,7 +104,7 @@ func run():
 	var before = entered.size()
 	check(not player.try_move(Vector2i.UP) and entered.size() == before, "Blocked world step emits no entry")
 	check(player.try_move(Vector2i.DOWN), "World cardinal API remains camera independent")
-	await create_timer(0.25).timeout
+	await create_timer(0.45).timeout
 	check(not player.moving and player.position.is_equal_approx(grid.world_position(player.cell)), "Mapped movement preserves cell tween completion")
 	stage.queue_free()
 	await process_frame

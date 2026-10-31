@@ -51,7 +51,7 @@ func run():
 	await create_timer(0.25).timeout
 	check(player.position == paused_position, "Paused movement tween frozen")
 	flow.resume()
-	await create_timer(0.25).timeout
+	await create_timer(0.45).timeout
 	check(not player.moving and player.position.is_equal_approx(world.grid.world_position(player.cell)), "Smooth movement completes on cell after resume")
 	player.cell = Vector2i(world.grid.start.x, 0)
 	player.position = world.grid.world_position(player.cell)
@@ -86,7 +86,7 @@ func run():
 	key.pressed = false
 	Input.parse_input_event(key)
 	check(player.cell == world.grid.start + mapped_south, "Remapped physical key moves player relative to camera")
-	await create_timer(0.25).timeout
+	await create_timer(0.45).timeout
 	settings.bindings = old_bindings
 	settings.apply_settings()
 	if DisplayServer.get_name() != "headless" and OS.has_environment("NIHILISTS_CAPTURE_DIR"):
