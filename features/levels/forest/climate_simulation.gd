@@ -18,6 +18,7 @@ var temperature = 24.0
 var weather: String = "clear"
 # Empty uses seeded weather; named conditions are also useful for bounded scenarios.
 var weather_override: String = ""
+var weather_cycle: Array = WEATHER_CYCLE.duplicate()
 var tick_count = 0
 var _grid: RefCounted
 var _weather_offset = 0
@@ -60,7 +61,8 @@ func tick(seconds: float = 1.0):
 	tick_count += 1
 
 func _update_weather():
-	weather = WEATHER_CYCLE[(floori(elapsed / WEATHER_SECONDS) + _weather_offset) % WEATHER_CYCLE.size()]
+	var cycle = weather_cycle if not weather_cycle.is_empty() else WEATHER_CYCLE
+	weather = cycle[(floori(elapsed / WEATHER_SECONDS) + _weather_offset) % cycle.size()]
 	if weather_override in WEATHER_CYCLE:
 		weather = weather_override
 	var offset = {"clear": 0.0, "rain": -5.0, "cool": -7.0, "heat": 8.0}[weather]
@@ -200,3 +202,14 @@ func trample(cell: Vector2i, amount: float = 0.12):
 	var damage = clampf(amount, 0.0, 1.0)
 	data.trampled = clampf(data.get("trampled", 0.0) + damage, 0.0, 1.0)
 	data.health = clampf(data.health - damage, 0.0, 1.0)
+
+# Read-only conditions for interaction/vegetation integrations. Returned values
+# are a snapshot; authoritative cell state stays in GridData.
+func cell_conditions(cell: Vector2i) -> Dictionary:
+	if _grid == null or not _grid.in_bounds(cell):
+		return {}
+	var data = _grid.cells[cell.y * _grid.SIZE + cell.x]
+	return {"temperature": temperature, "weather": weather, "moisture": data.moisture,
+		"health": data.health, "tree_health": data.tree_health, "tree_state": data.tree_state, "burning": data.burning,
+		"terrain": data.terrain, "water_level": data.water_level,
+		"canopy": shade_at(cell), "fire_hazard": fire_at(cell)}

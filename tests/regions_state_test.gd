@@ -64,6 +64,7 @@ func run() -> void:
 		var raw_grid = GridData.new()
 		raw_grid.generate(profiles.seed_for(id))
 		var raw_climate = Climate.new()
+		raw_climate.weather_cycle = state.climate.weather_cycle.duplicate()
 		raw_climate.configure(raw_grid, profiles.seed_for(id))
 		var temperature_offset = 3.0 if id == "drylands" else -2.0 if id == "wetlands" else 0.0
 		check(is_equal_approx(state.climate.temperature, raw_climate.temperature + temperature_offset), "Regional temperature offset is active immediately: " + id)
@@ -73,6 +74,9 @@ func run() -> void:
 			var moisture: float = raw.moisture * 0.55 if id == "drylands" else minf(1.0, raw.moisture + 0.15) if id == "wetlands" else raw.moisture
 			var health: float = raw.health * 0.6 if id == "drylands" else raw.health
 			var tree_health: float = raw.tree_health * 0.8 if id == "drylands" else raw.tree_health
+			if raw.tree and not actual.tree:
+				tree_health = 0.0
+				check(actual.tree_state == "removed", "Drinking approach removes its tree canopy consistently")
 			if id == "wetlands" and index == 5 * 17 + 8:
 				health = 0.45
 				moisture = maxf(moisture, 0.7)

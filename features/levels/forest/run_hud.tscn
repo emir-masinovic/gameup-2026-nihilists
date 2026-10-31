@@ -57,7 +57,7 @@ size_flags_horizontal = 3
 show_percentage = false
 theme_override_styles/fill = SubResource("HealthFill")
 [node name="Value" type="Label" parent="PlayerStatus/Rows/Health"]
-custom_minimum_size = Vector2(38, 0)
+custom_minimum_size = Vector2(50, 0)
 text = "100"
 horizontal_alignment = 2
 theme_override_font_sizes/font_size = 18
@@ -69,19 +69,39 @@ script = ExtResource("3")
 kind = "heat"
 [node name="Label" type="Label" parent="PlayerStatus/Rows/Heat"]
 custom_minimum_size = Vector2(50, 0)
-text = "Heat"
+text = "Body"
 theme_override_font_sizes/font_size = 18
 [node name="Bar" type="ProgressBar" parent="PlayerStatus/Rows/Heat"]
+min_value = 30.0
+max_value = 44.0
+step = 0.1
+value = 37.0
+tooltip_text = "Body temperature: seek shade in heat, shelter and camp warmth when cold or wet."
 custom_minimum_size = Vector2(100, 12)
 size_flags_vertical = 4
 size_flags_horizontal = 3
 show_percentage = false
 theme_override_styles/fill = SubResource("HeatFill")
 [node name="Value" type="Label" parent="PlayerStatus/Rows/Heat"]
-custom_minimum_size = Vector2(38, 0)
+custom_minimum_size = Vector2(50, 0)
 text = "100"
 horizontal_alignment = 2
 theme_override_font_sizes/font_size = 18
+[node name="Supplies" type="Label" parent="PlayerStatus/Rows"]
+text = "Food 100   Water 100"
+theme_override_font_sizes/font_size = 16
+tooltip_text = "Food and water reserves. Penalties begin only when nearly depleted."
+[node name="Food" type="Label" parent="PlayerStatus/Rows"]
+text = "Berries 0"
+theme_override_font_sizes/font_size = 16
+autowrap_mode = 2
+tooltip_text = "Harvest red berry bushes, then Eat to restore food reserves."
+[node name="Wetness" type="Label" parent="PlayerStatus/Rows"]
+visible = false
+text = "Wet 0%"
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.5,0.75,0.85,1)
+tooltip_text = "Rain raises wetness. Living tree cover reduces exposure; camp warmth dries you."
 [node name="WorldStatus" type="PanelContainer" parent="."]
 anchor_left = 1.0
 anchor_right = 1.0
@@ -128,6 +148,18 @@ offset_top = -48.0
 offset_bottom = -18.0
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 18
+[node name="InteractionProgress" type="ProgressBar" parent="."]
+visible = false
+anchor_left = 0.5
+anchor_right = 0.5
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = -100.0
+offset_right = 100.0
+offset_top = -62.0
+offset_bottom = -54.0
+show_percentage = false
+mouse_filter = 2
 [node name="Toast" type="Label" parent="."]
 anchor_right = 1.0
 autowrap_mode = 2

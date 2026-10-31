@@ -3,6 +3,7 @@ var world: Node
 var modal_kind = ""
 var field_notes = "Survey the forest."
 var refuge_ready = false
+var current_fire_hazard = 0.0
 
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -64,8 +65,8 @@ func _on_toast_timeout():
 func update_status(health: float, exposure: float, temperature: float, weather: String, trend: float, knowledge: int, safe: bool, chopping: bool):
 	$PlayerStatus/Rows/Health/Bar.value = health
 	$PlayerStatus/Rows/Health/Value.text = str(roundi(health))
-	$PlayerStatus/Rows/Heat/Bar.value = exposure
-	$PlayerStatus/Rows/Heat/Value.text = str(roundi(exposure))
+	$PlayerStatus/Rows/Heat/Bar.value = 37.0 + exposure / 30.0
+	$PlayerStatus/Rows/Heat/Value.text = "%.1f°C" % (37.0 + exposure / 30.0)
 	$WorldStatus/Rows/Climate/Value.text = "%.1f C | %s" % [temperature, weather.capitalize()]
 	$WorldStatus/Rows/Climate/Icon.set_weather(weather)
 	$WorldStatus/Rows/Trend.text = "+%.1f C warming" % trend
@@ -81,6 +82,7 @@ func _purchase(id: String):
 	show_modal("bonfire")
 
 func set_environment_context(fire_hazard: float, notes: String, ready: bool):
+	current_fire_hazard = fire_hazard
 	field_notes = notes
 	refuge_ready = ready
 	$PlayerStatus/Rows/Heat/Icon.modulate = Color(1,0.4,0.2) if fire_hazard > 0 else Color.WHITE
@@ -90,3 +92,23 @@ func set_environment_context(fire_hazard: float, notes: String, ready: bool):
 func set_region(title: String):
 	$WorldStatus/Rows/Region.text = title
 	$WorldStatus/Rows/Region.tooltip_text = field_notes
+
+func update_survival(state: RefCounted, canopy: float, eat_binding: String):
+	$PlayerStatus/Rows/Heat/Bar.value = state.body_temperature
+	$PlayerStatus/Rows/Heat/Value.text = "%.1f°C" % state.body_temperature
+	$PlayerStatus/Rows/Heat.modulate = Color("e69e6a") if state.body_temperature >= 39.0 else Color("81bed9") if state.body_temperature <= 35.0 else Color.WHITE
+	$PlayerStatus/Rows/Supplies.text = "Food %d   Water %d" % [roundi(state.hunger), roundi(state.thirst)]
+	$PlayerStatus/Rows/Food.text = "Berries %d — [%s] Eat" % [state.berry_count, eat_binding]
+	$PlayerStatus/Rows/Wetness.visible = state.wetness >= 1.0 or canopy > 0.05
+	$PlayerStatus/Rows/Wetness.text = "Wet %d%%" % roundi(state.wetness) if state.wetness >= 1.0 else ""
+	if canopy > 0.05:
+		$PlayerStatus/Rows/Wetness.text += (" · " if state.wetness >= 1.0 else "") + "Canopy shelter"
+
+func update_interaction(target: Dictionary, progress: float, active: bool, binding: String):
+	$InteractionProgress.visible = active and float(target.get("duration", 0.0)) > 0.0
+	$InteractionProgress.value = 100.0 * progress / maxf(float(target.get("duration", 1.0)), 0.01)
+	if target.is_empty():
+		$Context.text = "Fire nearby — seek shelter or a cleared path" if current_fire_hazard > 0.0 else ""
+		return
+	var description = str(target.get("action", "Interact")) if target.get("available", true) else str(target.get("reason", "Unavailable"))
+	$Context.text = "%s — [%s] %s%s" % [target.get("name", "Object"), binding, description, "..." if active else ""]

@@ -107,7 +107,7 @@ func binding_row(action: String) -> HBoxContainer:
 	row.add_theme_constant_override("separation", 12)
 	var caption = Label.new()
 	caption.name = "ActionLabel"
-	caption.text = {"camera_orbit": "Orbit Camera", "camera_zoom_in": "Zoom In", "camera_zoom_out": "Zoom Out"}.get(action, action.replace("_", " ").capitalize())
+	caption.text = {"camera_mode_cycle": "Cycle Camera Mode", "camera_orbit": "Orbit Camera", "camera_zoom_in": "Zoom In", "camera_zoom_out": "Zoom Out"}.get(action, action.replace("_", " ").capitalize())
 	caption.custom_minimum_size.x = 180
 	row.add_child(caption)
 	for slot in range(2):
@@ -147,6 +147,14 @@ func show_category(title: String):
 	status.text = ""
 	match title:
 		"Gameplay":
+			var camera_modes = SettingsManager.CAMERA_MODES
+			var camera_mode = OptionButton.new()
+			for mode_name in camera_modes:
+				camera_mode.add_item(mode_name)
+			camera_mode.select(camera_modes.find(SettingsManager.camera_mode))
+			camera_mode.item_selected.connect(func(index): SettingsManager.camera_mode = camera_modes[index]; persist())
+			setting_row("Default camera mode", camera_mode, "CameraMode")
+			label("Cycle modes with the camera mode binding. In Free Camera, hold Shift while dragging the orbit button to pan.")
 			var modes = ["Orthographic", "Perspective"]
 			var projection = segmented_control(modes, modes.find(SettingsManager.camera_projection), func(index): SettingsManager.camera_projection = modes[index]; persist())
 			projection.add_theme_constant_override("separation", 12)
@@ -200,7 +208,7 @@ func show_category(title: String):
 				content.add_child(slider)
 		"Controls":
 			for action in SettingsManager.bindings:
-				if action == "camera_orbit":
+				if action == "camera_mode_cycle":
 					content.add_child(HSeparator.new())
 					label("Camera")
 				binding_row(action)

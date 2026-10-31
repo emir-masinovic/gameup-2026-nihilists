@@ -37,7 +37,7 @@ func ready_for_clearing() -> bool:
 func summary() -> String:
 	if regional_mode:
 		if not problem_seen:
-			return "Take the west trail to Drylands and survey dry ground."
+			return "Berries and ponds replenish supplies. Take the west trail to Drylands and survey dry ground."
 		if not mitigation_done:
 			return "In Drylands, cut a tree and clear its stump: less fuel, less shade."
 		if not recovery_seen:

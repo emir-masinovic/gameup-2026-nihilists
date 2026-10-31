@@ -7,11 +7,14 @@ const MIN_MOUSE_SENSITIVITY = 0.002
 const MAX_MOUSE_SENSITIVITY = 0.02
 var mouse_sensitivity = DEFAULT_MOUSE_SENSITIVITY
 var camera_projection = "Orthographic"
+const CAMERA_MODES = ["Board Center", "Follow Player", "Free Camera"]
+var camera_mode = "Board Center"
 
 const DEFAULT_BINDINGS = {
 	"move_north": [KEY_W, KEY_UP], "move_south": [KEY_S, KEY_DOWN],
 	"move_west": [KEY_A, KEY_LEFT], "move_east": [KEY_D, KEY_RIGHT],
-	"interact": [KEY_E, KEY_SPACE], "pause": [KEY_ESCAPE, KEY_P],
+	"interact": [KEY_E, KEY_SPACE], "eat": [KEY_F, 0], "pause": [KEY_ESCAPE, KEY_P],
+	"camera_mode_cycle": [KEY_C, 0],
 	"camera_orbit": [-MOUSE_BUTTON_MIDDLE, -MOUSE_BUTTON_RIGHT],
 	"camera_zoom_in": [-MOUSE_BUTTON_WHEEL_UP, 0],
 	"camera_zoom_out": [-MOUSE_BUTTON_WHEEL_DOWN, 0]
@@ -60,28 +63,45 @@ func load_settings():
 	shadow_quality = shadows if shadows is int and shadows in [0, 1, 2, 3] else 2
 	var projection = config.get_value("gameplay", "camera_projection", "Orthographic")
 	camera_projection = projection if projection is String and projection in ["Orthographic", "Perspective"] else "Orthographic"
+	var saved_mode = config.get_value("gameplay", "camera_mode", "Board Center")
+	camera_mode = saved_mode if saved_mode is String and saved_mode in CAMERA_MODES else "Board Center"
 	var sensitivity = config.get_value("controls", "mouse_sensitivity", DEFAULT_MOUSE_SENSITIVITY)
 	mouse_sensitivity = clampf(float(sensitivity), MIN_MOUSE_SENSITIVITY, MAX_MOUSE_SENSITIVITY) if (sensitivity is float or sensitivity is int) and is_finite(float(sensitivity)) else DEFAULT_MOUSE_SENSITIVITY
 	var candidate = config.get_value("controls", "bindings", {})
 	if candidate is Dictionary:
-		var merged = DEFAULT_BINDINGS.duplicate(true)
-		for action in DEFAULT_BINDINGS:
-			if candidate.has(action):
-				merged[action] = candidate[action]
+		# Validate saved actions before adding defaults. A newly introduced C/F
+		# default must never invalidate a player's otherwise valid legacy map.
+		var merged = {}
 		var used = {}
 		var valid = true
-		for action in merged:
-			if not merged[action] is Array or merged[action].size() != 2:
+		for action in DEFAULT_BINDINGS:
+			if not candidate.has(action):
+				continue
+			var slots = candidate[action]
+			if not slots is Array or slots.size() != 2:
 				valid = false
 				break
-			for code in merged[action]:
+			for code in slots:
 				if not code is int or not valid_code(action, code) or (code != 0 and used.has(code)):
 					valid = false
 					break
 				if code != 0:
 					used[code] = true
+			merged[action] = slots.duplicate()
 		if valid:
-			bindings = merged
+			var ordered = {}
+			for action in DEFAULT_BINDINGS:
+				if merged.has(action):
+					ordered[action] = merged[action]
+				else:
+					var slots = DEFAULT_BINDINGS[action].duplicate()
+					for index in slots.size():
+						if slots[index] != 0 and used.has(slots[index]):
+							slots[index] = 0
+						elif slots[index] != 0:
+							used[slots[index]] = true
+					ordered[action] = slots
+			bindings = ordered
 
 func apply_settings():
 	for bus in volumes:
@@ -131,6 +151,7 @@ func save_settings() -> Error:
 	config.set_value("video", "msaa_3d", msaa_3d)
 	config.set_value("video", "shadow_quality", shadow_quality)
 	config.set_value("gameplay", "camera_projection", camera_projection)
+	config.set_value("gameplay", "camera_mode", camera_mode)
 	config.set_value("controls", "bindings", bindings)
 	config.set_value("controls", "mouse_sensitivity", mouse_sensitivity)
 	return config.save(storage_path)
@@ -157,6 +178,7 @@ func _reset_category(category: String):
 	match category:
 		"Gameplay":
 			camera_projection = "Orthographic"
+			camera_mode = "Board Center"
 		"Audio":
 			volumes = {"Master": 0.8, "Music": 0.8, "SFX": 0.8}
 		"Controls":
@@ -199,7 +221,7 @@ func valid_code(action: String, code: int) -> bool:
 		return true
 	if action == "camera_orbit":
 		return -code in [1, 2, 3, 8, 9]
-	if action.begins_with("camera_"):
+	if action.begins_with("camera_") and action != "camera_mode_cycle":
 		return code < 0 and -code in range(1, 10)
 	return code > 0 or -code in range(1, 10)
 

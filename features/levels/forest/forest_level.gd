@@ -39,6 +39,13 @@ var transitioning = false
 var interaction_marker: MeshInstance3D
 var habitat_marker: MeshInstance3D
 var previous_objective = ""
+var context_action = preload("res://features/levels/forest/InteractionContext.gd").new()
+var foraging: RefCounted
+var forage_visuals: Node3D
+var selected_interaction = {}
+var custom_interactables: Array = []
+var wet_indicator: MeshInstance3D
+
 
 
 func _ready():
@@ -54,6 +61,7 @@ func _ready():
 	grid = region_state.grid
 	climate = region_state.climate
 	cut_cells = region_state.cut_cells
+	foraging = region_state.foraging
 	survival = regions.survival
 	objectives = regions.objectives
 	objectives.regional_mode = true
@@ -107,15 +115,8 @@ func _ready():
 	SceneFlow.region_transitioning = false
 
 	$CameraRig.position = grid.world_position(grid.start)
-	if not SceneFlow.camera_state.is_empty():
-		var rig = $CameraRig
-		rig.target_yaw = SceneFlow.camera_state.yaw
-		rig.rotation.y = rig.target_yaw
-		rig.target_pitch = SceneFlow.camera_state.pitch
-		rig.pitch = rig.target_pitch
-		rig.target_zoom = SceneFlow.camera_state.zoom
-		rig.get_node("Camera3D").size = rig.target_zoom
-		rig._update_camera()
+	$CameraRig.configure_targets(grid.world_position(grid.start), $GridPlayer, SceneFlow.camera_state)
+	$CameraRig.mode_changed.connect(func(value): hud.notify("Camera: " + value))
 	$HUD/Info.hide()
 	SettingsManager.graphics_changed.connect(_apply_shadow_quality)
 	_apply_shadow_quality()
@@ -136,12 +137,16 @@ func _ready():
 	ground_cover = preload("res://features/levels/forest/nature/ground_cover.gd").new()
 	add_child(ground_cover)
 	ground_cover.configure(grid)
+	forage_visuals = preload("res://features/levels/forest/VisualForaging.gd").new()
+	add_child(forage_visuals)
+	forage_visuals.configure(grid)
 	_create_region_markers()
 	var listener = AudioListener3D.new()
 	$GridPlayer.add_child(listener)
 	listener.position.y = 1.0
 	listener.make_current()
 	SceneFlow.sounds.attach_world(self)
+	_create_wet_indicator()
 	hud.notify(regions.region_name(region_id) + ": " + objectives.summary())
 	_update_lighting()
 	_refresh_visuals()
@@ -155,28 +160,26 @@ func _apply_shadow_quality():
 	$Sun.shadow_normal_bias = 0.7
 
 func _process(delta):
-	if ended or transitioning:
+	if ended or transitioning or get_tree().paused:
 		return
-	_update_interaction_marker()
 	_advance_presentation(delta)
-	var event = interactions.tick(delta, $GridPlayer.cell)
-	if not event.is_empty():
-		_finish_interaction(event)
+	_tick_context_action(delta)
+	_update_interaction_marker()
+	if get_tree().paused: return
 	tick_accumulator += delta * simulation_time_scale
 	if tick_accumulator >= 1.0:
 		tick_accumulator -= 1.0
 		var health_before = survival.health
 		climate.tick(1.0)
 		regions.advance(1.0)
+		foraging.tick(1.0)
 		var cell = $GridPlayer.cell
 		var shade = climate.shade_at(cell)
 		var safe = cell.distance_to(grid.start) <= 2.2
-		survival.tick(1.0, climate.temperature, shade, safe, SaveManager.has_heat_resistance())
+		survival.tick(1.0, climate.temperature, shade, safe, SaveManager.has_heat_resistance(), {"weather": climate.weather, "canopy": shade, "wind": 0.5 if climate.weather in ["rain", "cool"] else 0.15, "fire_hazard": climate.fire_at(cell)})
 		var hazard = climate.fire_at(cell)
 		if hazard > 0 and not safe:
-			survival.health = maxf(0, survival.health - hazard * 7.0 * SaveManager.get_fire_damage_multiplier())
-			survival.exposure = minf(100, survival.exposure + hazard * 5.0)
-			survival.dead = survival.health <= 0
+			survival.damage(hazard * 7.0 * SaveManager.get_fire_damage_multiplier())
 			if not warned_fire:
 				hud.notify("Fire nearby: retreat to wet ground or a cleared route")
 				warned_fire = true
@@ -201,17 +204,20 @@ func _process(delta):
 		_update_hud()
 
 func _unhandled_input(event):
-	if ended or transitioning or $GridPlayer.moving or not event.is_action_pressed("interact"):
+	if ended or transitioning or get_tree().paused:
 		return
-	if $GridPlayer.cell.distance_to(grid.start) <= 1.5:
-		hud.show_modal("bonfire")
-	else:
-		interactions.duration = 1.2 * SaveManager.get_chop_multiplier()
-		if interactions.begin($GridPlayer.cell, $GridPlayer.facing):
-			hud.notify("Clearing... moving cancels the action")
-			audio_cue.emit("chop", $GridPlayer.position)
+	if event.is_action_pressed("eat") and not event.is_echo():
+		if survival.eat_berry():
+			hud.notify("Ate berries")
+			audio_cue.emit("discovery", $GridPlayer.position)
 		else:
-			hud.notify("Interact beside a tree, stump or fallen log")
+			hud.notify("No berries to eat" if survival.berry_count <= 0 else "Food and water reserves are full")
+		_update_hud()
+		get_viewport().set_input_as_handled()
+		return
+	if $GridPlayer.moving or not event.is_action_pressed("interact") or event.is_echo():
+		return
+	_begin_context_action()
 	get_viewport().set_input_as_handled()
 
 func _on_cell_entered(cell: Vector2i):
@@ -225,6 +231,8 @@ func _on_cell_entered(cell: Vector2i):
 	climate.trample(cell)
 	audio_cue.emit("footstep", grid.world_position(cell))
 	var here = grid.cells[cell.y * grid.SIZE + cell.x]
+	if here.get("berry_bush", false):
+		_discover("food.berry_bush", "Berry bushes supply food")
 	if here.moisture < 0.45 or here.get("burned", false):
 		objectives.observe_problem(region_id)
 	if here.get("terrain", "grass") == "water" or _near_water(cell):
@@ -320,7 +328,8 @@ func _refresh_visuals():
 				_discover("flora.recovery", "Vegetation recovers in favorable weather")
 		var cell = Vector2i(i % grid.SIZE, floori(float(i) / grid.SIZE))
 		if trees.has(cell) and data.tree_state in ["healthy", "dead"]:
-			trees[cell].set_health(data.tree_health, data.tree_state == "dead", data.moisture, data.get("burned", false))
+			if trees[cell].has_method("set_health"):
+				trees[cell].set_health(data.tree_health, data.tree_state == "dead", data.moisture, data.get("burned", false))
 			if data.get("burned", false):
 				_discover("flora.burned_tree", "Burned trees lose shade")
 		if logs.has(cell) and not data.get("log", false):
@@ -330,12 +339,18 @@ func _refresh_visuals():
 		effects.update_state(grid, climate.weather)
 	if ground_cover != null:
 		ground_cover.update_state(grid)
+	if forage_visuals != null:
+		forage_visuals.update_state(grid)
 
 func _update_hud():
 	var safe = $GridPlayer.cell.distance_to(grid.start) <= 2.2
 	hud.update_status(survival.health, survival.exposure, climate.temperature, climate.weather, climate.warming_pressure(), SaveManager.progression.knowledge, safe, interactions.target.x >= 0)
 	hud.set_environment_context(climate.fire_at($GridPlayer.cell), objectives.summary(), objectives.ready_for_clearing())
 	hud.set_region(regions.region_name(region_id))
+	hud.update_survival(survival, climate.shade_at($GridPlayer.cell), _binding_label("eat"))
+	if wet_indicator != null:
+		wet_indicator.visible = survival.wetness >= 10.0
+		wet_indicator.scale = Vector3.ONE * (0.8 + survival.wetness / 200.0)
 	if previous_objective != objectives.summary():
 		if not previous_objective.is_empty():
 			hud.notify(objectives.summary())
@@ -492,8 +507,9 @@ func _request_region_transition(destination: String):
 	transitioning = true
 	SceneFlow.region_transitioning = true
 	$CameraRig._cancel_drag()
-	SceneFlow.camera_state = {"yaw": $CameraRig.target_yaw, "pitch": $CameraRig.target_pitch, "zoom": $CameraRig.target_zoom}
+	SceneFlow.camera_state = $CameraRig.get_transition_state()
 	$GridPlayer.set_process(false)
+	context_action.cancel()
 	interactions.configure(grid)
 	hud.notify("Trail to " + regions.region_name(destination))
 	await get_tree().create_timer(0.20, false).timeout
@@ -551,16 +567,141 @@ func _create_region_markers():
 	add_child(interaction_marker)
 
 func _update_interaction_marker():
-	interaction_marker.visible = false
-	if $GridPlayer.moving or get_tree().paused:
-		return
+	selected_interaction = context_action.select(_interaction_candidates(), $GridPlayer.cell, $GridPlayer.facing)
+	var display = context_action.active if not context_action.active.is_empty() else selected_interaction
+	interaction_marker.visible = not display.is_empty() and not $GridPlayer.moving and not get_tree().paused
+	if interaction_marker.visible:
+		interaction_marker.position = grid.world_position(display.cell) + Vector3(0,0.12,0)
+	hud.update_interaction(display, context_action.progress, not context_action.active.is_empty(), _binding_label("interact"))
+
+func _binding_label(action: String) -> String:
+	var labels: PackedStringArray = []
+	for code in SettingsManager.bindings.get(action, []):
+		if code != 0:
+			labels.append(SettingsManager.binding_text(code))
+	return " / ".join(labels) if not labels.is_empty() else "Unbound"
+
+func _descriptor(cell: Vector2i, kind: String, title: String, action: String, duration: float, available: bool = true, reason: String = "") -> Dictionary:
+	return {"id": "%s:%d,%d:%s" % [region_id,cell.x,cell.y,kind], "cell": cell,
+		"object_kind": kind, "name": title, "action": action, "duration": duration,
+		"available": available, "reason": reason, "range": 1.0, "priority": 0}
+
+func _interaction_candidates() -> Array:
+	var candidates: Array = []
 	var player = $GridPlayer.cell
-	for direction in [$GridPlayer.facing, Vector2i.UP,Vector2i.RIGHT,Vector2i.DOWN,Vector2i.LEFT]:
-		var cell: Vector2i = player + direction
-		if not grid.in_bounds(cell):
-			continue
+	var camp = _descriptor(grid.start, "bonfire", "Bonfire", "Rest", 0.0)
+	camp.range = 1.5
+	camp.priority = 10
+	candidates.append(camp)
+	for cell in [player, player + Vector2i.UP, player + Vector2i.RIGHT, player + Vector2i.DOWN, player + Vector2i.LEFT]:
+		if not grid.in_bounds(cell): continue
 		var data = grid.cells[cell.y * grid.SIZE + cell.x]
-		if not data.get("burning", false) and (data.tree or data.get("log", false)):
-			interaction_marker.position = grid.world_position(cell) + Vector3(0,0.12,0)
-			interaction_marker.visible = true
-			break
+		var burning: bool = data.get("burning", false)
+		if data.get("berry_bush", false):
+			var availability: Dictionary = foraging.availability(cell)
+			candidates.append(_descriptor(cell, "berries", "Berry Bush", "Harvest", 0.75, availability.available, availability.reason))
+		elif data.get("terrain", "grass") == "water":
+			var wet = data.get("water_level", 0.0) > 0.1
+			candidates.append(_descriptor(cell, "water", "Pond", "Drink", 0.8, wet, "Pond is dry" if not wet else ""))
+		elif data.get("log", false):
+			candidates.append(_descriptor(cell, "log", "Fallen Log", "Clear", 1.2 * SaveManager.get_chop_multiplier(), not burning, "Wood is burning" if burning else ""))
+		elif data.tree:
+			candidates.append(_descriptor(cell, "tree", "Stump" if data.tree_state == "stump" else "Tree", "Remove" if data.tree_state == "stump" else "Chop", 1.2 * SaveManager.get_chop_multiplier(), not burning, "Tree is burning" if burning else ""))
+	candidates.append_array(custom_interactables)
+	return candidates
+
+func _begin_context_action():
+	if not context_action.active.is_empty(): return
+	var selected: Dictionary = context_action.select(_interaction_candidates(), $GridPlayer.cell, $GridPlayer.facing)
+	if selected.is_empty():
+		hud.notify("No nearby interaction")
+		return
+	if not selected.get("available", true):
+		hud.notify(selected.get("reason", "Unavailable"))
+		return
+	if selected.get("object_kind", "custom") in ["tree", "log"]:
+		interactions.duration = selected.duration
+		if not interactions.begin($GridPlayer.cell, selected.cell - $GridPlayer.cell): return
+		audio_cue.emit("chop", $GridPlayer.position)
+	if context_action.begin(selected, $GridPlayer.cell):
+		_update_interaction_marker()
+
+func _tick_context_action(delta: float):
+	if context_action.active.is_empty():
+		# Retain the small existing tree model API for external integrations/tests.
+		var legacy = interactions.tick(delta, $GridPlayer.cell)
+		if not legacy.is_empty(): _finish_interaction(legacy)
+		return
+	var active: Dictionary = context_action.active
+	var kind: String = active.get("object_kind", "custom")
+	if kind in ["berries", "water", "tree", "log"]:
+		var data = grid.cells[active.cell.y * grid.SIZE + active.cell.x]
+		if kind == "berries":
+			var availability: Dictionary = foraging.availability(active.cell)
+			active.available = availability.available
+			active.reason = availability.reason
+		elif kind == "water":
+			active.available = data.water_level > 0.1
+			active.reason = "Pond is dry"
+		else:
+			active.available = not data.get("burning", false) and (data.tree if kind == "tree" else data.get("log", false))
+			active.reason = "Wood is no longer safe to clear"
+	var result: Dictionary = context_action.tick(delta, $GridPlayer.cell, get_tree().paused)
+	var tree_event = interactions.tick(delta, $GridPlayer.cell) if kind in ["tree", "log"] else {}
+	if result.is_empty(): return
+	if result.kind == "cancelled":
+		interactions.configure(grid)
+		hud.notify("Action cancelled")
+		return
+	if kind in ["tree", "log"]:
+		if not tree_event.is_empty(): _finish_interaction(tree_event)
+	elif kind == "bonfire":
+		hud.show_modal("bonfire")
+	elif kind == "berries":
+		var amount: int = foraging.harvest(result.cell)
+		survival.add_berries(amount)
+		_discover("food.berry_bush", "Berry bushes supply food")
+		_discover("food.first_harvest", "Food gathered for the journey")
+		hud.notify("Harvested %d berries" % amount)
+		audio_cue.emit("discovery", grid.world_position(result.cell))
+	elif kind == "water":
+		survival.drink()
+		_discover("water.freshwater", "Freshwater source found")
+		hud.notify("Drank freshwater")
+		audio_cue.emit("discovery", grid.world_position(result.cell))
+	_refresh_visuals()
+	_update_hud()
+
+# Small extension points: no planting action, seed inventory or player visual
+# implementation is supplied here. External consumers own their logical state.
+func register_interactable(descriptor: Dictionary) -> bool:
+	if not descriptor.get("id") is String or descriptor.id.strip_edges().is_empty() or not descriptor.get("cell") is Vector2i or not grid.in_bounds(descriptor.cell):
+		return false
+	for existing in custom_interactables:
+		if existing.id == descriptor.id: return false
+	custom_interactables.append(descriptor)
+	return true
+
+func register_vegetation_visual(cell: Vector2i, visual: Node3D) -> bool:
+	if not grid.in_bounds(cell) or visual == null or visual.get_parent() != null or trees.has(cell): return false
+	visual.position = grid.world_position(cell)
+	$Vegetation.add_child(visual)
+	trees[cell] = visual
+	return true
+
+func _create_wet_indicator():
+	wet_indicator = MeshInstance3D.new()
+	wet_indicator.name = "WetIndicator"
+	var ring = TorusMesh.new()
+	ring.inner_radius = 0.33
+	ring.outer_radius = 0.39
+	ring.rings = 12
+	ring.ring_segments = 4
+	wet_indicator.mesh = ring
+	var material = StandardMaterial3D.new()
+	material.albedo_color = Color("79bcd6")
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	wet_indicator.material_override = material
+	wet_indicator.position.y = 0.08
+	wet_indicator.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	$GridPlayer.add_child(wet_indicator)

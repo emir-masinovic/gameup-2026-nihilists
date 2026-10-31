@@ -42,8 +42,10 @@ func get_region(id: String) -> Dictionary:
 	# Set the instance baseline before configure computes its first temperature.
 	if id == "drylands":
 		climate.baseline_temperature += 3.0
+		climate.weather_cycle = ["clear", "heat", "clear", "heat"]
 	elif id == "wetlands":
 		climate.baseline_temperature -= 2.0
+		climate.weather_cycle = ["rain", "cool", "rain", "clear"]
 	climate.configure(grid, seed_value)
 	for data in grid.cells:
 		if id == "drylands":
@@ -62,8 +64,11 @@ func get_region(id: String) -> Dictionary:
 		habitat.tree = false
 		habitat.tree_health = 0.0
 		habitat.tree_state = "removed"
+	_ensure_water_access(grid)
+	var foraging = preload("res://features/levels/forest/ResourceForaging.gd").new()
+	foraging.configure(grid, seed_value, id)
 	var state = {"grid": grid, "climate": climate, "cut_cells": {},
-		"visited": false, "last_updated": elapsed}
+		"visited": false, "last_updated": elapsed, "foraging": foraging}
 	states[id] = state
 	return state
 
@@ -112,6 +117,7 @@ func enter(id: String) -> Dictionary:
 		while remaining > 0.0:
 			var step = minf(remaining, 1.0)
 			state.climate.tick(step)
+			state.foraging.tick(step)
 			remaining -= step
 	# Discard work beyond the cap instead of charging it again on the next visit.
 	state.last_updated = elapsed
@@ -129,3 +135,34 @@ func palette_for(id: String) -> Dictionary:
 	if id == "wetlands":
 		return {"soil": Color("635944"), "dry_green": Color("315f47"), "wet_green": Color("4e8964")}
 	return {"soil": Color("80684a"), "dry_green": Color("315f3c"), "wet_green": Color("5c894a")}
+
+# Open a deterministic narrow approach from the protected central cross to one
+# pond shore. Freshwater remains adjacent, never turned into a bridge or path.
+func _ensure_water_access(grid: RefCounted):
+	var shore = Vector2i(-1,-1)
+	var best_distance = 100000
+	for i in range(grid.cells.size()):
+		if grid.cells[i].terrain != "water":
+			continue
+		var pond = Vector2i(i % grid.SIZE, floori(float(i) / grid.SIZE))
+		for offset in [Vector2i.LEFT,Vector2i.UP,Vector2i.RIGHT,Vector2i.DOWN]:
+			var candidate = pond + offset
+			if not grid.in_bounds(candidate) or grid.cells[candidate.y * grid.SIZE + candidate.x].terrain == "water":
+				continue
+			var distance = absi(candidate.x - grid.start.x) + absi(candidate.y - grid.start.y)
+			if distance < best_distance:
+				shore = candidate
+				best_distance = distance
+	if shore.x < 0:
+		return
+	var cell = shore
+	while true:
+		var data = grid.cells[cell.y * grid.SIZE + cell.x]
+		if data.terrain != "water":
+			data.tree = false
+			data.tree_state = "removed"
+			data.tree_health = 0.0
+			data.fuel = 0.45
+		if cell.x == grid.start.x or cell.y == grid.start.y:
+			break
+		cell.x += signi(grid.start.x - cell.x)
