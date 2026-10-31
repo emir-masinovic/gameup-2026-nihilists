@@ -510,6 +510,7 @@ func _request_region_transition(destination: String):
 	SceneFlow.camera_state = $CameraRig.get_transition_state()
 	$GridPlayer.set_process(false)
 	context_action.cancel()
+	if $GridPlayer/Body.has_method("stop_chopping"): $GridPlayer/Body.stop_chopping()
 	interactions.configure(grid)
 	hud.notify("Trail to " + regions.region_name(destination))
 	await get_tree().create_timer(0.20, false).timeout
@@ -622,6 +623,8 @@ func _begin_context_action():
 	if selected.get("object_kind", "custom") in ["tree", "log"]:
 		interactions.duration = selected.duration
 		if not interactions.begin($GridPlayer.cell, selected.cell - $GridPlayer.cell): return
+		if $GridPlayer/Body.has_method("start_chopping"):
+			$GridPlayer/Body.start_chopping(to_global(grid.world_position(selected.cell)))
 		audio_cue.emit("chop", $GridPlayer.position)
 	if context_action.begin(selected, $GridPlayer.cell):
 		_update_interaction_marker()
@@ -649,6 +652,8 @@ func _tick_context_action(delta: float):
 	var result: Dictionary = context_action.tick(delta, $GridPlayer.cell, get_tree().paused)
 	var tree_event = interactions.tick(delta, $GridPlayer.cell) if kind in ["tree", "log"] else {}
 	if result.is_empty(): return
+	if $GridPlayer/Body.has_method("stop_chopping"):
+		$GridPlayer/Body.stop_chopping()
 	if result.kind == "cancelled":
 		interactions.configure(grid)
 		hud.notify("Action cancelled")
