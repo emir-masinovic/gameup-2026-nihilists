@@ -86,9 +86,11 @@ func run():
 	check(world.terrain_renderer.batches[19].multimesh.visible_instance_count == wet_tiles-1 and world.terrain_renderer.batches[18].multimesh.visible_instance_count == dry_tiles+1, "Soil moisture selects distinct wet/dry brown materials without changing plantability")
 	data.moisture = 0.8
 
+	world.ground_cover.update_state(world.grid)
 	for batch in world.ground_cover.batches:
-		for index in batch.indices:
-			check(world.grid.cells[index].terrain != "soil", "Grass/shrub decoration leaves soil patches bare")
+		for j in range(batch.indices.size()):
+			if world.grid.cells[batch.indices[j]].terrain == "soil":
+				check(batch.targets[j] == 0.0, "Allocated cover stays hidden when a cell becomes authored soil")
 	data.burning = true
 	world._update_interaction_marker()
 	check(not world.interaction_marker.visible or not world.interaction_marker.position.is_equal_approx(world.grid.world_position(target) + Vector3(0,0.12,0)), "Invalid planting clears its ring immediately")

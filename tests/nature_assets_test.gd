@@ -50,9 +50,12 @@ func run() -> void:
         tree.set_health(0.1, false)
         var dry := mesh.get_surface_override_material(entry.surface) as ShaderMaterial
         check(dry != healthy and not dry.get_shader_parameter("bare"), "Low health uses shared dry foliage")
+        check(dry.get_shader_parameter("canopy_density") < 0.3 and tree.get_node("WitheredBranches").visible, "Drought changes canopy geometry and exposes branches, not only color")
         tree.set_health(0.0, true)
         var dead := mesh.get_surface_override_material(entry.surface) as ShaderMaterial
         check(dead.get_shader_parameter("bare"), "Dead foliage is discarded while bark remains")
+        tree.set_health(0.0,true,0.0,true)
+        check(tree.get_node("WitheredBranches").material_override.albedo_color == Color("231e1a"), "Burned branches differ from drought-dead wood")
         var bark_count := 0
         for index in range(mesh.mesh.get_surface_count()):
             if mesh.get_surface_override_material(index) is StandardMaterial3D:

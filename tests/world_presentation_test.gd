@@ -30,6 +30,35 @@ func run():
 	check(world.terrain_renderer.batches.size() <= 20, "Terrain batches remain bounded")
 	for ground in world.terrain_renderer.batches:
 		check(ground.material_override == world.water_material or ground.material_override == world.charred_material or ground in [world.terrain_renderer.batches[18],world.terrain_renderer.batches[19]] or (ground.material_override is ShaderMaterial and ground.material_override in world.palette), "Every tile reuses the shared terrain palette")
+	var cover = world.ground_cover
+	check(cover.get_child_count() == 3 and cover.batches[0].indices.size() <= world.grid.cells.size()*4, "Abundant cover and cracks stay in three bounded draw batches")
+	var test_cell = Vector2i(7,5)
+	var ground_data: Dictionary = world.grid.cells[test_cell.y*world.grid.SIZE+test_cell.x]
+	var saved_ground: Dictionary = ground_data.duplicate(true)
+	ground_data.terrain = "grass"
+	ground_data.health = 1.0
+	ground_data.moisture = 0.8
+	cover.update_state(world.grid)
+	var healthy_density = 0.0
+	for j in range(cover.batches[0].indices.size()):
+		if cover.batches[0].indices[j] == test_cell.y*17+test_cell.x: healthy_density += cover.batches[0].targets[j]
+	ground_data.health = 0.2
+	ground_data.moisture = 0.05
+	cover.update_state(world.grid)
+	var dry_density = 0.0
+	for j in range(cover.batches[0].indices.size()):
+		if cover.batches[0].indices[j] == test_cell.y*17+test_cell.x: dry_density += cover.batches[0].targets[j]
+	check(dry_density < healthy_density*0.2 and cover._crack_targets[test_cell.y*17+test_cell.x] > 0.8, "Severe drought removes grass geometry and exposes cracks")
+	ground_data.moisture = 0.7
+	ground_data.health = 0.45
+	cover.update_state(world.grid)
+	var recovering_density = 0.0
+	for j in range(cover.batches[0].indices.size()):
+		if cover.batches[0].indices[j] == test_cell.y*17+test_cell.x: recovering_density += cover.batches[0].targets[j]
+	check(recovering_density > dry_density and recovering_density < healthy_density, "Recovering ground returns patchy vegetation before full cover")
+	ground_data.clear()
+	ground_data.merge(saved_ground)
+	cover.update_state(world.grid)
 	var sun = world.get_node("Sun")
 	var direction = sun.global_basis.z
 	world._advance_presentation(20.0)

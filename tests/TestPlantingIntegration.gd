@@ -64,6 +64,7 @@ func run():
 	for age in [0.0,30.0,75.0]:
 		data.growth_age = age
 		sprout.update_growth(data)
+		await create_timer(0.8).timeout
 		sizes.append(sprout.scale.y)
 	check(sizes[0] < sizes[1] and sizes[1] < sizes[2], "Three distinct visible growing stages")
 	data.growth_age = 119.0
