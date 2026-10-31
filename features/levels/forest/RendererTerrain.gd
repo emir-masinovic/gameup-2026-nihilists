@@ -17,9 +17,11 @@ func configure(grid: RefCounted, palette: Array[ShaderMaterial], water: Material
 	var soil = palette[0].duplicate()
 	soil.set_shader_parameter("terrain_color", Color("554636"))
 	soil.set_shader_parameter("terrain_health", 0.0)
+	soil.set_shader_parameter("terrain_moisture", 0.0)
 	materials.append(soil)
 	var wet_soil = soil.duplicate()
 	wet_soil.set_shader_parameter("terrain_color", Color("40382f"))
+	wet_soil.set_shader_parameter("terrain_moisture", 1.0)
 	materials.append(wet_soil)
 	for i in range(materials.size()):
 		var batch = MultiMeshInstance3D.new()

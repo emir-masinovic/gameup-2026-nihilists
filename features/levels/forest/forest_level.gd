@@ -89,6 +89,7 @@ func _ready():
 			var green: Color = Color("b39a50").lerp(regional_palette.dry_green, moisture_bin * 0.35) if moisture_bin < 2 else regional_palette.dry_green.lerp(regional_palette.wet_green, moisture_bin - 2.0)
 			mat.set_shader_parameter("terrain_color", regional_palette.soil.lerp(green, health_bin / 3.0))
 			mat.set_shader_parameter("terrain_health", health_bin / 3.0)
+			mat.set_shader_parameter("terrain_moisture", moisture_bin / 3.0)
 			mat.set_shader_parameter("world_seed", float(posmod(world_seed, 65521)))
 			mat.set_shader_parameter("variation_strength", terrain_variation_strength)
 			palette.append(mat)

@@ -5,6 +5,8 @@ const CONIFER: PackedScene = preload("res://features/levels/forest/nature/tree_c
 const DECIDUOUS: PackedScene = preload("res://features/levels/forest/nature/tree_deciduous.glb")
 const FOLIAGE_SHADER: Shader = preload("res://features/levels/forest/nature/shader_foliage.gdshader")
 static var _foliage_materials: Array[ShaderMaterial] = []
+static var _recovery_materials: Array[ShaderMaterial] = []
+var _recovering = false
 static var _branch_mesh: ArrayMesh
 static var _charred_material: StandardMaterial3D
 var _branches: MeshInstance3D
@@ -60,6 +62,11 @@ static func _ensure_materials() -> void:
         material.set_shader_parameter("bare", index == 3)
         material.set_shader_parameter("canopy_density", [1.0,0.6,0.22,0.0][index])
         _foliage_materials.append(material)
+    for index in range(2):
+        var material = _foliage_materials[index+1].duplicate()
+        material.set_shader_parameter("leaf_color", Color(0.25,0.46,0.17))
+        material.set_shader_parameter("canopy_density",[0.6,0.28][index])
+        _recovery_materials.append(material)
 
 func _configure_surfaces(node: Node) -> void:
     if node is MeshInstance3D:
@@ -75,6 +82,8 @@ func _configure_surfaces(node: Node) -> void:
         _configure_surfaces(child)
 
 func set_health(health: float, dead: bool, moisture: float = 1.0, burned: bool = false) -> void:
+    var previous_health = _health
+    var was_recovering = _recovering
     _health = clampf(health, 0.0, 1.0)
     _dead = dead
     _moisture = clampf(moisture, 0.0, 1.0)
@@ -85,13 +94,14 @@ func set_health(health: float, dead: bool, moisture: float = 1.0, burned: bool =
     if not dead and not burned and _state in [0,1,2] and next_state != _state:
         if (_state == 0 and condition > 0.62) or (_state == 1 and condition > 0.29 and condition < 0.70) or (_state == 2 and condition < 0.37):
             next_state = _state
+    _recovering = not dead and not burned and next_state in [1,2] and _moisture > 0.55 and (_health > previous_health+0.0005 or (was_recovering and _health >= previous_health-0.0005))
     if is_instance_valid(_branches):
         _branches.visible = next_state >= 1
         _branches.material_override = _charred_material if burned else _bark_material
     for entry in _bark_surfaces:
         entry.mesh.set_surface_override_material(entry.surface,_charred_material if burned else _bark_material)
-    if next_state == _state or _leaf_surfaces.is_empty():
+    if (next_state == _state and _recovering == was_recovering) or _leaf_surfaces.is_empty():
         return
     _state = next_state
     for entry in _leaf_surfaces:
-        (entry.mesh as MeshInstance3D).set_surface_override_material(entry.surface, _foliage_materials[_state])
+        (entry.mesh as MeshInstance3D).set_surface_override_material(entry.surface, _recovery_materials[_state-1] if _recovering else _foliage_materials[_state])
