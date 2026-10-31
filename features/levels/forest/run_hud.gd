@@ -1,12 +1,16 @@
 extends Control
 var world: Node
 var modal_kind = ""
+var field_notes = "Survey the forest."
+var refuge_ready = false
 
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	$Modal/Rows/Close.pressed.connect(close_modal)
 	$Modal/Rows/Next.pressed.connect(func(): close_modal(); SceneFlow.new_game())
 	$Modal/Rows/Menu.pressed.connect(func(): close_modal(); SceneFlow.main_menu())
+	$Modal/Rows/QuickChop.pressed.connect(func(): _purchase("quick_chop"))
+	$Modal/Rows/FireResilience.pressed.connect(func(): _purchase("fire_resilience"))
 	$Modal/Rows/Upgrade.pressed.connect(func():
 		if SaveManager.purchase_heat_resistance():
 			notify("Heat Resistance purchased permanently")
@@ -32,7 +36,13 @@ func show_modal(kind: String):
 	var names: PackedStringArray = []
 	for id in SaveManager.progression.discoveries:
 		names.append(id.get_slice(".", 1).replace("_", " ").capitalize())
-	$Modal/Rows/Progress.text += "\nDiscovered: " + (", ".join(names) if not names.is_empty() else "Explore to find something new")
+	$Modal/Rows/Progress.text += "\nField notes: " + field_notes
+	$Modal/Rows/Progress.tooltip_text = "Discovered: " + (", ".join(names) if not names.is_empty() else "Explore to find something new")
+	for pair in [["QuickChop", "quick_chop", "Quick Chop"], ["FireResilience", "fire_resilience", "Fire Resilience"]]:
+		var button = get_node("Modal/Rows/" + pair[0])
+		button.visible = kind == "bonfire"
+		button.disabled = SaveManager.has_upgrade(pair[1]) or SaveManager.progression.knowledge < SaveManager.upgrade_cost(pair[1])
+		button.text = pair[2] + (" - Owned" if SaveManager.has_upgrade(pair[1]) else " - %d Knowledge" % SaveManager.upgrade_cost(pair[1]))
 	$Modal/Rows/Upgrade.visible = kind == "bonfire"
 	$Modal/Rows/Upgrade.disabled = SaveManager.has_heat_resistance() or SaveManager.progression.knowledge < 3
 	$Modal/Rows/Close.visible = kind == "bonfire"
@@ -64,3 +74,15 @@ func update_status(health: float, exposure: float, temperature: float, weather: 
 
 func damage_feedback(damaged: bool):
 	$PlayerStatus/Rows/Health.modulate = Color(1, 0.55, 0.45) if damaged else Color.WHITE
+
+func _purchase(id: String):
+	if SaveManager.purchase_upgrade(id):
+		notify("Permanent upgrade purchased")
+	show_modal("bonfire")
+
+func set_environment_context(fire_hazard: float, notes: String, ready: bool):
+	field_notes = notes
+	refuge_ready = ready
+	$PlayerStatus/Rows/Heat/Icon.modulate = Color(1,0.4,0.2) if fire_hazard > 0 else Color.WHITE
+	if fire_hazard > 0:
+		$Context.text = "Fire nearby - seek wet ground or a cleared path"

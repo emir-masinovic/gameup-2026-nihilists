@@ -27,7 +27,7 @@ func run():
 		seeds.append(material.get_shader_parameter("world_seed"))
 		check(material.get_shader_parameter("variation_strength") > 0.0, "Shared terrain shader enables subtle spatial patches")
 	for ground in world.grounds:
-		check(ground.material_override in world.palette, "Every tile reuses the shared terrain palette")
+		check(ground.material_override == world.water_material or ground.material_override == world.charred_material or (ground.material_override is ShaderMaterial and ground.material_override in world.palette), "Every tile reuses the shared terrain palette")
 	var sun = world.get_node("Sun")
 	var direction = sun.global_basis.z
 	world._advance_presentation(20.0)
@@ -48,7 +48,8 @@ func run():
 		world._advance_presentation(1.0)
 		check(sun.shadow_enabled == (quality > 0), "Day cycle respects shadow Off through High")
 	var fire = world.get_node("Bonfire")
-	check(fire.get_child_count() == 3, "Bonfire uses three lightweight low-poly flames")
+	check(fire.has_node("Flame0") and fire.has_node("Flame1") and fire.has_node("Flame2"), "Bonfire retains three lightweight flames")
+	check(fire.get_node("Smoke").amount <= 10 and not fire.get_node("Warmth").shadow_enabled, "Bonfire atmosphere remains bounded")
 	var material = fire.get_node("Flame0").material_override
 	var before = material.get_shader_parameter("animation_time")
 	world._advance_presentation(0.25)
