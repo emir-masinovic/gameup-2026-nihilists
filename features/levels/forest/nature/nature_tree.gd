@@ -61,6 +61,7 @@ static func _ensure_materials() -> void:
         material.set_shader_parameter("leaf_color", [Color(0.13, 0.34, 0.20), Color(0.64, 0.54, 0.13), Color(0.48, 0.25, 0.08), Color(0.3, 0.2, 0.1)][index])
         material.set_shader_parameter("bare", index == 3)
         material.set_shader_parameter("canopy_density", [1.0,0.6,0.22,0.0][index])
+        material.set_shader_parameter("sway", [0.045,0.025,0.01,0.0][index])
         _foliage_materials.append(material)
     for index in range(2):
         var material = _foliage_materials[index+1].duplicate()

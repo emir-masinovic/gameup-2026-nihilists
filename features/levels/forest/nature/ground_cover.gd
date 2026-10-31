@@ -33,6 +33,9 @@ func _find_mesh(node: Node, parent_transform: Transform3D) -> Dictionary:
 
 func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	var source = _find_mesh(model, Transform3D.IDENTITY)
+	if not shrubs:
+		source.mesh = _grass_tuft()
+		source.transform = Transform3D.IDENTITY
 	var indices: Array[int] = []
 	for i in range(grid.cells.size()):
 		var cell = grid.cells[i]
@@ -51,7 +54,8 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	renderer.multimesh.instance_count = indices.size()
 	renderer.material_override = source.material.duplicate()
 	renderer.material_override.set_shader_parameter("instance_health", true)
-	renderer.material_override.set_shader_parameter("sway",0.035)
+	renderer.material_override.set_shader_parameter("sway",0.035 if shrubs else 0.11)
+	renderer.material_override.set_shader_parameter("wind_height",0.3 if shrubs else 0.5)
 	renderer.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(renderer)
 	var sizes: Array[float] = []
@@ -84,7 +88,7 @@ func update_state(grid: RefCounted):
 			var coverage = smoothstep(threshold-0.12,threshold+0.12,vitality)
 			batch.targets[j] = (0.65+vitality*0.65)*coverage*batch.variations[j] if visible_patch else 0.0
 			batch.vitality[j] = vitality
-			batch.renderer.multimesh.set_instance_custom_data(j, Color(vitality, 0, 0, 1))
+			batch.renderer.multimesh.set_instance_custom_data(j, Color(vitality, _sample(i*37+j), vitality, 1))
 	for i in range(grid.cells.size()):
 		var data = grid.cells[i]
 		var bare_ground: bool = data.terrain == "grass" and not data.get("burned", false)
@@ -164,3 +168,22 @@ func _build_cracks(grid: RefCounted):
 	_crack_targets.resize(grid.cells.size())
 	_crack_sizes.fill(0.0)
 	_crack_targets.fill(0.0)
+
+# Three tapered, segmented blades: shared by the existing clustered MultiMesh.
+func _grass_tuft() -> ArrayMesh:
+	var mesh = SurfaceTool.new()
+	mesh.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for blade in range(3):
+		var direction = Vector3(cos(blade*2.094),0,sin(blade*2.094))
+		var side = direction.cross(Vector3.UP)
+		for segment in range(3):
+			var t0 = float(segment)/3.0
+			var t1 = float(segment+1)/3.0
+			var start = Vector3.UP*t0*0.5+direction*t0*t0*0.13
+			var end = Vector3.UP*t1*0.5+direction*t1*t1*0.13
+			var a = side*(1.0-t0)*0.045
+			var b = side*(1.0-t1)*0.045
+			for point in [start-a,start+a,end+b,start-a,end+b,end-b]:
+				mesh.set_normal(direction)
+				mesh.add_vertex(point)
+	return mesh.commit()

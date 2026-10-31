@@ -60,6 +60,9 @@ func run():
 	ground_data.merge(saved_ground)
 	cover.update_state(world.grid)
 	var grass_batch = cover.batches[0]
+	check(grass_batch.renderer.multimesh.mesh.get_faces().size() == 54, "Grass uses three rooted segmented blades, eighteen triangles per tuft")
+	check(grass_batch.renderer.multimesh.mesh.get_aabb().position.y == 0.0, "Grass roots sit exactly on the ground")
+	check(grass_batch.renderer.material_override.get_shader_parameter("wind_height") == 0.5, "Wind bend height matches blade geometry")
 	var distinct_offsets = {}
 	var per_cell = {}
 	for j in range(grass_batch.indices.size()):

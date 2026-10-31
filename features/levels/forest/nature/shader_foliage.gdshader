@@ -11,10 +11,18 @@ uniform float wind_height = 1.6;
 void vertex() {
     vitality = INSTANCE_CUSTOM.r;
     leaf_position = VERTEX;
-    vec3 world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-    float tip = smoothstep(0.0, wind_height, VERTEX.y);
-    VERTEX.x += sin(TIME * 1.35 + world.x * 0.65 + world.z * 0.45) * sway * tip;
-    VERTEX.z += cos(TIME * 1.05 + world.z * 0.6) * sway * tip * 0.55;
+    vec3 world = MODEL_MATRIX[3].xyz;
+    float height = clamp(VERTEX.y / wind_height, 0.0, 1.0);
+    float vigor = instance_health ? (0.3 + vitality * 0.7) : 1.0;
+    if (instance_health) { VERTEX.y *= 0.4 + vitality * 0.6; }
+    // A shared travelling field, with only a small seeded local phase offset.
+    float phase = instance_health ? INSTANCE_CUSTOM.g * 0.45 : 0.0;
+    float wave = sin(TIME * 1.65 - dot(world.xz, vec2(0.35, 0.26)) + phase);
+    float gust = 0.65 + 0.35 * sin(TIME * 0.43 - dot(world.xz, vec2(0.08, 0.06)));
+    vec3 direction = vec3(0.8, 0.0, 0.6);
+    vec3 local_direction = vec3(dot(normalize(MODEL_MATRIX[0].xyz), direction), 0.0,
+                                dot(normalize(MODEL_MATRIX[2].xyz), direction));
+    VERTEX += local_direction * (0.35 + wave * 0.65) * gust * sway * height * height * vigor;
 }
 void fragment() {
     if (bare) { discard; }
