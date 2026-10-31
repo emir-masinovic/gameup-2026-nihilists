@@ -75,7 +75,7 @@ func run():
 	flow.pause_menu.open_options()
 	await process_frame
 	flow.pause_menu.options.show_category("Video")
-	check(flow.pause_menu.options.content.get_node("Resolution").disabled, "Resolution disabled in fullscreen")
+	check(flow.pause_menu.options.content.get_node("ResolutionRow/Resolution").disabled, "Resolution disabled in fullscreen")
 	flow.resume()
 	settings.fullscreen = false
 	settings.apply_settings()

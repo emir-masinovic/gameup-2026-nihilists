@@ -31,7 +31,7 @@ func run():
 	for size_value in [Vector2i(800, 600), Vector2i(1280, 720)]:
 		var index = sizes.find(size_value)
 		check(index >= 0, "Standalone resolution offered")
-		options.content.get_node("Resolution").item_selected.emit(index)
+		options.content.get_node("ResolutionRow/Resolution").item_selected.emit(index)
 		await create_timer(0.3).timeout
 		check(DisplayServer.window_get_size() == size_value, "UI selector resizes actual native window " + str(size_value))
 		check(root.get_visible_rect().grow(1).encloses(options.back_button.get_global_rect()), "Options usable after actual resize")

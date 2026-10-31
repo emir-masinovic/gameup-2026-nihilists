@@ -22,7 +22,7 @@ SettingsManager persists `user://settings.cfg`, independent of gameplay saves. I
 
 InputMap bindings use positive integers for physical keys, negative mouse indices, and zero for an empty slot. Older keyboard-only saves merge camera defaults. Two binding buttons per action capture input; the activation release cannot capture itself, Escape cancels, and conflicts are rejected across actions. Built-in menu navigation remains independent. Orbit accepts held mouse buttons; zoom accepts buttons/wheels. Mouse sensitivity is 0.002-0.020 radians/pixel (default 0.008).
 
-Orthographic and Perspective projections share a fixed grid-center pivot and free yaw/pitch orbit through poles. Zoom is 10-56, default 42; perspective FOV is 55 degrees with near/far planes 0.1/200. The analytic orientation frame avoids look-at pole singularities. Player grid coordinates never depend on camera orientation.
+Orthographic and Perspective projections share a fixed grid-center pivot and free yaw/pitch orbit through poles. Zoom is 10-56, default 42; perspective FOV is 55 degrees with near/far planes 0.1/200. The analytic orientation frame avoids look-at pole singularities. GridPlayer now projects the four hypothetical cardinal steps through the active Camera3D and chooses the closest screen-axis alignment. A 0.08 dot-score hysteresis prevents jitter near selection boundaries; deterministic ties and tiny-axis rejection handle poles/horizontal views. try_move remains a world-cardinal API and grid coordinates are unchanged. At exactly edge-on views a requested screen direction may have no visible grid-axis component; the deterministic nearest available direction is used.
 
 Desktop window resolutions apply only in windowed mode and clamp to the usable display. Fullscreen uses desktop resolution. Web/headless window mode, resolution and VSync controls are disabled. Compatibility does not expose FXAA or TAA.
 
@@ -63,3 +63,7 @@ Run Godot 4.7.2 from the root with `--headless --editor --import --quit`, then `
 For native resolution/fullscreen testing, disable **Embed Game on Next Play** in the editor Game menu or launch with `--path` without `--editor`. Embedded Game view owns its own sizing and cannot change window mode. To compare FPS caps, run standalone with VSync off and use `video_desktop_test`; repeat with VSync on to observe display/driver limits. No permanent FPS counter is added.
 
 Browser export/playtesting, ten-minute balance, touch/controller controls, falling-log collision, audio assets, wildfires, water systems and additional biomes remain outside this batch.
+
+## Settings layout refinements
+
+Options uses shared label/control rows. Projection, 3D MSAA and all four shadow qualities are exclusive equal-width segments. Fullscreen/VSync are compact background-free checkboxes. FPS is a whole number from 0 to 1000 (0 is Unlimited), committed only on Enter or focus loss; invalid/empty text reverts. Binding rows share identical label/primary/secondary columns. Selected sidebar backgrounds and filled button surfaces are independent of subtle keyboard focus, with no selected left bar.

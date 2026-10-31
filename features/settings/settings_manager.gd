@@ -1,6 +1,7 @@
 extends Node
 signal graphics_changed
 
+const MAX_FPS_LIMIT = 1000
 const DEFAULT_MOUSE_SENSITIVITY = 0.008
 const MIN_MOUSE_SENSITIVITY = 0.002
 const MAX_MOUSE_SENSITIVITY = 0.02
@@ -50,7 +51,7 @@ func load_settings():
 	var sync = config.get_value("video", "vsync", true)
 	vsync = sync if sync is bool else true
 	var fps = config.get_value("video", "fps_limit", 60)
-	fps_limit = fps if fps is int and fps in [0, 30, 60, 120] else 60
+	fps_limit = fps if fps is int and fps >= 0 and fps <= MAX_FPS_LIMIT else 60
 	var size_value = config.get_value("video", "resolution", Vector2i(1152, 720))
 	resolution = size_value if size_value is Vector2i and size_value.x >= 800 and size_value.y >= 600 and size_value.x <= 7680 and size_value.y <= 4320 else Vector2i(1152, 720)
 	var aa = config.get_value("video", "msaa_3d", Viewport.MSAA_2X)

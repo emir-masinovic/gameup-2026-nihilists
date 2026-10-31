@@ -60,6 +60,77 @@ func persist():
 	SettingsManager.apply_settings()
 	status.text = "Saved." if SettingsManager.save_settings() == OK else "Could not save settings."
 
+# All settings share one label column and one expanding control column.
+func setting_row(title: String, control: Control, control_name: String) -> HBoxContainer:
+	var row = HBoxContainer.new()
+	row.name = control_name + "Row"
+	row.add_theme_constant_override("separation", 12)
+	var caption = Label.new()
+	caption.name = "SettingLabel"
+	caption.text = title
+	caption.custom_minimum_size.x = 180
+	row.add_child(caption)
+	control.name = control_name
+	control.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN if control is CheckBox else Control.SIZE_EXPAND_FILL
+	row.add_child(control)
+	content.add_child(row)
+	return row
+
+func segmented_control(options: Array, selected: int, on_selected: Callable) -> HBoxContainer:
+	var segments = HBoxContainer.new()
+	segments.add_theme_constant_override("separation", 4)
+	var group = ButtonGroup.new()
+	for index in options.size():
+		var button = Button.new()
+		button.name = options[index]
+		button.text = str(options[index]).replace("2x", "2\u00d7").replace("4x", "4\u00d7")
+		button.toggle_mode = true
+		button.button_group = group
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.button_pressed = index == selected
+		button.pressed.connect(on_selected.bind(index))
+		segments.add_child(button)
+	# Equal minima plus equal stretch keep segments equal while allowing resize.
+	var minimum_width = 0.0
+	for button in segments.get_children():
+		minimum_width = maxf(minimum_width, button.get_combined_minimum_size().x)
+	for button in segments.get_children():
+		button.custom_minimum_size.x = minimum_width
+	return segments
+
+func binding_row(action: String) -> HBoxContainer:
+	var row = HBoxContainer.new()
+	row.name = "Binding" + action
+	row.add_theme_constant_override("separation", 12)
+	var caption = Label.new()
+	caption.name = "ActionLabel"
+	caption.text = {"camera_orbit": "Orbit Camera", "camera_zoom_in": "Zoom In", "camera_zoom_out": "Zoom Out"}.get(action, action.replace("_", " ").capitalize())
+	caption.custom_minimum_size.x = 180
+	row.add_child(caption)
+	for slot in range(2):
+		var button = Button.new()
+		button.name = "Primary" if slot == 0 else "Secondary"
+		button.text = SettingsManager.binding_text(SettingsManager.bindings[action][slot])
+		button.custom_minimum_size.x = 140
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.pressed.connect(func(): waiting_action = action; waiting_slot = slot; status.text = "Press input for " + caption.text + " (Esc cancels)")
+		row.add_child(button)
+	content.add_child(row)
+	return row
+
+# Editing never changes the saved cap until Enter or focus loss.
+func commit_fps(field: LineEdit):
+	var value = field.text.strip_edges()
+	if not value.is_valid_int() or value.begins_with("+") or value.begins_with("-") or int(value) < 0 or int(value) > SettingsManager.MAX_FPS_LIMIT:
+		field.text = str(SettingsManager.fps_limit)
+		status.text = "Enter a whole number from 0 to 1000 (0 = Unlimited)."
+		return
+	var cap = int(value)
+	field.text = str(cap)
+	if cap != SettingsManager.fps_limit:
+		SettingsManager.fps_limit = cap
+		persist()
+
 func show_category(title: String):
 	category = title
 	for name in category_buttons:
@@ -72,33 +143,22 @@ func show_category(title: String):
 	status.text = ""
 	match title:
 		"Gameplay":
-			label("Camera projection")
-			var projection = OptionButton.new()
-			projection.name = "CameraProjection"
 			var modes = ["Orthographic", "Perspective"]
-			for mode in modes:
-				projection.add_item(mode)
-			projection.select(modes.find(SettingsManager.camera_projection))
-			projection.item_selected.connect(func(index): SettingsManager.camera_projection = modes[index]; persist())
-			content.add_child(projection)
+			setting_row("Camera projection", segmented_control(modes, modes.find(SettingsManager.camera_projection), func(index): SettingsManager.camera_projection = modes[index]; persist()), "CameraProjection")
 		"Video":
 			var supported = SettingsManager.desktop_display_supported()
-			var full = CheckButton.new()
-			full.text = "Fullscreen"
+			var full = compact_checkbox()
 			full.button_pressed = SettingsManager.fullscreen
 			full.disabled = not supported
 			full.toggled.connect(func(value): SettingsManager.fullscreen = value; persist(); show_category("Video"))
-			content.add_child(full)
-			var sync = CheckButton.new()
-			sync.text = "VSync"
+			setting_row("Fullscreen", full, "Fullscreen")
+			var sync = compact_checkbox()
 			sync.button_pressed = SettingsManager.vsync
 			sync.disabled = not supported
 			sync.toggled.connect(func(value): SettingsManager.vsync = value; persist())
-			content.add_child(sync)
-			label("Window resolution")
+			setting_row("VSync", sync, "VSync")
 			var sizes = SettingsManager.available_resolutions()
 			var resolution_choice = OptionButton.new()
-			resolution_choice.name = "Resolution"
 			for size_value in sizes:
 				resolution_choice.add_item("%d × %d" % [size_value.x, size_value.y])
 			var selected_size = sizes.find(SettingsManager.resolution)
@@ -107,33 +167,19 @@ func show_category(title: String):
 			resolution_choice.select(selected_size)
 			resolution_choice.disabled = not supported or SettingsManager.fullscreen
 			resolution_choice.item_selected.connect(func(index): SettingsManager.resolution = sizes[index]; persist())
-			content.add_child(resolution_choice)
+			setting_row("Window resolution", resolution_choice, "Resolution")
 			if SettingsManager.fullscreen:
 				label("Resolution applies in windowed mode; fullscreen uses the desktop resolution.")
-			label("3D anti-aliasing (MSAA)")
-			var aa = OptionButton.new()
-			aa.name = "MSAA"
-			for text in ["Disabled", "2×", "4×"]:
-				aa.add_item(text)
-			aa.select(SettingsManager.msaa_3d)
-			aa.item_selected.connect(func(index): SettingsManager.msaa_3d = index; persist())
-			content.add_child(aa)
-			label("Shadows")
-			var shadows = OptionButton.new()
-			shadows.name = "Shadows"
-			for text in ["Off", "Low", "Medium", "High"]:
-				shadows.add_item(text)
-			shadows.select(SettingsManager.shadow_quality)
-			shadows.item_selected.connect(func(index): SettingsManager.shadow_quality = index; persist())
-			content.add_child(shadows)
-			label("FPS limit")
-			var fps = OptionButton.new()
-			var limits = [0, 30, 60, 120]
-			for value in limits:
-				fps.add_item("Unlimited" if value == 0 else str(value))
-			fps.select(limits.find(SettingsManager.fps_limit))
-			fps.item_selected.connect(func(index): SettingsManager.fps_limit = limits[index]; persist())
-			content.add_child(fps)
+			setting_row("3D anti-aliasing", segmented_control(["Off", "2x", "4x"], SettingsManager.msaa_3d, func(index): SettingsManager.msaa_3d = index; persist()), "MSAA")
+			setting_row("Shadows", segmented_control(["Off", "Low", "Medium", "High"], SettingsManager.shadow_quality, func(index): SettingsManager.shadow_quality = index; persist()), "Shadows")
+			var fps = LineEdit.new()
+			fps.text = str(SettingsManager.fps_limit)
+			fps.placeholder_text = "0 = Unlimited"
+			fps.tooltip_text = "Whole number from 0 to 1000. 0 = Unlimited. Press Enter to save."
+			fps.text_submitted.connect(func(_text): commit_fps(fps))
+			fps.focus_exited.connect(func(): commit_fps(fps))
+			setting_row("FPS limit", fps, "FPSLimit")
+			label("0 = Unlimited · Enter a whole number up to 1000.")
 			if not supported:
 				label("Window mode and VSync are controlled by the browser or display backend.")
 		"Audio":
@@ -152,18 +198,7 @@ func show_category(title: String):
 				if action == "camera_orbit":
 					content.add_child(HSeparator.new())
 					label("Camera")
-				var row = HBoxContainer.new()
-				var name_label = Label.new()
-				name_label.text = {"camera_orbit": "Orbit Camera", "camera_zoom_in": "Zoom In", "camera_zoom_out": "Zoom Out"}.get(action, action.replace("_", " ").capitalize())
-				name_label.custom_minimum_size.x = 140
-				row.add_child(name_label)
-				for slot in range(2):
-					var button = Button.new()
-					button.text = SettingsManager.binding_text(SettingsManager.bindings[action][slot])
-					button.custom_minimum_size.x = 110
-					button.pressed.connect(func(): waiting_action = action; waiting_slot = slot; status.text = "Press input for " + name_label.text + " (Esc cancels)")
-					row.add_child(button)
-				content.add_child(row)
+				binding_row(action)
 			label("Mouse Sensitivity")
 			var sensitivity = HSlider.new()
 			sensitivity.name = "MouseSensitivity"
@@ -179,3 +214,9 @@ func restore_category():
 	var error = SettingsManager.reset_category(category)
 	show_category(category)
 	status.text = "Defaults restored." if error == OK else "Could not restore defaults."
+
+func compact_checkbox() -> CheckBox:
+	var checkbox = CheckBox.new()
+	for style in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+		checkbox.add_theme_stylebox_override(style, StyleBoxEmpty.new())
+	return checkbox
