@@ -60,6 +60,24 @@ func run():
 	check(rain_data.growth_age > 0.0 and farm.water_ml == water_before, "Rain naturally waters plants and enables growth without bottle use")
 	rain_data.tree_state = "dead"
 	check(not farm.water_plant(grid,rain_cell), "Watering cannot resurrect dead vegetation")
+	# Supported edge cases retained from Onur's historical bottle tests.
+	var edge_cell = Vector2i(6,5)
+	var edge_data = soil(grid,edge_cell)
+	edge_data.moisture = 0.0
+	var bottle_before: int = farm.water_ml
+	check(not farm.water_plant(grid,edge_cell) and farm.water_ml == bottle_before, "Empty untilled soil cannot consume watering inventory")
+	farm.prepare(grid,edge_cell)
+	check(not farm.water_plant(grid,edge_cell) and farm.water_ml == bottle_before, "Empty prepared soil cannot be watered")
+	farm.plant(grid,edge_cell)
+	farm.water_ml = 249
+	check(not farm.water_plant(grid,edge_cell) and farm.water_ml == 249 and edge_data.moisture == 0.0, "Insufficient partial bottle rejects pour without changing soil or inventory")
+	farm.water_ml = 1000
+	for pour in range(4):
+		edge_data.moisture = 0.0 # A thirsty target at each simulated visit.
+		check(farm.water_plant(grid,edge_cell) and farm.water_ml == 1000-(pour+1)*250, "Each successful pour spends exactly 250 ml")
+	edge_data.moisture = 0.0
+	check(not farm.water_plant(grid,edge_cell) and farm.water_ml == 0 and edge_data.moisture == 0.0, "Empty bottle cannot pour or become negative")
+	farm.water_ml = bottle_before
 	var pond = Vector2i(2,2)
 	var pond_data = soil(grid,pond)
 	pond_data.terrain = "water"
@@ -67,6 +85,12 @@ func run():
 	check(farm.fill_bottle(grid,pond) == 0, "Dry ponds cannot fill bottle")
 	pond_data.water_level = 1.0
 	check(farm.fill_bottle(grid,pond) == 500 and farm.fill_bottle(grid,pond) == 250 and farm.water_ml == 1000, "Pond fill is bounded at 1000 ml")
+	check(farm.fill_bottle(grid,pond) == 0 and farm.water_ml == 1000 and pond_data.water_level == 1.0, "Full bottle refill is a no-op and never drains the pond")
+	pond_data.water_level = 0.1
+	check(grid.traversable(pond), "Current shallow-water threshold permits dry pond traversal")
+	climate.weather_override = "rain"
+	climate.tick(1.0)
+	check(pond_data.water_level > 0.1 and not grid.traversable(pond), "Rain refills a shallow pond and restores its traversal barrier")
 	var tree = Vector2i(3,5)
 	soil(grid,tree)
 	var event = {"kind":"tree_cut","cell":tree,"seed_eligible":true}
@@ -151,6 +175,7 @@ func scene_checks():
 	world._begin_context_action()
 	world._tick_context_action(1.3)
 	check(native.tree_state == "stump" and not world.grid.traversable(native_cell) and native.pending_seeds == 1 and world.planting.seed_count == 2, "Actual chop preserves blocked stump and creates drop without auto-award")
+	check(world.hud.get_node("PlayerStatus/Rows/Supplies/Seeds").text == "2", "HUD does not award seeds at chop completion")
 	check(world.grid.cells[5*world.grid.SIZE+10].log, "Tree still falls away and creates blocked log")
 	world.planting.seed_count = 9
 	var full_target: Dictionary = world.context_action.select(world._interaction_candidates(),player.cell,player.facing)
@@ -160,6 +185,7 @@ func scene_checks():
 	check(world.context_action.active.get("object_kind") == "seeds", "Adjacent stump offers Collect Seeds without walking onto it")
 	world._tick_context_action(1.0)
 	check(world.planting.seed_count == 3 and native.tree_state == "stump" and not world.seed_visuals.has(native_cell), "Collecting removes drop only and preserves stump")
+	check(world.hud.get_node("PlayerStatus/Rows/Supplies/Seeds").text == "3", "HUD updates only after explicit seed collection")
 	world._begin_context_action()
 	world._tick_context_action(1.3)
 	check(not native.tree and world.grid.traversable(native_cell), "Next interaction removes stump normally")
