@@ -16,10 +16,9 @@ var grid = GridData.new()
 var climate = preload("res://features/levels/forest/climate_simulation.gd").new()
 var interactions = preload("res://features/levels/forest/forest_interactions.gd").new()
 var survival = preload("res://features/player/survival_state.gd").new()
-var grounds: Array[MeshInstance3D] = []
+var terrain_renderer: Node3D
 var trees = {}
 var palette: Array[ShaderMaterial] = []
-var leaf_materials: Array[StandardMaterial3D] = []
 var tick_accumulator = 0.0
 var ended = false
 var hud: Control
@@ -54,23 +53,10 @@ func _ready():
 			mat.set_shader_parameter("world_seed", float(posmod(world_seed, 65521)))
 			mat.set_shader_parameter("variation_strength", terrain_variation_strength)
 			palette.append(mat)
-	for color in [Color("665548"), Color("81783c"), Color("496b35"), Color("246043")]:
-		var mat = StandardMaterial3D.new()
-		mat.albedo_color = color
-		mat.roughness = 1.0
-		leaf_materials.append(mat)
-	var tile = BoxMesh.new()
-	tile.size = Vector3(grid.CELL_SIZE, 0.3, grid.CELL_SIZE)
 	for z in range(grid.SIZE):
 		for x in range(grid.SIZE):
 			var cell = Vector2i(x, z)
 			var data = grid.cells[z * grid.SIZE + x]
-			var ground = MeshInstance3D.new()
-			ground.mesh = tile
-			ground.material_override = palette[15]
-			ground.position = grid.world_position(cell) + Vector3(0, -0.15, 0)
-			$Terrain.add_child(ground)
-			grounds.append(ground)
 			if data.tree:
 				var tree = TREE.instantiate()
 				tree.variant = data.get("variant", 0) % 2
@@ -91,6 +77,9 @@ func _ready():
 	water_material.roughness = 0.5
 	charred_material = palette[0].duplicate()
 	charred_material.set_shader_parameter("terrain_color", Color("30392f"))
+	terrain_renderer = preload("res://features/levels/forest/RendererTerrain.gd").new()
+	$Terrain.add_child(terrain_renderer)
+	terrain_renderer.configure(grid, palette, water_material, charred_material)
 	effects = preload("res://features/levels/forest/ecosystem_effects.gd").new()
 	add_child(effects)
 	effects.configure(grid, world_seed, flame_material)
@@ -243,16 +232,9 @@ func _finish_interaction(event: Dictionary):
 	_refresh_visuals()
 
 func _refresh_visuals():
+	terrain_renderer.update_state(grid)
 	for i in range(grid.cells.size()):
 		var data = grid.cells[i]
-		var health_bin = clampi(int(data.health * 3.99), 0, 3)
-		var moisture_bin = clampi(int(data.moisture * 3.99), 0, 3)
-		if data.get("terrain", "grass") == "water" and data.get("water_level", 0.0) > 0.1:
-			grounds[i].material_override = water_material
-		elif data.get("burned", false):
-			grounds[i].material_override = charred_material
-		else:
-			grounds[i].material_override = palette[health_bin * 4 + moisture_bin]
 		var moisture_low = data.get("moisture_low", data.moisture)
 		data.moisture_low = minf(moisture_low, data.moisture)
 		if climate.weather == "rain" and moisture_low < 0.5 and data.moisture > moisture_low + 0.15:

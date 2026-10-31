@@ -92,8 +92,8 @@ func run():
 	var world = current_scene
 	var hud = world.hud
 	check(hud.has_node("PlayerStatus") and hud.has_node("WorldStatus") and not hud.has_node("Objective"), "Compact separated status HUD")
-	var ground = world.get_node("Terrain").get_child(0)
-	check(ground.mesh.size.x == world.grid.CELL_SIZE and ground.mesh.size.z == world.grid.CELL_SIZE, "No subpixel tile gaps; same grid spacing")
+	var tile = world.terrain_renderer.tile_mesh
+	check(tile.size.x == world.grid.CELL_SIZE and tile.size.z == world.grid.CELL_SIZE, "No subpixel tile gaps; same grid spacing")
 	for quality in [0, 1, 2, 3]:
 		settings.shadow_quality = quality
 		settings.apply_settings()

@@ -26,7 +26,9 @@ func run():
 	for material in world.palette:
 		seeds.append(material.get_shader_parameter("world_seed"))
 		check(material.get_shader_parameter("variation_strength") > 0.0, "Shared terrain shader enables subtle spatial patches")
-	for ground in world.grounds:
+	check(world.terrain_renderer.rendered_cell_count() == world.grid.cells.size(), "All logical cells rendered once")
+	check(world.terrain_renderer.batches.size() <= 18, "Terrain batches remain bounded")
+	for ground in world.terrain_renderer.batches:
 		check(ground.material_override == world.water_material or ground.material_override == world.charred_material or (ground.material_override is ShaderMaterial and ground.material_override in world.palette), "Every tile reuses the shared terrain palette")
 	var sun = world.get_node("Sun")
 	var direction = sun.global_basis.z

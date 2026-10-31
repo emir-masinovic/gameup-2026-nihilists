@@ -77,7 +77,7 @@ func run():
 	motion.button_mask = 0
 	rig._unhandled_input(motion)
 	check(rig.target_yaw == target_yaw, "No orbit without right button")
-	var material = world.get_node("Terrain").get_child(0).material_override
+	var material = world.palette[0]
 	check(material is ShaderMaterial and material.shader.code.contains("fwidth"), "Derivative-antialiased grid material")
 	settings.storage_path = "user://camera_controls_test.cfg"
 	for button in [MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_RIGHT]:

@@ -34,7 +34,7 @@ func run():
 	var world = current_scene
 	var player = world.get_node("GridPlayer")
 	check(player.cell == world.grid.start and world.grid.traversable(player.cell), "Actual player spawn")
-	check(world.get_node("Terrain").get_child_count() == 289, "Bounded rendered map")
+	check(world.terrain_renderer.rendered_cell_count() == 289, "Bounded rendered map")
 	check(world.get_node("Vegetation").get_child_count() > 0, "Forest populated")
 	check(world.get_node("CameraRig/Camera3D").projection == (Camera3D.PROJECTION_ORTHOGONAL if root.get_node("SettingsManager").camera_projection == "Orthographic" else Camera3D.PROJECTION_PERSPECTIVE), "Configured camera projection")
 	check(not player.try_move(Vector2i(1, 1)), "Reject diagonal movement")
