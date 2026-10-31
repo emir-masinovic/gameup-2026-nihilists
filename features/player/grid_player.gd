@@ -2,6 +2,7 @@ extends Node3D
 signal cell_entered(cell: Vector2i)
 const CARDINAL_DIRECTIONS = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
 const INPUT_ALIGNMENT_HYSTERESIS = 0.08
+const MAPPING_ALIGNMENT_HYSTERESIS = 0.16
 var facing = Vector2i.UP
 var cell = Vector2i.ZERO
 var grid: RefCounted
@@ -54,6 +55,56 @@ func screen_direction_to_grid(screen_direction: Vector2i) -> Vector2i:
 	# At a horizontal view one grid axis can vanish. Do not normalize its
 	# floating-point residue into an apparently perfect screen direction.
 	var minimum_length = maxf(0.00001, longest * 0.0001)
+	var right: Vector2 = projected[Vector2i.RIGHT]
+	var down: Vector2 = projected[Vector2i.DOWN]
+	var complete_projection = true
+	for direction in CARDINAL_DIRECTIONS:
+		var step: Vector2 = projected[direction]
+		if not step.is_finite() or step.length() <= minimum_length:
+			complete_projection = false
+	# At a truly edge-on view the projected grid axes are collinear. No
+	# bijection can make all four requested directions visually meaningful.
+	if not complete_projection or absf(right.normalized().cross(down.normalized())) < 0.0001:
+		return _nearest_visible_direction(screen_direction, projected, minimum_length)
+
+	# Solve all four keys together. Independent nearest-direction choices can
+	# bind two keys to the same world axis and make another axis unreachable.
+	var best: Dictionary = {}
+	var best_score = -INF
+	for north in CARDINAL_DIRECTIONS:
+		var clockwise = Vector2i(-north.y, north.x)
+		for east in [clockwise, -clockwise]:
+			var candidate = {Vector2i.UP: north, Vector2i.RIGHT: east,
+				Vector2i.DOWN: -north, Vector2i.LEFT: -east}
+			var score = _mapping_alignment(candidate, projected)
+			# Fixed enumeration starts with the identity map and resolves ties.
+			if score > best_score + 0.000001:
+				best = candidate
+				best_score = score
+	if best.is_empty():
+		return _nearest_visible_direction(screen_direction, projected, minimum_length)
+	var previous_score = _mapping_alignment(_screen_directions, projected)
+	if previous_score != -INF and best_score - previous_score <= MAPPING_ALIGNMENT_HYSTERESIS:
+		best = _screen_directions
+	_screen_directions = best
+	return best[screen_direction]
+
+func _mapping_alignment(mapping: Dictionary, projected: Dictionary) -> float:
+	if mapping.size() != 4:
+		return -INF
+	var north: Vector2i = mapping.get(Vector2i.UP, Vector2i.ZERO)
+	var east: Vector2i = mapping.get(Vector2i.RIGHT, Vector2i.ZERO)
+	if not CARDINAL_DIRECTIONS.has(north) or not CARDINAL_DIRECTIONS.has(east) or Vector2(north).dot(Vector2(east)) != 0 or mapping.get(Vector2i.DOWN) != -north or mapping.get(Vector2i.LEFT) != -east:
+		return -INF
+	var total = 0.0
+	for requested in CARDINAL_DIRECTIONS:
+		var score: float = projected[mapping[requested]].normalized().dot(Vector2(requested))
+		if score < -0.00001:
+			return -INF
+		total += score
+	return total
+
+func _nearest_visible_direction(screen_direction: Vector2i, projected: Dictionary, minimum_length: float) -> Vector2i:
 	var scores: Dictionary = {}
 	var best_direction = screen_direction
 	var best_score = -INF
@@ -63,7 +114,6 @@ func screen_direction_to_grid(screen_direction: Vector2i) -> Vector2i:
 			continue
 		var score = step.normalized().dot(Vector2(screen_direction))
 		scores[direction] = score
-		# Fixed cardinal iteration order resolves exact ties reproducibly.
 		if score > best_score + 0.000001:
 			best_score = score
 			best_direction = direction
