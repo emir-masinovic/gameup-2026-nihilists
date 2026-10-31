@@ -11,6 +11,9 @@ uniform float wind_height = 1.6;
 uniform vec2 wind_direction = vec2(0.8,0.6);
 uniform float wind_strength = 0.55;
 uniform float wind_time = 0.0;
+uniform bool shelter_enabled = false;
+uniform vec4 wind_exposure[73];
+uniform vec2 shelter_origin = vec2(-16.0);
 void vertex() {
     vitality = INSTANCE_CUSTOM.r;
     leaf_position = VERTEX;
@@ -26,7 +29,10 @@ void vertex() {
     vec3 direction = vec3(wind_direction.x, 0.0, wind_direction.y);
     vec3 local_direction = vec3(dot(normalize(MODEL_MATRIX[0].xyz), direction), 0.0,
                                 dot(normalize(MODEL_MATRIX[2].xyz), direction));
-    VERTEX += local_direction * (0.6 + wave * 0.4) * gust * wind_strength * 1.8 * sway * height * height * vigor;
+    ivec2 cell = ivec2(floor((world.xz-shelter_origin)/2.0+vec2(0.5)));
+    int index = clamp(cell.y*17+cell.x,0,288);
+    float exposure = shelter_enabled ? wind_exposure[index/4][index%4] : 1.0;
+    VERTEX += local_direction * exposure * (0.6 + wave * 0.4) * gust * wind_strength * 1.8 * sway * height * height * vigor;
 }
 void fragment() {
     if (bare) { discard; }

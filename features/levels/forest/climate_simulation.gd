@@ -13,6 +13,10 @@ var ignition_interval = 30.0
 var ignition_chance = 0.65
 var spread_chance = 0.025
 var fuel_consumption = 0.055
+var regeneration_occupied = Vector2i(-1,-1)
+var _regeneration_rng = RandomNumberGenerator.new()
+var _regeneration_clock = 0.0
+var _tree_limit = 0
 var bonfire_intensity = 0.0 # Synced from the region; affects soil only.
 var ecosystem_demo = false # Debug weather schedule; all effects still use simulation rules.
 var sapling_growth_rate = 1.0 # Debug-only acceleration affects plants, not simulation time.
@@ -36,6 +40,9 @@ func configure(grid: RefCounted, world_seed: int, wind_seed: int = -1):
 	tick_count = 0
 	_next_ignition = maxf(ignition_delay, 1.0)
 	_fire_rng.seed = world_seed ^ 0xF13E
+	_regeneration_rng.seed = world_seed ^ 0x79A13
+	_regeneration_clock = 0.0
+	_tree_limit = mini(int(grid.cells.size()*0.32),grid.cells.filter(func(data): return data.tree).size()+12)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = world_seed
 	_weather_offset = rng.randi_range(0, 3)
@@ -132,6 +139,14 @@ func _simulate(seconds: float):
 			data.tree_health = clampf(data.tree_health + (recovery * 0.6 - stress * 0.6) * seconds, 0.0, 1.0)
 			if data.tree_health <= 0.0:
 				data.tree_state = "dead"
+		if data.tree and data.tree_state == "healthy" and data.tree_health > 0.75 and data.moisture > 0.5 and local_temperature >= 8.0 and local_temperature <= 32.0 and not data.burning:
+			data.regeneration_credit = minf(180.0,data.get("regeneration_credit",0.0)+seconds)
+		else:
+			data.regeneration_credit = maxf(0.0,data.get("regeneration_credit",0.0)-seconds*0.5)
+	_regeneration_clock += seconds
+	if _regeneration_clock >= 30.0:
+		_regeneration_clock -= 30.0
+		_reproduce_tree()
 	_simulate_fire(seconds)
 
 func _can_burn(cell: Vector2i) -> bool:
@@ -258,3 +273,83 @@ func wind_state(fractional_seconds: float = 0.0, run_seconds: float = -1.0) -> D
 	var angle = _wind_phase + 0.55*sin(time*0.009+_wind_phase)
 	var strength = 0.55 + 0.17*sin(time*0.055+_wind_phase) + 0.08*sin(time*0.17+_wind_phase)
 	return {"direction":Vector2(cos(angle),sin(angle)),"strength":strength,"time":time}
+
+
+func _reproduce_tree():
+	var living = _grid.cells.filter(func(data): return data.tree)
+	if living.size() >= _tree_limit or living.filter(func(data): return data.get("natural",false)).size() >= 12: return
+	var parents: Array[int] = []
+	for i in range(_grid.cells.size()):
+		var data: Dictionary = _grid.cells[i]
+		if data.tree and data.tree_state == "healthy" and data.tree_health > 0.75 and data.moisture > 0.5 and not data.burning and data.get("regeneration_credit",0.0) >= 90.0: parents.append(i)
+	while not parents.is_empty():
+		var pick = _regeneration_rng.randi_range(0,parents.size()-1)
+		var i = parents.pop_at(pick)
+		var parent = Vector2i(i%_grid.SIZE,i/_grid.SIZE)
+		var offsets = [Vector2i(-2,0),Vector2i(2,0),Vector2i(0,-2),Vector2i(0,2),Vector2i(-1,-1),Vector2i(1,-1),Vector2i(-1,1),Vector2i(1,1),Vector2i.LEFT,Vector2i.RIGHT,Vector2i.UP,Vector2i.DOWN]
+		while not offsets.is_empty():
+			var cell = parent+offsets.pop_at(_regeneration_rng.randi_range(0,offsets.size()-1))
+			if not _can_regenerate(cell): continue
+			var data: Dictionary = _grid.cells[cell.y*_grid.SIZE+cell.x]
+			data.merge({"tree":true,"tree_state":"sapling","tree_health":0.35,"planted":true,"natural":true,"growth_age":0.0,"growth_discovered":true,"seed_yield_claimed":true,"fuel":0.15},true)
+			_grid.cells[i].regeneration_credit = 0.0
+			return # At most one new seedling per region per thirty seconds.
+
+func _can_regenerate(cell: Vector2i) -> bool:
+	if not _grid.in_bounds(cell) or _grid._protected_route(cell) or cell == _grid.objective or cell == regeneration_occupied: return false
+	var data: Dictionary = _grid.cells[cell.y*_grid.SIZE+cell.x]
+	if data.tree or data.get("log",false) or data.get("prepared",false) or data.get("berry_bush",false) or data.get("protected_route",false) or data.get("pending_seeds",0)>0: return false
+	if data.terrain == "water" or data.burning or data.burned or data.health < 0.55 or data.moisture <= 0.5: return false
+	# Matches the existing decorative-rock reservation, including inactive regions.
+	if data.shade >= 0.32 and data.shade <= 0.36: return false
+	var local_temperature = temperature_at(cell)
+	if local_temperature < 8.0 or local_temperature > 32.0: return false
+	var neighbors = 0
+	for offset in NEIGHBORS:
+		var next = cell+offset
+		if _grid.in_bounds(next) and _grid.cells[next.y*_grid.SIZE+next.x].tree: neighbors += 1
+	if neighbors > 2: return false
+	# Do not cut off any previously reachable walkable tile, including pond access.
+	var before = _reachable_count(Vector2i(-1,-1))
+	return _reachable_count(cell) == before-1
+
+func _reachable_count(blocked: Vector2i) -> int:
+	var queue = [_grid.start]
+	var visited = {_grid.start:true}
+	while not queue.is_empty():
+		var cell = queue.pop_back()
+		for offset in NEIGHBORS:
+			var next = cell+offset
+			if next != blocked and not visited.has(next) and _grid.traversable(next):
+				visited[next] = true
+				queue.append(next)
+	return visited.size()
+
+# Small upwind stencil; shelter modifies vegetation exposure only, not weather.
+func wind_exposure_at(cell: Vector2i, direction: Vector2) -> float:
+	var exposure = 1.0
+	for z in range(-2,3):
+		for x in range(-2,3):
+			var offset = Vector2i(x,z)
+			var source = cell+offset
+			if offset == Vector2i.ZERO or not _grid.in_bounds(source): continue
+			var along = -Vector2(offset).dot(direction)
+			var across = absf(Vector2(offset).cross(direction))
+			if along <= 0.0 or across > 0.55+along*0.25: continue
+			var data: Dictionary = _grid.cells[source.y*_grid.SIZE+source.x]
+			if not data.tree or data.tree_state == "stump" or data.burning: continue
+			var maturity = clampf(data.get("growth_age",120.0)/120.0,0.0,1.0)
+			var canopy = 0.08 if data.tree_state == "dead" else data.tree_health*maturity*maturity
+			exposure *= 1.0-canopy*0.6/(1.0+(along-1.0)*0.5)
+	return clampf(exposure,0.25,1.0)
+
+func wind_exposure_map(run_seconds: float) -> PackedVector4Array:
+	var direction: Vector2 = wind_state(0.0,run_seconds).direction
+	var values = PackedVector4Array()
+	var group = Vector4.ONE
+	for i in range(_grid.cells.size()):
+		group[i%4] = wind_exposure_at(Vector2i(i%_grid.SIZE,i/_grid.SIZE),direction)
+		if i%4 == 3 or i == _grid.cells.size()-1:
+			values.append(group)
+			group = Vector4.ONE
+	return values

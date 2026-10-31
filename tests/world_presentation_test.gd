@@ -102,6 +102,25 @@ func run():
 	cover.update_state(world.grid)
 	cover._process(0.1)
 	check(cover._grass_sites.size() == sites_before,"Climate appearance updates never regenerate spatial noise")
+	var source_cell = Vector2i(5,5)
+	var sheltered = Vector2i(6,5)
+	var source_data: Dictionary = world.grid.cells[5*17+5]
+	for i in range(world.grid.cells.size()): world.grid.cells[i].tree = false
+	source_data.merge({"tree":true,"tree_state":"healthy","tree_health":1.0,"growth_age":120.0,"burning":false},true)
+	var behind = world.climate.wind_exposure_at(sheltered,Vector2.RIGHT)
+	check(behind < 0.5 and world.climate.wind_exposure_at(Vector2i(4,5),Vector2.RIGHT) == 1.0,"Directional shelter reduces downwind exposure, not upwind wind")
+	source_data.tree_state = "dead"
+	check(world.climate.wind_exposure_at(sheltered,Vector2.RIGHT) > behind,"Dead leafless trees provide weaker shelter")
+	source_data.tree_state = "stump"
+	check(world.climate.wind_exposure_at(sheltered,Vector2.RIGHT) == 1.0,"Cutting a tree exposes its downwind grass immediately")
+	source_data.tree_state = "sapling"
+	source_data.growth_age = 30.0
+	check(world.climate.wind_exposure_at(sheltered,Vector2.RIGHT) > behind,"New seedlings restore shelter gradually with maturity")
+	for i in range(world.grid.cells.size()):
+		world.grid.cells[i].clear()
+		world.grid.cells[i].merge(original[i].duplicate(true))
+	world._refresh_visuals()
+	check(grass_batch.renderer.material_override.get_shader_parameter("shelter_enabled") and grass_batch.renderer.material_override.get_shader_parameter("wind_exposure").size() == 73,"Shared GPU wind consumes one cached exposure value per cell")
 	var distinct_offsets = {}
 	var per_cell = {}
 	for j in range(grass_batch.indices.size()):

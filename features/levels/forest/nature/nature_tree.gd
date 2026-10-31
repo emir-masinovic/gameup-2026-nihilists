@@ -113,3 +113,10 @@ static func set_wind(state: Dictionary) -> void:
         material.set_shader_parameter("wind_direction",state.direction)
         material.set_shader_parameter("wind_strength",state.strength)
         material.set_shader_parameter("wind_time",state.time)
+
+static func set_shelter(values: PackedVector4Array, origin: Vector3):
+    _ensure_materials()
+    for material in _foliage_materials + _recovery_materials:
+        material.set_shader_parameter("wind_exposure",values)
+        material.set_shader_parameter("shelter_origin",Vector2(origin.x,origin.z))
+        material.set_shader_parameter("shelter_enabled",true)

@@ -119,6 +119,7 @@ func run():
 	models.configure(2026)
 	check(models.planting.seed_count == 3 and models.states.is_empty(), "New run resets inventory and planted vegetation")
 	sprout.queue_free()
+	check_natural_regeneration()
 	check_microclimate()
 	check_juvenile_removal()
 	await scene_checks()
@@ -338,3 +339,84 @@ func check_microclimate():
 	for second in range(30): state.climate.tick(1.0)
 	check(tree.tree_state == "healthy" and tree.growth_age >= 120.0, "Demo acceleration grows plants in 30 favorable seconds without speeding climate")
 	check(Planting.growth_stage(29.0)==0 and Planting.growth_stage(30.0)==1 and Planting.growth_stage(74.0)==1 and Planting.growth_stage(75.0)==2, "Visible growth thresholds share the normal 120-second balance")
+
+
+func check_natural_regeneration():
+	for region in ["forest","wetlands","drylands"]:
+		var models = Regions.new()
+		models.configure(2026)
+		var state = models.enter(region)
+		var climate = state.climate
+		climate.weather_override = "rain"
+		climate.ignition_chance = 0.0
+		for data in state.grid.cells:
+			data.tree = false
+			data.tree_state = "removed"
+			data.tree_health = 0.0
+			data.moisture = 0.85
+			data.health = 1.0
+			data.shade = 0.6
+		var parent: Dictionary = state.grid.cells[5*17+5]
+		parent.merge({"tree":true,"tree_state":"healthy","tree_health":1.0},true)
+		for second in range(90): climate.tick(1.0)
+		var births = state.grid.cells.filter(func(data): return data.get("natural",false))
+		check(births.size() == 1 and births[0].tree_state == "sapling" and births[0].growth_age == 0.0,"Favorable "+region+" creates one gradual natural sapling")
+		if births.is_empty(): continue
+		var sprout: Dictionary = births[0]
+		var index = state.grid.cells.find(sprout)
+		var cell = Vector2i(index%17,index/17)
+		check(not state.grid._protected_route(cell) and not sprout.get("prepared",false) and sprout.terrain != "water","Natural seedlings respect routes and farming exclusions")
+		check(models.planting.seed_count == 3 and sprout.growth_discovered and models.planting.record_seed_drop(state.grid,{"kind":"tree_cut","seed_eligible":true,"cell":cell}) == 0,"Natural births award no inventory, growth discovery or renewable seed drops")
+		for second in range(30): climate.tick(1.0)
+		check(Planting.growth_stage(sprout.growth_age)==1,"Natural seedlings use existing first growth stage")
+		for second in range(45): climate.tick(1.0)
+		check(Planting.growth_stage(sprout.growth_age)==2,"Natural seedlings use existing young-tree stage")
+		for second in range(45): climate.tick(1.0)
+		check(sprout.tree_state == "healthy" and sprout.growth_age >= 120.0,"Natural trees mature after 120 favorable seconds")
+		models.advance(2.0)
+		models.enter("wetlands" if region != "wetlands" else "forest")
+		check(models.enter(region).grid.cells[index] == sprout,"Natural vegetation survives regional round trips")
+		var target = Vector2i(4,4)
+		var ground: Dictionary = state.grid.cells[4*17+4]
+		ground.tree = false
+		for flag in ["prepared","log","berry_bush","protected_route"]:
+			ground[flag] = true
+			check(not climate._can_regenerate(target),"Natural regeneration excludes "+flag)
+			ground[flag] = false
+		var count_before = state.grid.cells.filter(func(data): return data.tree).size()
+		climate._tree_limit = count_before
+		climate._reproduce_tree()
+		check(state.grid.cells.filter(func(data): return data.tree).size() == count_before,"Population cap prevents further reproduction")
+		# Existing drought mortality applies equally to naturally born trees.
+		sprout.tree = true
+		sprout.tree_state = "sapling"
+		sprout.tree_health = 0.001
+		sprout.growth_age = 0.0
+		sprout.moisture = 0.0
+		climate.weather_override = "heat"
+		climate.tick(10.0)
+		check(sprout.tree_state == "dead","Natural seedlings remain vulnerable to drought")
+	var counts = []
+	var forest_snapshot: Array = []
+	for region in ["forest","wetlands","drylands"]:
+		var models = Regions.new()
+		models.configure(2026)
+		var state = models.enter(region)
+		state.climate.ignition_chance = 0.0
+		for second in range(180): state.climate.tick(1.0)
+		counts.append(state.grid.cells.filter(func(data): return data.get("natural",false)).size())
+		if region == "forest": forest_snapshot = state.grid.cells.duplicate(true)
+	check(counts[1] > counts[0] and counts[0] >= counts[2] and counts[2] == 0,"Representative climates favor Wetlands regeneration and suppress dry Drylands")
+	var replay = Regions.new()
+	replay.configure(2026)
+	var repeated = replay.enter("forest")
+	repeated.climate.ignition_chance = 0.0
+	for second in range(180): repeated.climate.tick(1.0)
+	check(repeated.grid.cells == forest_snapshot,"Reproduction is deterministic for the same seed and elapsed climate")
+	for i in range(12):
+		repeated.grid.cells[i].merge({"tree":true,"natural":true,"tree_state":"healthy","tree_health":1.0,"regeneration_credit":180.0},true)
+	repeated.climate._tree_limit = 289
+	var capped = repeated.grid.cells.filter(func(data): return data.tree).size()
+	repeated.climate._reproduce_tree()
+	check(repeated.grid.cells.filter(func(data): return data.tree).size() == capped,"Twelve natural trees cap reproduction independently of the total-tree limit")
+	print("NATURAL REGENERATION forest/wetlands/drylands: ",counts)

@@ -263,3 +263,10 @@ func grass_density_at(point: Vector2) -> float:
 	var broad = smoothstep(-0.35,0.35,_patch_noise.get_noise_2d(point.x,point.y))
 	var detail = 0.8+0.2*_detail_noise.get_noise_2d(point.x,point.y)
 	return 0.02+pow(lerpf(broad,cellular,0.65),2.0)*detail
+
+func set_shelter(values: PackedVector4Array, origin: Vector3):
+	for batch in batches:
+		var material = batch.renderer.material_override
+		material.set_shader_parameter("wind_exposure",values)
+		material.set_shader_parameter("shelter_origin",Vector2(origin.x,origin.z))
+		material.set_shader_parameter("shelter_enabled",true)

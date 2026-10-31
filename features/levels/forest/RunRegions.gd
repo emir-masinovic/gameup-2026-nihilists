@@ -165,6 +165,7 @@ func _ensure_water_access(grid: RefCounted):
 	while true:
 		var data = grid.cells[cell.y * grid.SIZE + cell.x]
 		if data.terrain != "water":
+			data.protected_route = true
 			data.tree = false
 			data.tree_state = "removed"
 			data.tree_health = 0.0

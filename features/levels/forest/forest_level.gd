@@ -182,6 +182,7 @@ func _process(delta):
 	if tick_accumulator >= 1.0:
 		tick_accumulator -= 1.0
 		var health_before = survival.health
+		climate.regeneration_occupied = $GridPlayer.cell
 		climate.tick(1.0)
 		regions.advance(1.0)
 		foraging.tick(1.0)
@@ -366,7 +367,7 @@ func _refresh_visuals():
 				register_vegetation_visual(cell, _vegetation_visual(data))
 			if young:
 				trees[cell].update_growth(data)
-			elif not data.get("growth_discovered", false):
+			elif not data.get("growth_discovered", false) and not data.get("natural",false):
 				data.growth_discovered = true
 				_discover("flora.planted_growth", "A planted tree matured: new shade and habitat")
 		if trees.has(cell) and data.tree_state in ["healthy", "dead"]:
@@ -381,6 +382,10 @@ func _refresh_visuals():
 		effects.update_state(grid, climate.weather)
 	if ground_cover != null:
 		ground_cover.update_state(grid)
+		var exposure = climate.wind_exposure_map(regions.elapsed)
+		var origin = grid.world_position(Vector2i.ZERO)
+		ground_cover.set_shelter(exposure,origin)
+		preload("res://features/levels/forest/nature/nature_tree.gd").set_shelter(exposure,origin)
 	if forage_visuals != null:
 		forage_visuals.update_state(grid)
 
