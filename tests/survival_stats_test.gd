@@ -62,7 +62,7 @@ func run() -> void:
 		resting.body_temperature = temperature
 		resting.wetness = 80.0
 		resting.health = 40.0
-		advance(resting, 45, -10.0, 0.0, true, false, {"weather": "rain"})
+		advance(resting, 45, -10.0, 0.0, true, false, {"weather": "clear"})
 		check(resting.body_temperature == 37.0 and resting.wetness == 0.0 and resting.health == 100.0, "Camp warms or cools safely, dries clothes and heals")
 		check(resting.hunger < 100.0 and resting.thirst < 100.0, "Camp does not invent food or drinking water")
 	var fair_start = Survival.new()

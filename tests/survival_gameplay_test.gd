@@ -227,7 +227,7 @@ func _test_climate_context(world: Node) -> void:
 	check(world.survival.body_temperature < 36.0 and not world.survival.dead, "Cold wet outdoor context cools the body during bounded exploration")
 	world._update_hud()
 	check(world.wet_indicator.visible and world.hud.get_node("PlayerStatus/Rows/Wetness").visible, "Wetness has both player and HUD feedback")
-	check(world.hud.get_node("PlayerStatus/Rows/Supplies").text.contains("Food") and world.hud.get_node("PlayerStatus/Rows/Heat/Value").text.contains("°C"), "HUD reports reserves and body Celsius")
+	check(world.hud.get_node("PlayerStatus/Rows/Supplies/Food").text == str(roundi(world.survival.hunger)) and world.hud.get_node("PlayerStatus/Rows/Heat/Value").text.contains("°C"), "HUD reports reserves and body Celsius")
 	var body_before: float = world.survival.body_temperature
 	var wet_before: float = world.survival.wetness
 	world.survival.health = 80.0

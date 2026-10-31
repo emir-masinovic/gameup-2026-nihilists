@@ -37,6 +37,9 @@ var regions: RefCounted
 var region_id = "forest"
 var region_state = {}
 var transitioning = false
+var planting_tile: PlaneMesh
+var interaction_ring: TorusMesh
+var planting_material: StandardMaterial3D
 var interaction_marker: MeshInstance3D
 var habitat_marker: MeshInstance3D
 var previous_objective = ""
@@ -125,6 +128,7 @@ func _ready():
 	SettingsManager.graphics_changed.connect(_apply_shadow_quality)
 	_apply_shadow_quality()
 	_create_landmarks()
+	_update_bonfire_visuals()
 	_create_kenney_props()
 	water_material = StandardMaterial3D.new()
 	water_material.albedo_color = Color("477c88")
@@ -177,10 +181,11 @@ func _process(delta):
 		climate.tick(1.0)
 		regions.advance(1.0)
 		foraging.tick(1.0)
+		_tick_bonfire(1.0)
 		var cell = $GridPlayer.cell
 		var shade = climate.shade_at(cell)
 		var safe = cell.distance_to(grid.start) <= 2.2
-		survival.tick(1.0, climate.temperature, shade, safe, SaveManager.has_heat_resistance(), {"weather": climate.weather, "canopy": shade, "wind": 0.5 if climate.weather in ["rain", "cool"] else 0.15, "fire_hazard": climate.fire_at(cell)})
+		survival.tick(1.0, climate.temperature, shade, safe, SaveManager.has_heat_resistance(), {"camp_intensity": region_state.get("bonfire_intensity", 1.0), "weather": climate.weather, "canopy": shade, "wind": 0.5 if climate.weather in ["rain", "cool"] else 0.15, "fire_hazard": climate.fire_at(cell)})
 		var hazard = climate.fire_at(cell)
 		if hazard > 0 and not safe:
 			survival.damage(hazard * 7.0 * SaveManager.get_fire_damage_multiplier())
@@ -481,7 +486,7 @@ func _advance_presentation(delta: float):
 		return
 	presentation_elapsed += delta
 	if has_node("Bonfire/Warmth"):
-		$Bonfire/Warmth.light_energy = 0.45 + sin(presentation_elapsed * 6.0) * 0.06
+		$Bonfire/Warmth.light_energy = (0.45 + sin(presentation_elapsed * 6.0) * 0.06) * region_state.get("bonfire_intensity", 1.0)
 	if flame_material != null:
 		flame_material.set_shader_parameter("animation_time", fposmod(presentation_elapsed, TAU * 100.0))
 	_update_lighting(delta)
@@ -584,11 +589,19 @@ func _create_region_markers():
 	ring.outer_radius = 0.70
 	ring.rings = 16
 	ring.ring_segments = 6
+	interaction_ring = ring
+	planting_tile = PlaneMesh.new()
+	planting_tile.size = Vector2.ONE * grid.CELL_SIZE
+	planting_material = StandardMaterial3D.new()
+	planting_material.albedo_color = Color(1.0, 0.82, 0.35, 0.32)
+	planting_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	planting_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	interaction_marker.mesh = ring
 	var material = StandardMaterial3D.new()
 	material.albedo_color = Color("edcf86")
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	interaction_marker.material_override = material
+	interaction_marker.set_meta("ring_material", material)
 	interaction_marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(interaction_marker)
 
@@ -607,6 +620,9 @@ func _update_interaction_marker():
 				break
 	interaction_marker.visible = not display.is_empty() and display.get("available", true) and not $GridPlayer.moving and not get_tree().paused
 	if interaction_marker.visible:
+		var planting_target: bool = display.get("object_kind", "") == "plant"
+		interaction_marker.mesh = planting_tile if planting_target else interaction_ring
+		interaction_marker.material_override = planting_material if planting_target else interaction_marker.get_meta("ring_material")
 		interaction_marker.position = grid.world_position(display.cell) + Vector3(0,0.12,0)
 	hud.update_interaction(display, context_action.progress, active_display, _binding_label("interact"))
 
@@ -773,3 +789,19 @@ func _planting_occupied(cell: Vector2i) -> bool:
 	for descriptor in custom_interactables:
 		if descriptor.cell == cell: return true
 	return false
+
+func _tick_bonfire(seconds: float):
+	var intensity: float = region_state.get("bonfire_intensity", 1.0)
+	var exposure = 1.0 - climate.shade_at(grid.start) * 0.85
+	intensity = clampf(intensity + (-0.02 * exposure if climate.weather == "rain" else 0.04) * seconds, 0.0, 1.0)
+	region_state.bonfire_intensity = intensity
+	_update_bonfire_visuals()
+
+func _update_bonfire_visuals():
+	var intensity: float = region_state.get("bonfire_intensity", 1.0)
+	for i in range(3):
+		var flame = get_node("Bonfire/Flame%d" % i)
+		flame.visible = intensity > 0.0
+		flame.scale = Vector3.ONE * (1.0 if i == 1 else 0.72) * lerpf(0.25, 1.0, intensity)
+	$Bonfire/Smoke.emitting = intensity > 0.0
+	$Bonfire/Warmth.light_energy = 0.5 * intensity

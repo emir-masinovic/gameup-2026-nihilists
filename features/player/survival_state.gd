@@ -63,6 +63,7 @@ func tick(seconds: float, temperature: float, shade: float, safe: bool, heat_res
 	var canopy = _context_fraction(context, "canopy", shelter)
 	var wind = _context_fraction(context, "wind", 0.0)
 	var fire = _context_fraction(context, "fire_hazard", 0.0)
+	var camp = _context_fraction(context, "camp_intensity", 1.0)
 	var raining = context.get("weather", "clear") == "rain"
 	var ambient = clampf(temperature, -60.0, 70.0)
 	var hot_air = maxf(ambient - HEAT_THRESHOLD, 0.0)
@@ -72,15 +73,18 @@ func tick(seconds: float, temperature: float, shade: float, safe: bool, heat_res
 		var step = minf(remaining, STEP_SECONDS)
 		hunger = clampf(hunger - float(rates.hunger_depletion) * step, 0.0, 100.0)
 		thirst = clampf(thirst - (float(rates.thirst_depletion) + hot_air * float(rates.hot_thirst_depletion)) * step, 0.0, 100.0)
+		var rain_gain = float(rates.rain_wetting) * (1.0 - canopy * float(rates.canopy_interception)) if raining else 0.0
+		var drying = (float(rates.drying) + hot_air * float(rates.hot_drying)) * (1.0 + wind * 0.5) + fire * 0.8
 		if safe:
-			wetness = maxf(0.0, wetness - float(rates.camp_drying) * step)
-			# Camp is shelter, so it restores either hot or cold bodies safely.
-			body_temperature = move_toward(body_temperature, NORMAL_BODY_TEMPERATURE, float(rates.camp_temperature_recovery) * step)
-			health = minf(100.0, health + float(rates.camp_healing) * step)
+			if raining:
+				rain_gain *= 1.0 - camp * 0.35
+				drying += float(rates.camp_drying) * 0.2 * camp
+			else:
+				drying = float(rates.camp_drying) * camp
+		wetness = clampf(wetness + (rain_gain - drying) * step, 0.0, 100.0)
+		if safe and camp > 0.0:
+			body_temperature = move_toward(body_temperature, NORMAL_BODY_TEMPERATURE, float(rates.camp_temperature_recovery) * camp * step)
 		else:
-			var rain_gain = float(rates.rain_wetting) * (1.0 - canopy * float(rates.canopy_interception)) if raining else 0.0
-			var drying = (float(rates.drying) + hot_air * float(rates.hot_drying)) * (1.0 + wind * 0.5) + fire * 0.8
-			wetness = clampf(wetness + (rain_gain - drying) * step, 0.0, 100.0)
 			var wet_fraction = wetness / 100.0
 			var warming = hot_air * float(rates.heat_per_degree) * (1.0 - shelter * 0.8)
 			if heat_resistance:
@@ -97,6 +101,8 @@ func tick(seconds: float, temperature: float, shade: float, safe: bool, heat_res
 			var severity = maxf(body_temperature - float(rates.hot_danger), float(rates.cold_danger) - body_temperature)
 			if severity >= 0.0:
 				damage((float(rates.temperature_damage) + severity * float(rates.temperature_severity)) * step)
+		if safe and not dead:
+			health = minf(100.0, health + float(rates.camp_healing) * step)
 		# Depleted reserves cause gradual damage; camp does not refill food/water.
 		var critical = float(rates.critical_reserve)
 		var hunger_penalty = clampf((critical - hunger) / critical, 0.0, 1.0) * float(rates.hunger_damage)

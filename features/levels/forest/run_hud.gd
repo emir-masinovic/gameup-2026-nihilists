@@ -97,7 +97,8 @@ func update_survival(state: RefCounted, canopy: float, eat_binding: String):
 	$PlayerStatus/Rows/Heat/Bar.value = state.body_temperature
 	$PlayerStatus/Rows/Heat/Value.text = "%.1f°C" % state.body_temperature
 	$PlayerStatus/Rows/Heat.modulate = Color("e69e6a") if state.body_temperature >= 39.0 else Color("81bed9") if state.body_temperature <= 35.0 else Color.WHITE
-	$PlayerStatus/Rows/Supplies.text = "Food %d   Water %d" % [roundi(state.hunger), roundi(state.thirst)]
+	$PlayerStatus/Rows/Supplies/Food.text = str(roundi(state.hunger))
+	$PlayerStatus/Rows/Supplies/Water.text = str(roundi(state.thirst))
 	$PlayerStatus/Rows/Food.text = "Berries %d — [%s] Eat" % [state.berry_count, eat_binding]
 	$PlayerStatus/Rows/Wetness.visible = state.wetness >= 1.0 or canopy > 0.05
 	$PlayerStatus/Rows/Wetness.text = "Wet %d%%" % roundi(state.wetness) if state.wetness >= 1.0 else ""
@@ -114,4 +115,4 @@ func update_interaction(target: Dictionary, progress: float, active: bool, bindi
 	$Context.text = "%s — [%s] %s%s" % [target.get("name", "Object"), binding, description, "..." if active else ""]
 
 func update_seeds(count: int):
-	$PlayerStatus/Rows/Seeds.text = "Seeds %d" % count
+	$PlayerStatus/Rows/Supplies/Seeds.text = str(count)

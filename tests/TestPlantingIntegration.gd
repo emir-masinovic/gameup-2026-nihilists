@@ -232,7 +232,7 @@ func scene_checks():
 	paused = false
 	world._tick_context_action(1.1)
 	check(world.planting.seed_count == 2 and world.trees[target].has_method("update_growth"), "Context completion creates visible sprout and consumes seed")
-	check(world.hud.get_node("PlayerStatus/Rows/Seeds").text == "Seeds 2", "Existing HUD displays compact inventory")
+	check(world.hud.get_node("PlayerStatus/Rows/Supplies/Seeds").text == "2", "Existing HUD displays compact inventory")
 	var knowledge: int = save.progression.knowledge
 	world._discover("interaction.first_planting", "Repeated planting")
 	check(save.progression.knowledge == knowledge, "Planting discovery awards Knowledge only once")
