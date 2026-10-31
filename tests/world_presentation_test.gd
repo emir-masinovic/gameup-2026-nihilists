@@ -31,7 +31,7 @@ func run():
 	for ground in world.terrain_renderer.batches:
 		check(ground.material_override == world.water_material or ground.material_override == world.charred_material or ground in [world.terrain_renderer.batches[18],world.terrain_renderer.batches[19]] or (ground.material_override is ShaderMaterial and ground.material_override in world.palette), "Every tile reuses the shared terrain palette")
 	var cover = world.ground_cover
-	check(cover.get_child_count() == 5 and cover.batches[0].indices.size() <= world.grid.cells.size()*11, "Abundant cover and cracks stay in five bounded draw batches")
+	check(cover.get_child_count() == 5 and cover.batches[0].indices.size() <= world.grid.cells.size()*33, "Abundant cover and cracks stay in five bounded draw batches")
 	var test_cell = Vector2i(7,5)
 	var ground_data: Dictionary = world.grid.cells[test_cell.y*world.grid.SIZE+test_cell.x]
 	var saved_ground: Dictionary = ground_data.duplicate(true)
@@ -97,7 +97,7 @@ func run():
 		diagonal_phase += Vector2.from_angle(TAU*(offset.x-offset.z)/1.8)
 	check(diagonal_phase.length()/grass_batch.offsets.size() < 0.25,"Grass offsets do not collapse onto correlated diagonal hash bands")
 	check(absf(cover.grass_density_at(Vector2(1.0-0.0001,3.4))-cover.grass_density_at(Vector2(1.0+0.0001,3.4))) < 0.001,"World density remains continuous across gameplay tile boundaries")
-	check(grass_batch.indices.size() == 1766,"World placement preserves the accepted seed-2026 grass budget")
+	check(grass_batch.indices.size() == 5298,"World placement triples the seed-2026 grass budget without taller blades")
 	var sites_before = cover._grass_sites.size()
 	cover.update_state(world.grid)
 	cover._process(0.1)
@@ -175,6 +175,28 @@ func run():
 	world.set_process(false)
 	for i in range(world.palette.size()):
 		check(world.palette[i].get_shader_parameter("world_seed") == seeds[i], "Same world seed produces identical spatial variation parameters")
+	world.free()
+	flow.run_regions.current_id = "wetlands"
+	world = load("res://features/levels/forest/forest_level.tscn").instantiate()
+	root.add_child(world)
+	world.set_process(false)
+	world.get_node("GridPlayer").set_process(false)
+	var transitions = 0
+	for label in world.find_children("*","Label3D",true,false):
+		check(label.text != "Recovering habitat","Temporary habitat label is absent")
+		if label.text.begins_with("To "): transitions += 1
+	check(transitions > 0 and world.has_node("Bonfire") and world.interaction_marker != null,"Region transitions, campfire and interaction marker remain")
+	var old_globe = false
+	for node in world.get_children():
+		if node is MeshInstance3D and node.material_override is StandardMaterial3D and node.material_override.emission_enabled:
+			old_globe = old_globe or node.mesh is SphereMesh or node.mesh is CylinderMesh
+	check(not old_globe,"Obsolete golden objective meshes are not generated")
+	world.objectives.problem_seen = true
+	world.objectives.mitigation_done = true
+	world.objectives.recovery_seen = true
+	world._on_cell_entered(world.grid.objective)
+	await process_frame
+	check(not world.ended and world.hud.field_notes.is_empty(),"Old refuge tile no longer wins the game or shows objective directions")
 	world.free()
 	settings.shadow_quality = previous_quality
 	print("WORLD PRESENTATION: ", checks, " checks, ", failures, " failures")

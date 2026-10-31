@@ -1,5 +1,6 @@
 extends Node3D
 const Visuals = preload("res://features/levels/forest/nature/nature_visuals.gd")
+const GRASS_POPULATION_SCALE = 3
 const GRASS_DENSITY = {"minimum":3,"maximum":11}
 var occupied_cells: Dictionary = {}
 var batches: Array[Dictionary] = []
@@ -59,7 +60,7 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	var placement: Array[Dictionary] = []
 	if not shrubs:
 		# Retain the old total capacity, not its per-tile layout.
-		placement = _grass_placement(grid,indices.size())
+		placement = _grass_placement(grid,indices.size()*GRASS_POPULATION_SCALE)
 		indices.clear()
 		for candidate in placement: indices.append(candidate.index)
 	var renderer = MultiMeshInstance3D.new()
@@ -230,7 +231,7 @@ func _grass_placement(grid: RefCounted, budget: int) -> Array[Dictionary]:
 	var first: Vector3 = grid.world_position(Vector2i.ZERO)
 	var edge = Vector2(first.x,first.z)-Vector2.ONE*grid.CELL_SIZE*0.5
 	var extent = grid.SIZE*grid.CELL_SIZE
-	var steps = ceili(extent/0.45)
+	var steps = ceili(extent/(0.45/sqrt(float(GRASS_POPULATION_SCALE))))
 	var spacing = extent/steps
 	var candidates: Array[Dictionary] = []
 	for z in range(steps):
