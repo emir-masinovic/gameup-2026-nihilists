@@ -13,6 +13,7 @@ var ignition_interval = 30.0
 var ignition_chance = 0.65
 var spread_chance = 0.025
 var fuel_consumption = 0.055
+var ecosystem_demo = false # Debug weather schedule; all effects still use simulation rules.
 var sapling_growth_rate = 1.0 # Debug-only acceleration affects plants, not simulation time.
 var elapsed = 0.0
 var temperature = 24.0
@@ -67,6 +68,9 @@ func _update_weather():
 	if weather_override in WEATHER_CYCLE:
 		weather = weather_override
 	var offset = {"clear": 0.0, "rain": -5.0, "cool": -7.0, "heat": 8.0}[weather]
+	if ecosystem_demo:
+		weather = "rain" if elapsed >= 120.0 and elapsed < 240.0 else "clear"
+		offset = {"clear":0.0,"rain":-5.0}[weather]
 	# Long-term warming approaches the limit; transient weather stays independent.
 	temperature = baseline_temperature + warming_pressure() + offset
 

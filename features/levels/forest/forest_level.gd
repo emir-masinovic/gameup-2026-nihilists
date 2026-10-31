@@ -57,6 +57,8 @@ var wet_indicator: MeshInstance3D
 func _ready():
 	if not OS.get_cmdline_user_args().has("--fixed-seed"):
 		world_seed = SceneFlow.next_seed
+	if OS.is_debug_build() and OS.get_cmdline_user_args().has("--ecosystem-demo"):
+		world_seed = 2026
 	if SceneFlow.run_regions == null or SceneFlow.run_regions.seed_for("forest") != world_seed:
 		SceneFlow.run_regions = preload("res://features/levels/forest/RunRegions.gd").new()
 		SceneFlow.run_regions.configure(world_seed)

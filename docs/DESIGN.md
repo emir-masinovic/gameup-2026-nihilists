@@ -90,3 +90,11 @@ Healthy mature trees cool their own cell and four cardinal neighbors by up to ap
 Environmental body heat exchange remains continuous at camp, with intensity-scaled camp comfort recovery, existing drying/healing, and mild-weather wet cooling tapered near comfort. Cold exposure remains dangerous. Player survival retains its existing canopy response and regional ambient temperature: local ground cooling is not added as a duplicate player bonus.
 
 The selected interaction caption reports ground temperature and soil moisture. Debug builds may launch with `-- --microclimate-demo` for four-times sapling growth (30 favorable seconds); weather, drought stress, survival and the normal balance are not accelerated. There is no restoration victory condition or new progression system. These simplified gameplay rules require manual balance review.
+
+## Visible ecosystem transformation
+
+Ground cover now uses shared grass/shrub MultiMeshes plus one shared crack mesh batch. Moisture and health determine clump coverage and crack exposure; short interpolation smooths growth/retreat without changing simulation time. Brown plantable soil remains free of grass and cracks. Recovering ground regains scattered clumps before dense cover.
+
+Mature-tree foliage uses stable model-space thinning with condition hysteresis, retaining the Kenney trunk/model identity. Sparse/dead trees expose shared procedural branches; burned wood is darkened. Saplings add leaf tiers as they grow and interpolate between the existing 0/30/75-second stages. Logical maturity, collisions, cutting, inventories and survival remain unchanged.
+
+Debug reproduction: launch with `-- --ecosystem-demo`, start New Game and use Board Center to compare both sides of the same forest. Seed 2026 supplies a healthy left patch and initially stressed right patch, preserving water and protected routes. Clear weather runs for 120 simulation seconds, rain from 120–240, then clear weather returns. Only initial conditions/weather are prescribed; subsequent grass retreat, cracking, tree condition and recovery use the actual climate rules. No final-state painting or new objective is used. The normal game does not use this scenario. Optional `--microclimate-demo` can additionally accelerate only planted growth for testing.
