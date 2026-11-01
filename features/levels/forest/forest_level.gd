@@ -109,6 +109,8 @@ func _ready():
 		$GridPlayer.water_fill_splash.connect(_on_water_fill_splash)
 	if $GridPlayer.has_signal("water_pour_splash"):
 		$GridPlayer.water_pour_splash.connect(_on_water_pour_splash)
+	if $GridPlayer.has_signal("eat_cue"):
+		$GridPlayer.eat_cue.connect(func(pos): audio_cue.emit("eat", pos))
 	var regional_palette: Dictionary = regions.palette_for(region_id)
 	for health_bin in range(4):
 		for moisture_bin in range(4):
@@ -287,12 +289,7 @@ func _unhandled_input(event):
 	if ended or transitioning or get_tree().paused:
 		return
 	if event.is_action_pressed("eat") and not event.is_echo():
-		if survival.eat_berry():
-			hud.notify("Ate berries")
-			audio_cue.emit("discovery", $GridPlayer.position)
-		else:
-			hud.notify("No berries to eat" if survival.berry_count <= 0 else "Food and water reserves are full")
-		_update_hud()
+		_try_eat()
 		get_viewport().set_input_as_handled()
 		return
 	if $GridPlayer.moving or event.is_echo():
@@ -304,6 +301,27 @@ func _unhandled_input(event):
 		_try_interact("chop_gather")
 		get_viewport().set_input_as_handled()
 
+func _try_eat():
+	if ended or transitioning or get_tree().paused or $GridPlayer.moving:
+		return
+	var player_cell = $GridPlayer.cell
+	if not grid.in_bounds(player_cell):
+		return
+	var cell_data = grid.cells[player_cell.y * grid.SIZE + player_cell.x]
+	if not cell_data.get("berry_bush", false):
+		hud.notify("Böğürtlenler sadece böğürtlen çalısının olduğu hücrede yenebilir")
+		return
+	if survival.berry_count <= 0:
+		hud.notify("No berries to eat")
+		return
+	if survival.hunger >= 100.0 and survival.thirst >= 100.0:
+		hud.notify("Food and water reserves are full")
+		return
+	if survival.eat_berry():
+		$GridPlayer.start_eating()
+		hud.notify("Ate berries")
+		_update_hud()
+
 func _try_interact(action_group: String):
 	if interactions.target.x >= 0 or not context_action.active.is_empty(): return
 	if action_group == "interact":
@@ -312,8 +330,14 @@ func _try_interact(action_group: String):
 			context_action.begin(custom,$GridPlayer.cell)
 			return
 		var front = $GridPlayer.cell+$GridPlayer.facing
+		var underfoot = $GridPlayer.cell
+		var harvest_target = Vector2i(-1, -1)
 		if grid.in_bounds(front) and grid.cells[front.y*grid.SIZE+front.x].get("berry_bush",false) and not grid.cells[front.y*grid.SIZE+front.x].get("water", false):
-			var amount = foraging.harvest(front)
+			harvest_target = front
+		elif grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berry_bush",false) and not grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("water", false):
+			harvest_target = underfoot
+		if harvest_target.x >= 0:
+			var amount = foraging.harvest(harvest_target)
 			survival.add_berries(amount)
 			if amount > 0: _discover("food.first_harvest","Food gathered for the journey")
 			_update_hud()
@@ -356,14 +380,20 @@ func _try_interact(action_group: String):
 				hud.show_modal("bonfire")
 				return
 			var front = $GridPlayer.cell + $GridPlayer.facing
+			var underfoot = $GridPlayer.cell
+			var harvest_target = Vector2i(-1, -1)
 			if grid.in_bounds(front) and grid.cells[front.y * grid.SIZE + front.x].get("berry_bush", false) and foraging != null:
-				var amount: int = foraging.harvest(front)
+				harvest_target = front
+			elif grid.in_bounds(underfoot) and grid.cells[underfoot.y * grid.SIZE + underfoot.x].get("berry_bush", false) and foraging != null:
+				harvest_target = underfoot
+			if harvest_target.x >= 0:
+				var amount: int = foraging.harvest(harvest_target)
 				if amount > 0:
 					survival.add_berries(amount)
 					_discover("food.berry_bush", "Berry bushes supply food")
 					_discover("food.first_harvest", "Food gathered for the journey")
 					hud.notify("Harvested %d berries" % amount)
-					audio_cue.emit("discovery", grid.world_position(front))
+					audio_cue.emit("discovery", grid.world_position(harvest_target))
 					_update_hud()
 					return
 			if interactions.last_error == "no_seeds":
@@ -882,10 +912,16 @@ func _action_preview(group: String) -> Dictionary:
 			preview.input_action = group
 			return preview
 	var front = $GridPlayer.cell+$GridPlayer.facing
-	if group == "interact" and grid.in_bounds(front) and grid.cells[front.y*grid.SIZE+front.x].get("berry_bush",false):
-		var berry = _descriptor(front,"berries","Berry Bush","Harvest",0.0)
-		berry.input_action = group
-		return berry
+	var underfoot = $GridPlayer.cell
+	if group == "interact":
+		if grid.in_bounds(front) and grid.cells[front.y*grid.SIZE+front.x].get("berry_bush",false):
+			var berry = _descriptor(front,"berries","Berry Bush","Harvest",0.0)
+			berry.input_action = group
+			return berry
+		elif grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berry_bush",false):
+			var berry = _descriptor(underfoot,"berries","Berry Bush","Harvest",0.0)
+			berry.input_action = group
+			return berry
 	var probe = preload("res://features/levels/forest/forest_interactions.gd").new()
 	probe.configure(grid,planting)
 	if not probe.begin($GridPlayer.cell,$GridPlayer.facing,group): return {}

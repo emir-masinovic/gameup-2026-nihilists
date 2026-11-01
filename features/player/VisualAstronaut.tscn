@@ -1,6 +1,7 @@
-[gd_scene load_steps=35 format=3]
+[gd_scene load_steps=38 format=3]
 
 [ext_resource type="Script" path="res://features/player/VisualAstronaut.gd" id="Visual"]
+[ext_resource type="AudioStream" path="res://features/audio/freesound_community-eating-sound-effect-36186.mp3" id="EatingSound"]
 
 [sub_resource type="StandardMaterial3D" id="SuitWhite"]
 albedo_color = Color(0.92, 0.94, 0.96, 1)
@@ -185,6 +186,20 @@ bottom_radius = 0.046
 height = 0.12
 radial_segments = 6
 
+[sub_resource type="StandardMaterial3D" id="BerryFruitMat"]
+albedo_color = Color(0.75, 0.12, 0.38, 1)
+roughness = 0.35
+emission_enabled = true
+emission = Color(0.35, 0.06, 0.18, 1)
+emission_energy_multiplier = 0.25
+
+[sub_resource type="SphereMesh" id="BerryMesh"]
+material = SubResource("BerryFruitMat")
+radius = 0.075
+height = 0.15
+radial_segments = 8
+rings = 5
+
 [node name="Body" type="Node3D"]
 script = ExtResource("Visual")
 
@@ -318,3 +333,15 @@ mesh = SubResource("BottleCapMesh")
 [node name="BottleWater" type="MeshInstance3D" parent="ArmRight/Bottle"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.07, -0.06)
 mesh = SubResource("BottleWaterMesh")
+[node name="Berry" type="Node3D" parent="ArmRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.02, -0.28, -0.06)
+visible = false
+
+[node name="BerryMesh" type="MeshInstance3D" parent="ArmRight/Berry"]
+mesh = SubResource("BerryMesh")
+
+[node name="EatingAudio" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("EatingSound")
+unit_size = 12.0
+max_distance = 50.0
+bus = &"SFX"

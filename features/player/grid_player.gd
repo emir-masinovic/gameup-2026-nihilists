@@ -6,6 +6,7 @@ signal chop_impact(impact_position: Vector3)
 signal till_impact(impact_position: Vector3)
 signal water_fill_splash(impact_position: Vector3)
 signal water_pour_splash(impact_position: Vector3)
+signal eat_cue(impact_position: Vector3)
 
 const CARDINAL_DIRECTIONS = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
 const INPUT_ALIGNMENT_HYSTERESIS = 0.08
@@ -39,6 +40,8 @@ var is_gathering: bool:
 	get: return $Body.is_gathering if has_node("Body") else false
 var is_drinking: bool:
 	get: return $Body.is_drinking if has_node("Body") else false
+var is_eating: bool:
+	get: return $Body.is_eating if has_node("Body") else false
 
 func _ready():
 	if has_node("Body"):
@@ -47,6 +50,7 @@ func _ready():
 		if body.has_signal("till_impact"): body.till_impact.connect(func(pos): till_impact.emit(pos))
 		if body.has_signal("water_fill_splash"): body.water_fill_splash.connect(func(pos): water_fill_splash.emit(pos))
 		if body.has_signal("water_pour_splash"): body.water_pour_splash.connect(func(pos): water_pour_splash.emit(pos))
+		if body.has_signal("eat_cue"): body.eat_cue.connect(func(pos): eat_cue.emit(pos))
 
 func start_chopping(target_world_pos: Vector3):
 	if has_node("Body") and $Body.has_method("start_chopping"):
@@ -87,6 +91,14 @@ func start_gathering(target_world_pos: Vector3):
 func stop_gathering():
 	if has_node("Body") and $Body.has_method("stop_gathering"):
 		$Body.stop_gathering()
+
+func start_eating():
+	if has_node("Body") and $Body.has_method("start_eating"):
+		$Body.start_eating()
+
+func stop_eating():
+	if has_node("Body") and $Body.has_method("stop_eating"):
+		$Body.stop_eating()
 
 func start_drinking(target_world_pos: Vector3):
 	if has_node("Body") and $Body.has_method("start_drinking"):

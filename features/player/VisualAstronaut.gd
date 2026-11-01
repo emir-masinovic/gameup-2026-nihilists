@@ -1,6 +1,8 @@
 extends Node3D
 # Visual adaptation of Onur's astronaut at 638ba20. No controller or grid logic.
 signal chop_impact(impact_position: Vector3)
+signal eat_cue(impact_position: Vector3)
+signal eating_finished()
 var step_duration: float:
 	get:
 		if is_instance_valid(get_parent()) and "move_duration" in get_parent():
@@ -34,6 +36,11 @@ var _gather_elapsed: float = 0.0
 var is_drinking: bool = false
 var _drink_target_pos: Vector3 = Vector3.ZERO
 var _drink_elapsed: float = 0.0
+var _berry: Node3D
+var _eat_audio: AudioStreamPlayer3D
+var is_eating: bool = false
+var _eat_elapsed: float = 0.0
+var _eat_sound_played: bool = false
 signal till_impact(impact_position: Vector3)
 signal water_fill_splash(impact_position: Vector3)
 signal water_pour_splash(impact_position: Vector3)
@@ -66,6 +73,8 @@ func _cache_nodes():
 	_leg_right = get_node_or_null("LegRight")
 	_axe = get_node_or_null("ArmRight/Axe")
 	_hoe = get_node_or_null("ArmRight/Hoe")
+	_berry = get_node_or_null("ArmRight/Berry")
+	_eat_audio = get_node_or_null("EatingAudio")
 	_bottle = get_node_or_null("ArmRight/Bottle")
 
 # Facing comes from GridPlayer, including blocked attempts. Animation may lean
@@ -345,6 +354,56 @@ func _update_animation(delta: float):
 		if _arm_right:
 			_arm_right.rotation.x = lerpf(0.0, -0.85 - reach, kneel)
 			_arm_right.rotation.z = lerpf(0.0, -0.2, kneel)
+	elif is_eating:
+		_eat_elapsed += delta
+		var total_duration = 1.1
+		var t = clampf(_eat_elapsed / total_duration, 0.0, 1.0)
+		if t < 0.35:
+			var raise_t = t / 0.35
+			var ease_raise = sin(raise_t * PI * 0.5)
+			if _arm_right:
+				_arm_right.rotation.x = lerpf(0.0, -1.62, ease_raise)
+				_arm_right.rotation.y = lerpf(0.0, -0.22, ease_raise)
+				_arm_right.rotation.z = lerpf(-0.08, -0.32, ease_raise)
+			if _arm_left:
+				_arm_left.rotation.x = lerpf(0.0, -0.25, ease_raise)
+				_arm_left.rotation.z = lerpf(0.08, 0.16, ease_raise)
+			_body.rotation.x = lerpf(0.0, -0.14, ease_raise)
+		elif t < 0.70:
+			var munch_t = (t - 0.35) / 0.35
+			var chew = sin(munch_t * PI * 6.0) * 0.04
+			if _arm_right:
+				_arm_right.rotation.x = -1.62 + chew
+				_arm_right.rotation.y = -0.22
+				_arm_right.rotation.z = -0.32 + chew * 0.5
+			if _arm_left:
+				_arm_left.rotation.x = -0.25
+				_arm_left.rotation.z = 0.16
+			_body.rotation.x = -0.14 + chew * 0.7
+			if not _eat_sound_played:
+				_eat_sound_played = true
+				if _eat_audio != null:
+					_eat_audio.play()
+				eat_cue.emit(global_position)
+			if munch_t >= 0.5:
+				if _berry != null:
+					_berry.visible = false
+		else:
+			var lower_t = (t - 0.70) / 0.30
+			var ease_lower = sin(lower_t * PI * 0.5)
+			if _berry != null:
+				_berry.visible = false
+			if _arm_right:
+				_arm_right.rotation.x = lerpf(-1.62, 0.0, ease_lower)
+				_arm_right.rotation.y = lerpf(-0.22, 0.0, ease_lower)
+				_arm_right.rotation.z = lerpf(-0.32, -0.08, ease_lower)
+			if _arm_left:
+				_arm_left.rotation.x = lerpf(-0.25, 0.0, ease_lower)
+				_arm_left.rotation.z = lerpf(0.16, 0.08, ease_lower)
+			_body.rotation.x = lerpf(-0.14, 0.0, ease_lower)
+		if _eat_elapsed >= total_duration:
+			stop_eating()
+			eating_finished.emit()
 	elif is_drinking:
 		_drink_elapsed += delta
 		# Character kneels down towards water, scoops water with cupped hands up to helmet/face to drink
@@ -538,6 +597,30 @@ func start_drinking(target_world_pos: Vector3):
 func stop_drinking():
 	is_drinking = false
 	_drink_elapsed = 0.0
+
+func start_eating():
+	stop_farming()
+	stop_chopping()
+	is_eating = true
+	_eat_elapsed = 0.0
+	_eat_sound_played = false
+	_cache_nodes()
+	if _berry != null:
+		_berry.visible = true
+	if _bottle != null:
+		_bottle.visible = false
+	if _axe != null:
+		_axe.visible = false
+	if _hoe != null:
+		_hoe.visible = false
+
+func stop_eating():
+	is_eating = false
+	_eat_elapsed = 0.0
+	_eat_sound_played = false
+	_cache_nodes()
+	if _berry != null:
+		_berry.visible = false
 
 func stop_farming():
 	stop_tilling()
