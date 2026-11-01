@@ -73,6 +73,12 @@ func run():
 	level._unhandled_input(interact_action)
 	check(survival.berry_count == berry_count_before + 2, "Harvesting while standing on berry bush adds 2 berries")
 	check(grid.cells[berry_cell.y * grid.SIZE + berry_cell.x].berries == 0, "Berry bush cell is now depleted")
+	check(player.is_gathering, "Harvesting berry triggers bending down gathering animation")
+	body._update_animation(0.35)
+	check(body.position.y < -0.15, "Character kneels down to gather berry from ground")
+	check(body.rotation.x < -0.4, "Character torso bends forward towards ground")
+	check(body.get_node("ArmRight").rotation.x > 0.4, "Right arm reaches forward and down towards ground")
+	player.stop_gathering()
 	var toast = hud.get_node("Toast")
 	check(toast.text.contains("Harvested 2 berries"), "English toast displayed on berry harvest")
 
@@ -105,7 +111,7 @@ func run():
 	body._update_animation(0.2)
 	check(body.is_eating, "Still eating at 0.2s")
 	check(berry_node.visible, "Berry still in hand while raising to visor")
-	check(body.get_node("ArmRight").rotation.x < -0.5, "Right arm raised towards visor")
+	check(body.get_node("ArmRight").rotation.x > 0.5, "Right arm raised forward towards mouth/visor")
 
 	# 6. Advance animation to eating/munching phase (t >= 0.35s)
 	body._update_animation(0.25) # total 0.45s

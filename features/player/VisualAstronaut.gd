@@ -341,19 +341,19 @@ func _update_animation(delta: float):
 	elif is_gathering:
 		_gather_elapsed += delta
 		var kneel = minf(_gather_elapsed * 3.5, 1.0)
-		_body.position.y = lerpf(0.0, -0.16, kneel)
-		_body.rotation.x = lerpf(0.0, -0.4, kneel)
+		_body.position.y = lerpf(0.0, -0.20, kneel)
+		_body.rotation.x = lerpf(0.0, -0.52, kneel)
 		if _leg_left:
-			_leg_left.rotation.x = lerpf(0.0, -0.42, kneel)
+			_leg_left.rotation.x = lerpf(0.0, -0.45, kneel)
 		if _leg_right:
-			_leg_right.rotation.x = lerpf(0.0, 0.38, kneel)
-		var reach = sin(_gather_elapsed * 6.0) * 0.1
+			_leg_right.rotation.x = lerpf(0.0, 0.40, kneel)
+		var reach = sin(_gather_elapsed * 8.0) * 0.08
 		if _arm_left:
-			_arm_left.rotation.x = lerpf(0.0, -0.85 + reach, kneel)
-			_arm_left.rotation.z = lerpf(0.0, 0.2, kneel)
+			_arm_left.rotation.x = lerpf(0.0, 0.65 + reach, kneel)
+			_arm_left.rotation.z = lerpf(0.0, 0.22, kneel)
 		if _arm_right:
-			_arm_right.rotation.x = lerpf(0.0, -0.85 - reach, kneel)
-			_arm_right.rotation.z = lerpf(0.0, -0.2, kneel)
+			_arm_right.rotation.x = lerpf(0.0, 0.65 - reach, kneel)
+			_arm_right.rotation.z = lerpf(0.0, -0.22, kneel)
 	elif is_eating:
 		_eat_elapsed += delta
 		var total_duration = 1.1
@@ -362,24 +362,24 @@ func _update_animation(delta: float):
 			var raise_t = t / 0.35
 			var ease_raise = sin(raise_t * PI * 0.5)
 			if _arm_right:
-				_arm_right.rotation.x = lerpf(0.0, -1.62, ease_raise)
-				_arm_right.rotation.y = lerpf(0.0, -0.22, ease_raise)
-				_arm_right.rotation.z = lerpf(-0.08, -0.32, ease_raise)
+				_arm_right.rotation.x = lerpf(0.0, 2.05, ease_raise)
+				_arm_right.rotation.y = lerpf(0.0, 0.35, ease_raise)
+				_arm_right.rotation.z = lerpf(-0.08, -0.52, ease_raise)
 			if _arm_left:
-				_arm_left.rotation.x = lerpf(0.0, -0.25, ease_raise)
+				_arm_left.rotation.x = lerpf(0.0, 0.25, ease_raise)
 				_arm_left.rotation.z = lerpf(0.08, 0.16, ease_raise)
-			_body.rotation.x = lerpf(0.0, -0.14, ease_raise)
+			_body.rotation.x = lerpf(0.0, -0.10, ease_raise)
 		elif t < 0.70:
 			var munch_t = (t - 0.35) / 0.35
 			var chew = sin(munch_t * PI * 6.0) * 0.04
 			if _arm_right:
-				_arm_right.rotation.x = -1.62 + chew
-				_arm_right.rotation.y = -0.22
-				_arm_right.rotation.z = -0.32 + chew * 0.5
+				_arm_right.rotation.x = 2.05 + chew
+				_arm_right.rotation.y = 0.35
+				_arm_right.rotation.z = -0.52 + chew * 0.4
 			if _arm_left:
-				_arm_left.rotation.x = -0.25
+				_arm_left.rotation.x = 0.25
 				_arm_left.rotation.z = 0.16
-			_body.rotation.x = -0.14 + chew * 0.7
+			_body.rotation.x = -0.10 + chew * 0.5
 			if not _eat_sound_played:
 				_eat_sound_played = true
 				if _eat_audio != null:
@@ -394,13 +394,13 @@ func _update_animation(delta: float):
 			if _berry != null:
 				_berry.visible = false
 			if _arm_right:
-				_arm_right.rotation.x = lerpf(-1.62, 0.0, ease_lower)
-				_arm_right.rotation.y = lerpf(-0.22, 0.0, ease_lower)
-				_arm_right.rotation.z = lerpf(-0.32, -0.08, ease_lower)
+				_arm_right.rotation.x = lerpf(2.05, 0.0, ease_lower)
+				_arm_right.rotation.y = lerpf(0.35, 0.0, ease_lower)
+				_arm_right.rotation.z = lerpf(-0.52, -0.08, ease_lower)
 			if _arm_left:
-				_arm_left.rotation.x = lerpf(-0.25, 0.0, ease_lower)
+				_arm_left.rotation.x = lerpf(0.25, 0.0, ease_lower)
 				_arm_left.rotation.z = lerpf(0.16, 0.08, ease_lower)
-			_body.rotation.x = lerpf(-0.14, 0.0, ease_lower)
+			_body.rotation.x = lerpf(-0.10, 0.0, ease_lower)
 		if _eat_elapsed >= total_duration:
 			stop_eating()
 			eating_finished.emit()
@@ -420,22 +420,22 @@ func _update_animation(delta: float):
 			var t = cycle / 0.45
 			var ease_down = sin(t * PI * 0.5)
 			if _arm_left:
-				_arm_left.rotation.x = lerpf(0.0, -0.85, ease_down)
+				_arm_left.rotation.x = lerpf(0.0, 0.65, ease_down)
 				_arm_left.rotation.z = lerpf(0.08, 0.28, ease_down)
 			if _arm_right:
-				_arm_right.rotation.x = lerpf(0.0, -0.85, ease_down)
+				_arm_right.rotation.x = lerpf(0.0, 0.65, ease_down)
 				_arm_right.rotation.z = lerpf(-0.08, -0.28, ease_down)
 		else:
 			# Bring cupped hands up to helmet visor to drink, head tilting slightly
 			var t = (cycle - 0.45) / 0.45
 			var ease_up = sin(t * PI * 0.5)
 			if _arm_left:
-				_arm_left.rotation.x = lerpf(-0.85, -1.55, ease_up)
-				_arm_left.rotation.z = lerpf(0.28, 0.42, ease_up)
+				_arm_left.rotation.x = lerpf(0.65, 1.85, ease_up)
+				_arm_left.rotation.z = lerpf(0.28, 0.35, ease_up)
 			if _arm_right:
-				_arm_right.rotation.x = lerpf(-0.85, -1.55, ease_up)
-				_arm_right.rotation.z = lerpf(-0.28, -0.42, ease_up)
-			_body.rotation.x = lerpf(-0.38, -0.18, ease_up)
+				_arm_right.rotation.x = lerpf(0.65, 1.85, ease_up)
+				_arm_right.rotation.z = lerpf(-0.28, -0.35, ease_up)
+			_body.rotation.x = lerpf(-0.38, -0.15, ease_up)
 	else:
 		_step_count = 0
 		# Return limbs smoothly to relaxed stance

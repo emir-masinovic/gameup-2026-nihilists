@@ -397,6 +397,14 @@ func _try_interact(action_group: String):
 			var amount = foraging.harvest(harvest_target)
 			if amount > 0:
 				survival.add_berries(amount)
+				$GridPlayer.start_gathering(grid.world_position(harvest_target))
+				var tree = get_tree()
+				if tree != null:
+					var gather_timer = tree.create_timer(0.65)
+					gather_timer.timeout.connect(func():
+						if is_instance_valid($GridPlayer):
+							$GridPlayer.stop_gathering()
+					)
 				_discover("food.berry_bush", "Berry bushes supply food")
 				_discover("food.first_harvest", "Food gathered for the journey")
 				hud.notify("Harvested %d berries" % amount)
@@ -453,6 +461,14 @@ func _try_interact(action_group: String):
 				var amount: int = foraging.harvest(harvest_target)
 				if amount > 0:
 					survival.add_berries(amount)
+					$GridPlayer.start_gathering(grid.world_position(harvest_target))
+					var tree = get_tree()
+					if tree != null:
+						var gather_timer = tree.create_timer(0.65)
+						gather_timer.timeout.connect(func():
+							if is_instance_valid($GridPlayer):
+								$GridPlayer.stop_gathering()
+						)
 					_discover("food.berry_bush", "Berry bushes supply food")
 					_discover("food.first_harvest", "Food gathered for the journey")
 					hud.notify("Harvested %d berries" % amount)
