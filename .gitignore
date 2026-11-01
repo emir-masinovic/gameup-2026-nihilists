@@ -8,5 +8,6 @@
 .idea/
 .DS_Store
 Thumbs.db
+.env.local
 
 # Keep Godot .uid files and source asset .import metadata tracked.
