@@ -743,6 +743,8 @@ func _update_lighting(delta: float = 0.0):
 	var direction = Vector3(cos(angle),sin(angle),0.3).normalized()
 	var elevation = direction.y
 	var daylight = smoothstep(-0.12,0.24,elevation)
+	if effects != null:
+		effects.update_atmosphere(delta,region_id,climate.temperature,climate.weather,direction)
 	var source = direction if elevation >= 0 else -direction
 	$Sun.look_at($Sun.global_position-source,Vector3.UP)
 	var horizon = smoothstep(0.0,0.18,absf(elevation))
