@@ -220,7 +220,7 @@ func update_state(grid: RefCounted):
 		var data = grid.cells[i]
 		var bare_ground: bool = data.terrain == "grass" and not data.get("burned", false)
 		# Dry cracks persist into early recovery, fading as real ground health returns.
-		_crack_targets[i] = clampf((0.72-data.health)/0.45,0.0,1.0) * clampf((0.72-data.moisture)/0.45,0.0,1.0) if bare_ground else 0.0
+		_crack_targets[i] = sqrt(clampf((0.72-data.health)/0.45,0.0,1.0) * clampf((0.72-data.moisture)/0.45,0.0,1.0)) if bare_ground else 0.0
 	set_process(true)
 
 	update_ms = (Time.get_ticks_usec()-begin)/1000.0

@@ -210,6 +210,7 @@ func _ready():
 	terrain_renderer.configure(grid, palette, water_material, charred_material)
 	effects = preload("res://features/levels/forest/ecosystem_effects.gd").new()
 	add_child(effects)
+	_ensure_flame_material()
 	effects.configure(grid, world_seed, flame_material)
 	ground_cover = preload("res://features/levels/forest/nature/ground_cover.gd").new()
 	add_child(ground_cover)
@@ -648,13 +649,17 @@ func _update_hud():
 	# Keep the caption authoritative after legacy status/context updates.
 	_update_interaction_marker()
 
+func _ensure_flame_material():
+	if flame_material != null: return
+	flame_material = ShaderMaterial.new()
+	flame_material.shader = preload("res://features/levels/forest/shader_bonfire.gdshader")
+
 func _create_landmarks():
 	var fire = Node3D.new()
 	fire.name = "Bonfire"
 	fire.position = grid.world_position(grid.start) + Vector3(0.6, 0.0, 0.6)
 	add_child(fire)
-	flame_material = ShaderMaterial.new()
-	flame_material.shader = preload("res://features/levels/forest/shader_bonfire.gdshader")
+	_ensure_flame_material()
 	for i in range(3):
 		var flame = MeshInstance3D.new()
 		flame.name = "Flame%d" % i
@@ -728,6 +733,8 @@ func _advance_presentation(delta: float):
 	if flame_material != null:
 		flame_material.set_shader_parameter("animation_time", fposmod(presentation_elapsed, TAU * 100.0))
 	_update_lighting(delta)
+	if terrain_renderer != null:
+		terrain_renderer.update_weather_visuals(delta,climate.temperature,climate.weather)
 	if effects != null:
 		effects.update_clock(presentation_elapsed)
 

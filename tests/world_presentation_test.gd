@@ -15,12 +15,41 @@ func _initialize():
 func run():
 	var settings = root.get_node("SettingsManager")
 	var previous_quality = settings.shadow_quality
+	var previous_grass = settings.grass_density
+	settings.grass_density = "Medium"
 	var flow = root.get_node("SceneFlow")
 	flow.next_seed = 2026
 	var world = load("res://features/levels/forest/forest_level.tscn").instantiate()
 	root.add_child(world)
 	world.set_process(false)
 	var original = world.grid.cells.duplicate(true)
+	check(not world.has_node("Bonfire") and world.flame_material != null and world.effects.flames.material_override == world.flame_material,"Wildfire has an animated material without automatic bonfire")
+	world._advance_presentation(0.1)
+	check(world.flame_material.get_shader_parameter("animation_time") > 0.0,"Wildfire animation clock remains connected")
+	world.grid.cells[0].burning = true
+	world.effects.update_state(world.grid,"rain")
+	check(world.effects.flames.multimesh.visible_instance_count == 1,"Burning cells submit actual flame geometry")
+	check(world.effects.rain.visible and world.effects.rain_impacts.visible and world.effects.rain_impacts.multimesh.instance_count <= 32,"Rain enables bounded ground impacts")
+	for i in range(world.effects.rain_impacts.multimesh.instance_count):
+		check(world.effects.rain_impacts.multimesh.get_instance_transform(i).origin.y < 0.05,"Rain impacts stay at terrain surface")
+	world.grid.cells[0].burning = false
+	world.effects.update_state(world.grid,"clear")
+	check(world.effects.flames.multimesh.visible_instance_count == 0 and not world.effects.rain.visible and not world.effects.rain_impacts.visible,"Extinguished fire and cleared rain hide immediately")
+	world.effects.update_wind({"strength":0.8,"direction":Vector2.RIGHT,"time":1.0},Vector3.ZERO)
+	check(world.effects.wind_streaks.visible,"Strong authoritative wind enables readable ribbons")
+	world.effects.update_wind({"strength":0.3,"direction":Vector2.RIGHT,"time":2.0},Vector3.ZERO)
+	check(not world.effects.wind_streaks.visible,"Calm wind hides ribbons")
+	world.terrain_renderer.update_weather_visuals(2.0,44.0,"heat")
+	check(world.terrain_renderer.heat_visual == 1.0,"Hot weather activates bounded terrain tint")
+	world.terrain_renderer.update_weather_visuals(2.0,44.0,"rain")
+	check(world.terrain_renderer.heat_visual == 0.0,"Tint clears outside heat weather even at high ambient temperature")
+	for quality in ["Off","Medium"]:
+		settings.grass_density = quality
+		settings.apply_settings()
+		world.effects.update_state(world.grid,"rain")
+		check(world.ground_cover.batches[0].renderer.visible == (quality != "Off") and world.effects.rain_impacts.visible,"Weather stays active independently of grass quality "+quality)
+	world.effects.update_state(world.grid,"clear")
+	check(world.grid.cells == original,"Weather presentation never changes ecological cells")
 	check(world.palette.size() == 16, "Terrain uses only 16 shared climate materials")
 	var seeds = []
 	for material in world.palette:
@@ -240,6 +269,7 @@ func run():
 	await process_frame
 	check(not world.ended and world.hud.field_notes.is_empty(),"Old refuge tile no longer wins the game or shows objective directions")
 	world.free()
+	settings.grass_density = previous_grass
 	settings.shadow_quality = previous_quality
 	print("WORLD PRESENTATION: ", checks, " checks, ", failures, " failures")
 	quit(0 if failures == 0 else 1)

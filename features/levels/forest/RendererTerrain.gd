@@ -80,3 +80,14 @@ func rendered_cell_count() -> int:
 		if i != 16:
 			total += batches[i].multimesh.visible_instance_count
 	return total
+
+# Presentation-only heatwave tint; never changes climate or persistent cells.
+var heat_visual = 0.0
+func update_weather_visuals(delta: float, temperature: float, weather: String):
+	var target = clampf((temperature-28.0)/16.0,0.0,1.0) if weather == "heat" else 0.0
+	var next = move_toward(heat_visual,target,maxf(delta,0.0)*0.7)
+	if next == heat_visual: return
+	heat_visual = next
+	for batch in batches:
+		if batch.material_override is ShaderMaterial:
+			batch.material_override.set_shader_parameter("heat_tint",heat_visual)

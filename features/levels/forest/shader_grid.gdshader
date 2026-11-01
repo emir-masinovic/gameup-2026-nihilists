@@ -7,6 +7,7 @@ uniform float line_width = 0.035;
 uniform float world_seed = 2026.0;
 uniform float terrain_health = 1.0;
 uniform float terrain_moisture = 1.0;
+uniform float heat_tint : hint_range(0.0,1.0) = 0.0;
 uniform float variation_strength = 0.14;
 varying vec3 world_position;
 
@@ -50,6 +51,9 @@ void fragment() {
  // Wet recovering grass returns as irregular flecks, never as a square overlay.
  float regrowth = smoothstep(0.22, 0.75, terrain_health) * smoothstep(0.3, 0.8, terrain_moisture);
  ground = mix(ground, vec3(0.19, 0.36, 0.15), smoothstep(0.56, 0.75, fine) * regrowth * 0.25);
+ float dry_stress = (1.0-smoothstep(0.15,0.55,terrain_moisture))*(1.0-terrain_health);
+ ground = mix(ground,vec3(0.48,0.32,0.19),dry_stress*0.22);
+ ground = mix(ground,vec3(0.67,0.30,0.15),heat_tint*0.16*(1.0-terrain_moisture*0.65));
  ALBEDO = mix(ground, line_color.rgb, line);
  ROUGHNESS = mix(1.0, 0.85, terrain_moisture);
 }

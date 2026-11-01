@@ -2,6 +2,8 @@ extends Node3D
 var flames: MultiMeshInstance3D
 var rain: MultiMeshInstance3D
 var rain_material: ShaderMaterial
+var rain_impacts: MultiMeshInstance3D
+var impact_material: ShaderMaterial
 var fire_material: ShaderMaterial
 var wind_streaks: MultiMeshInstance3D
 var wind_material: ShaderMaterial
@@ -29,7 +31,7 @@ func configure(grid: RefCounted, world_seed: int, material: ShaderMaterial):
 	rain.name = "Rain"
 	rain.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var drop = BoxMesh.new()
-	drop.size = Vector3(0.018, 0.35, 0.018)
+	drop.size = Vector3(0.028, 0.5, 0.028)
 	rain.multimesh = MultiMesh.new()
 	rain.multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	rain.multimesh.use_custom_data = true
@@ -47,6 +49,7 @@ func configure(grid: RefCounted, world_seed: int, material: ShaderMaterial):
 	rain.material_override = rain_material
 	rain.visible = false
 	add_child(rain)
+	_configure_impacts(grid,world_seed)
 	_configure_wind(world_seed)
 
 func update_state(grid: RefCounted, weather: String):
@@ -58,15 +61,17 @@ func update_state(grid: RefCounted, weather: String):
 			count += 1
 	flames.multimesh.visible_instance_count = count
 	rain.visible = weather == "rain"
+	rain_impacts.visible = rain.visible
 
 func update_clock(seconds: float):
 	if rain_material != null:
 		rain_material.set_shader_parameter("rain_time", seconds)
+	if impact_material != null: impact_material.set_shader_parameter("rain_time",seconds)
 
 
 # Six reusable ribbons, animated entirely on the GPU. No particle nodes.
 func _configure_wind(world_seed: int):
-	wind_streaks_enabled = OS.get_cmdline_user_args().has("--wind-streaks")
+	wind_streaks_enabled = not OS.get_cmdline_user_args().has("--no-wind-streaks")
 	wind_streaks = MultiMeshInstance3D.new()
 	wind_streaks.name = "WindStreaks"
 	wind_streaks.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -77,7 +82,7 @@ func _configure_wind(world_seed: int):
 		var b = float(segment+1)/8.0
 		for vertex in [Vector2(a,-1),Vector2(a,1),Vector2(b,1),Vector2(a,-1),Vector2(b,1),Vector2(b,-1)]:
 			mesh.set_uv(Vector2(vertex.x,(vertex.y+1.0)*0.5))
-			mesh.add_vertex(Vector3((vertex.x-0.5)*3.0,sin(vertex.x*PI)*0.22+vertex.y*0.012,0))
+			mesh.add_vertex(Vector3((vertex.x-0.5)*3.0,sin(vertex.x*PI)*0.22+vertex.y*0.024,0))
 	wind_streaks.multimesh = MultiMesh.new()
 	wind_streaks.multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	wind_streaks.multimesh.use_custom_data = true
@@ -112,7 +117,7 @@ void vertex(){
 }
 void fragment(){
  ALBEDO=vec3(0.9,0.96,1.0);
- ALPHA=0.2*visibility*sin(UV.x*3.14159265);
+ ALPHA=0.26*visibility*sin(UV.x*3.14159265);
 }
 """
 	wind_material.shader = shader
@@ -131,3 +136,44 @@ func update_wind(state: Dictionary, player_position: Vector3):
 func set_wind_shelter(values: PackedVector4Array, origin: Vector3):
 	wind_material.set_shader_parameter("wind_exposure",values)
 	wind_material.set_shader_parameter("shelter_origin",Vector2(origin.x,origin.z))
+
+# Bounded GPU-animated impact rings at actual ground height, never falling particles.
+func _configure_impacts(grid: RefCounted, world_seed: int):
+	rain_impacts = MultiMeshInstance3D.new()
+	rain_impacts.name = "RainImpacts"
+	rain_impacts.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var mesh = TorusMesh.new()
+	mesh.inner_radius = 0.065
+	mesh.outer_radius = 0.09
+	mesh.rings = 8
+	mesh.ring_segments = 3
+	rain_impacts.multimesh = MultiMesh.new()
+	rain_impacts.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	rain_impacts.multimesh.use_custom_data = true
+	rain_impacts.multimesh.mesh = mesh
+	var sites: Array[Vector3] = []
+	var rng = RandomNumberGenerator.new()
+	rng.seed = world_seed ^ 0x71A2
+	for i in range(grid.cells.size()):
+		var cell = grid.cells[i]
+		if cell.tree or cell.get("log",false) or cell.get("berry_bush",false): continue
+		var at = grid.world_position(Vector2i(i%grid.SIZE,i/grid.SIZE))
+		sites.append(at+Vector3(rng.randf_range(-0.65,0.65),0.028,rng.randf_range(-0.65,0.65)))
+	rain_impacts.multimesh.instance_count = mini(32,sites.size())
+	for i in range(rain_impacts.multimesh.instance_count):
+		var at = sites[rng.randi_range(0,sites.size()-1)]
+		rain_impacts.multimesh.set_instance_transform(i,Transform3D(Basis.IDENTITY,at))
+		rain_impacts.multimesh.set_instance_custom_data(i,Color(rng.randf(),0,0,1))
+	impact_material = ShaderMaterial.new()
+	var shader = Shader.new()
+	shader.code = """shader_type spatial;
+render_mode unshaded,cull_disabled,depth_draw_never;
+uniform float rain_time=0.0;
+void vertex(){float phase=fract(rain_time*1.7+INSTANCE_CUSTOM.r);VERTEX.xz*=0.3+phase*1.5;VERTEX.y*=0.25;COLOR=vec4(1.0,1.0,1.0,(1.0-phase)*0.55);}
+void fragment(){ALBEDO=vec3(0.7,0.82,0.85);ALPHA=COLOR.a;}
+"""
+	impact_material.shader = shader
+	rain_impacts.material_override = impact_material
+	rain_impacts.extra_cull_margin = 0.2
+	rain_impacts.visible = false
+	add_child(rain_impacts)
