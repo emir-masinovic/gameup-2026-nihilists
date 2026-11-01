@@ -31,7 +31,7 @@ func run():
 	for ground in world.terrain_renderer.batches:
 		check(ground.material_override == world.water_material or ground.material_override == world.charred_material or ground in [world.terrain_renderer.batches[18],world.terrain_renderer.batches[19]] or (ground.material_override is ShaderMaterial and ground.material_override in world.palette), "Every tile reuses the shared terrain palette")
 	var cover = world.ground_cover
-	check(cover.get_child_count() == 5 and cover.batches[0].indices.size() <= world.grid.cells.size()*33, "Abundant cover and cracks stay in five bounded draw batches")
+	check(cover.get_children().filter(func(child): return child is MultiMeshInstance3D).size() == 5 and cover.batches[0].indices.size() <= world.grid.cells.size()*33, "Abundant cover and cracks stay in five bounded draw batches")
 	var test_cell = Vector2i(7,5)
 	var ground_data: Dictionary = world.grid.cells[test_cell.y*world.grid.SIZE+test_cell.x]
 	var saved_ground: Dictionary = ground_data.duplicate(true)

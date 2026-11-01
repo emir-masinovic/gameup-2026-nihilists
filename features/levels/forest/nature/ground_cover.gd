@@ -11,11 +11,62 @@ var _appearance_seed = 0
 var _patch_noise = FastNoiseLite.new()
 var _detail_noise = FastNoiseLite.new()
 var _grass_sites: Dictionary = {}
+var generation_ms = 0.0
+var update_ms = 0.0
+var baseline = OS.is_debug_build() and OS.get_cmdline_user_args().has("--grass-baseline")
+var lod_controller: Node
+var _wind_texture: NoiseTexture2D
+var grass_wind_multiplier = _debug_wind_multiplier()
+var _quality = "Medium"
+var _capacity_quality = "Medium"
+var reconfigure_ms = 0.0
 var _grid: RefCounted
 var _crack_sizes: Array[float] = []
 var _crack_targets: Array[float] = []
 
+func _ready():
+	var settings = get_node_or_null("/root/SettingsManager")
+	if settings != null:
+		_quality = settings.grass_density
+		if _quality != "Off": _capacity_quality = _quality
+		settings.graphics_changed.connect(_apply_density)
+
+func _apply_density():
+	var quality = get_node("/root/SettingsManager").grass_density
+	if quality == _quality: return
+	_quality = quality
+	if _grid == null or batches.is_empty(): return
+	var begin = Time.get_ticks_usec()
+	if quality != "Off" and quality != _capacity_quality:
+		var previous_material = batches[0].renderer.material_override
+		var wind = {"direction":previous_material.get_shader_parameter("wind_direction"),"strength":previous_material.get_shader_parameter("wind_strength")/maxf(grass_wind_multiplier,0.001),"time":previous_material.get_shader_parameter("wind_time")}
+		var exposure = previous_material.get_shader_parameter("wind_exposure")
+		var origin = previous_material.get_shader_parameter("shelter_origin")
+		if lod_controller != null:
+			lod_controller.free()
+			lod_controller = null
+		batches.pop_front().renderer.free()
+		_capacity_quality = quality
+		_grass_sites.clear()
+		_build(_grid,Visuals.instantiate_grass(),false)
+		batches.push_front(batches.pop_back())
+		update_state(_grid)
+		_process(1.0)
+		set_wind(wind)
+		set_shelter(exposure,Vector3(origin.x,0,origin.y))
+		_create_lod()
+	batches[0].renderer.visible = quality != "Off"
+	if lod_controller != null: lod_controller.set_process(quality != "Off")
+	reconfigure_ms = (Time.get_ticks_usec()-begin)/1000.0
+
+func _create_lod():
+	if not baseline and not (OS.is_debug_build() and OS.get_cmdline_user_args().has("--grass-no-lod")):
+		lod_controller = preload("res://features/levels/forest/nature/ControllerGrassLOD.gd").new()
+		add_child(lod_controller)
+		lod_controller.configure(self)
+
 func configure(grid: RefCounted, occupied: Dictionary = {}):
+	var begin = Time.get_ticks_usec()
 	_grass_sites.clear()
 	occupied_cells = occupied
 	_grid = grid
@@ -32,6 +83,10 @@ func configure(grid: RefCounted, occupied: Dictionary = {}):
 	_build_cracks(grid)
 	update_state(grid)
 	_process(1.0)
+	generation_ms = (Time.get_ticks_usec()-begin)/1000.0
+	_create_lod()
+	batches[0].renderer.visible = _quality != "Off"
+	if lod_controller != null: lod_controller.set_process(_quality != "Off")
 
 func _find_mesh(node: Node, parent_transform: Transform3D) -> Dictionary:
 	var transform = parent_transform * node.transform if node is Node3D else parent_transform
@@ -60,7 +115,11 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	var placement: Array[Dictionary] = []
 	if not shrubs:
 		# Retain the old total capacity, not its per-tile layout.
-		placement = _grass_placement(grid,indices.size()*GRASS_POPULATION_SCALE)
+		var budget = roundi(indices.size()*GRASS_POPULATION_SCALE * {"Low":3000.0/5298.0,"Medium":1.0,"High":8000.0/5298.0}[_capacity_quality])
+		if OS.is_debug_build():
+			for argument in OS.get_cmdline_user_args():
+				if argument.begins_with("--grass-count="): budget = clampi(int(argument.get_slice("=",1)),1,20000)
+		placement = _grass_placement(grid,budget)
 		indices.clear()
 		for candidate in placement: indices.append(candidate.index)
 	var renderer = MultiMeshInstance3D.new()
@@ -75,7 +134,23 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	renderer.material_override.set_shader_parameter("blade_grass",not shrubs)
 	renderer.material_override.set_shader_parameter("sway",0.045 if shrubs else 0.24)
 	renderer.material_override.set_shader_parameter("wind_height",0.3 if shrubs else 0.5)
+	if not shrubs and not baseline:
+		renderer.material_override.set_shader_parameter("view_thickening",0.35 if OS.is_debug_build() and OS.get_cmdline_user_args().has("--grass-thickening") and not OS.get_cmdline_user_args().has("--grass-no-thickening") else 0.0)
+		if not OS.get_cmdline_user_args().has("--grass-no-perlin"):
+			_wind_texture = NoiseTexture2D.new()
+			_wind_texture.width = 128
+			_wind_texture.height = 128
+			_wind_texture.seamless = true
+			var wind_noise = FastNoiseLite.new()
+			wind_noise.noise_type = FastNoiseLite.TYPE_PERLIN
+			wind_noise.fractal_type = FastNoiseLite.FRACTAL_NONE
+			wind_noise.frequency = 0.055
+			wind_noise.seed = _appearance_seed
+			_wind_texture.noise = wind_noise
+			renderer.material_override.set_shader_parameter("wind_field",_wind_texture)
+			renderer.material_override.set_shader_parameter("spatial_wind_enabled",true)
 	renderer.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	renderer.extra_cull_margin = 0.7
 	add_child(renderer)
 	var sizes: Array[float] = []
 	sizes.resize(indices.size())
@@ -114,6 +189,7 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	model.free()
 
 func update_state(grid: RefCounted):
+	var begin = Time.get_ticks_usec()
 	for batch in batches:
 		var last_cell = -1
 		var vitality = 0.0
@@ -146,6 +222,8 @@ func update_state(grid: RefCounted):
 		# Dry cracks persist into early recovery, fading as real ground health returns.
 		_crack_targets[i] = clampf((0.72-data.health)/0.45,0.0,1.0) * clampf((0.72-data.moisture)/0.45,0.0,1.0) if bare_ground else 0.0
 	set_process(true)
+
+	update_ms = (Time.get_ticks_usec()-begin)/1000.0
 
 func _process(delta: float):
 	if _grid == null: return
@@ -221,7 +299,7 @@ func _build_cracks(grid: RefCounted):
 	_crack_targets.fill(0.0)
 
 # Three tapered, segmented blades: shared by the existing clustered MultiMesh.
-func _grass_tuft() -> ArrayMesh:
+func _grass_tuft(segments: int = 3) -> ArrayMesh:
 	var mesh = SurfaceTool.new()
 	mesh.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for blade in range(3):
@@ -231,11 +309,12 @@ func _grass_tuft() -> ArrayMesh:
 		mesh.set_color(Color(direction.x*0.5+0.5,direction.z*0.5+0.5,float(blade)/2.0,1))
 		var bend = [0.24,0.18,0.29][blade]
 		var width = [0.045,0.04,0.05][blade]
-		for segment in range(3):
-			var t0 = float(segment)/3.0
-			var t1 = float(segment+1)/3.0
+		mesh.set_uv2(Vector2(width,bend))
+		for segment in range(segments):
+			var t0 = float(segment)/segments
+			var t1 = float(segment+1)/segments
 			var vertices = [Vector2(t0,-1),Vector2(t0,1),Vector2(t1,1)]
-			if segment < 2: vertices.append_array([Vector2(t0,-1),Vector2(t1,1),Vector2(t1,-1)])
+			if segment < segments-1: vertices.append_array([Vector2(t0,-1),Vector2(t1,1),Vector2(t1,-1)])
 			for vertex in vertices:
 				var t: float = vertex.x
 				var center = Vector3.UP*t*0.5+direction*(0.03*t+bend*t*t)
@@ -245,13 +324,16 @@ func _grass_tuft() -> ArrayMesh:
 				mesh.set_normal((face*0.45+Vector3.UP*0.7+side*vertex.y*0.35).normalized())
 				mesh.set_uv(Vector2((vertex.y+1.0)*0.5,t))
 				mesh.add_vertex(center+side*vertex.y*pow(1.0-t,0.9)*width)
+	if not baseline: mesh.index()
 	return mesh.commit()
 
 func set_wind(state: Dictionary):
+	var direction: Vector2 = state.direction
+	if direction.length_squared() < 0.000001: direction = Vector2.RIGHT
 	for batch in batches:
 		var material = batch.renderer.material_override
-		material.set_shader_parameter("wind_direction",state.direction)
-		material.set_shader_parameter("wind_strength",state.strength)
+		material.set_shader_parameter("wind_direction",direction)
+		material.set_shader_parameter("wind_strength",state.strength * grass_wind_multiplier if batch.renderer.name == "Grass" else state.strength)
 		material.set_shader_parameter("wind_time",state.time)
 
 # Generation-only, continuous world-space density. One jittered candidate per
@@ -262,7 +344,7 @@ func _grass_placement(grid: RefCounted, budget: int) -> Array[Dictionary]:
 	var first: Vector3 = grid.world_position(Vector2i.ZERO)
 	var edge = Vector2(first.x,first.z)-Vector2.ONE*grid.CELL_SIZE*0.5
 	var extent = grid.SIZE*grid.CELL_SIZE
-	var steps = ceili(extent/(0.45/sqrt(float(GRASS_POPULATION_SCALE))))
+	var steps = maxi(ceili(extent/(0.45/sqrt(float(GRASS_POPULATION_SCALE)))),ceili(sqrt(float(budget)*2.0)))
 	var spacing = extent/steps
 	var candidates: Array[Dictionary] = []
 	for z in range(steps):
@@ -323,3 +405,15 @@ func _crowding(placement: Array[Dictionary]) -> Array[float]:
 					if distance > 0.001: overlap += maxf(0.0,1.0-distance/0.65)
 		values.append(clampf(overlap/3.0,0.0,1.0))
 	return values
+
+# Rendering-only diagnostic. Never alters the shared climate/wind state.
+static func _debug_wind_multiplier() -> float:
+	if OS.is_debug_build():
+		for argument in OS.get_cmdline_user_args():
+			if argument.begins_with("--grass-wind-multiplier="):
+				var value = argument.get_slice("=",1)
+				return _parse_wind_multiplier(value)
+	return 1.0
+
+static func _parse_wind_multiplier(value: String) -> float:
+	return clampf(float(value),0.0,3.0) if value.is_valid_float() and is_finite(float(value)) else 1.0
