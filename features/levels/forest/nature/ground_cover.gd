@@ -126,7 +126,7 @@ func update_state(grid: RefCounted):
 				var data = grid.cells[i]
 				vitality = minf(data.get("health",1.0),data.get("moisture",1.0)*1.65)
 				var cell = Vector2i(i%grid.SIZE,i/grid.SIZE)
-				var occupied = occupied_cells.has(cell) or cell == grid.start or data.tree or data.get("log",false) or data.get("berry_bush",false) or data.get("spaceship", false)
+				var occupied = occupied_cells.has(cell) or cell == grid.start or data.tree or data.get("log",false) or data.get("berry_bush",false) or data.get("spaceship", false) or data.get("recycle_bin", false) or data.get("trash", false)
 				var allowed = (data.tree and data.get("tree_state","healthy") != "stump" and not data.get("log",false)) if batch.shrubs else not occupied
 				visible_patch = allowed and data.terrain == "grass" and not data.get("burning",false) and (not data.get("burned",false) or data.get("burn_recovery",0.0) >= 0.2)
 				var signature = Vector2(vitality,1.0 if visible_patch else 0.0)

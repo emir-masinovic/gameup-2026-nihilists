@@ -23,6 +23,8 @@ var interactions = preload("res://features/levels/forest/forest_interactions.gd"
 var survival = preload("res://features/player/survival_state.gd").new()
 var terrain_renderer: Node3D
 var trees = {}
+var recycle_bin_visual: Node3D = null
+var trash_visuals: Dictionary = {}
 var palette: Array[ShaderMaterial] = []
 var tick_accumulator = 0.0
 var ended = false
@@ -202,6 +204,8 @@ func _ready():
 	_update_bonfire_visuals()
 	if region_id == "forest":
 		_create_spaceship()
+	_create_recycle_bin()
+	_create_trash_visuals()
 	_create_kenney_props()
 	water_material = StandardMaterial3D.new()
 	water_material.albedo_color = Color("477c88")
@@ -340,6 +344,45 @@ func _try_interact(action_group: String):
 			context_action.begin(custom,$GridPlayer.cell)
 			return
 		var underfoot = $GridPlayer.cell
+		var underfoot_data: Dictionary = grid.cells[underfoot.y * grid.SIZE + underfoot.x] if grid.in_bounds(underfoot) else {}
+		if underfoot_data.get("trash", false):
+			if survival.trash_count >= survival.MAX_TRASH:
+				hud.notify("You must dump trashes into the recyle bin before taking new trashes")
+				return
+			if survival.add_trash(1):
+				underfoot_data.trash = false
+				if trash_visuals.has(underfoot):
+					var visual = trash_visuals[underfoot]
+					if is_instance_valid(visual):
+						visual.queue_free()
+					trash_visuals.erase(underfoot)
+				$GridPlayer.start_gathering(grid.world_position(underfoot))
+				var tree = get_tree()
+				if tree != null:
+					var gather_timer = tree.create_timer(0.65)
+					gather_timer.timeout.connect(func():
+						if is_instance_valid($GridPlayer):
+							$GridPlayer.stop_gathering()
+					)
+				_update_hud()
+				return
+		if _near_recycle_bin(underfoot):
+			if survival.trash_count > 0:
+				var dumped = survival.dump_trash()
+				$GridPlayer.start_gathering(grid.world_position(grid.recycle_bin_cell))
+				var tree = get_tree()
+				if tree != null:
+					var gather_timer = tree.create_timer(0.65)
+					gather_timer.timeout.connect(func():
+						if is_instance_valid($GridPlayer):
+							$GridPlayer.stop_gathering()
+					)
+				hud.notify("Dumped %d trash into the recycle bin." % dumped)
+				_update_hud()
+				return
+			else:
+				hud.notify("No trash to dump.")
+				return
 		var harvest_target = Vector2i(-1, -1)
 		if grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berry_bush",false) and not grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("water", false):
 			harvest_target = underfoot
@@ -433,7 +476,11 @@ func _on_cell_entered(cell: Vector2i):
 	_discover("region." + region_id, regions.region_name(region_id) + " surveyed")
 	climate.trample(cell)
 	var here = grid.cells[cell.y * grid.SIZE + cell.x]
-	if here.get("berry_bush", false):
+	if here.get("trash", false):
+		hud.notify("In order to pick trash, press E")
+	elif _near_recycle_bin(cell):
+		hud.notify("Press E for dumbing trashes into the recycle bin.")
+	elif here.get("berry_bush", false):
 		_discover("food.berry_bush", "Berry bushes supply food")
 	if here.moisture < 0.45 or here.get("burned", false):
 		objectives.observe_problem(region_id)
@@ -855,12 +902,53 @@ func _create_spaceship():
 	ship.add_to_group("forest_props")
 	add_child(ship)
 
+func _near_recycle_bin(cell: Vector2i) -> bool:
+	if not grid.in_bounds(grid.recycle_bin_cell):
+		return false
+	var diff = (cell - grid.recycle_bin_cell).abs()
+	return maxi(diff.x, diff.y) == 1 and cell != grid.recycle_bin_cell
+
+func _create_recycle_bin():
+	if recycle_bin_visual != null and is_instance_valid(recycle_bin_visual):
+		recycle_bin_visual.queue_free()
+		recycle_bin_visual = null
+	if not grid.in_bounds(grid.recycle_bin_cell):
+		return
+	var bin_scene = preload("res://features/levels/forest/props/recycle_bin.tscn")
+	var bin = bin_scene.instantiate()
+	bin.name = "RecycleBin"
+	bin.position = grid.world_position(grid.recycle_bin_cell)
+	bin.add_to_group("forest_props")
+	decorated_cells[grid.recycle_bin_cell] = true
+	add_child(bin)
+	recycle_bin_visual = bin
+
+func _create_trash_visuals():
+	for visual in trash_visuals.values():
+		if is_instance_valid(visual):
+			visual.queue_free()
+	trash_visuals.clear()
+	var trash_scene = preload("res://features/levels/forest/props/trash_clutter.tscn")
+	for cell in grid.trash_cells:
+		if not grid.in_bounds(cell):
+			continue
+		var data: Dictionary = grid.cells[cell.y * grid.SIZE + cell.x]
+		if not data.get("trash", false):
+			continue
+		var visual = trash_scene.instantiate()
+		visual.name = "TrashClutter_%d_%d" % [cell.x, cell.y]
+		visual.position = grid.world_position(cell)
+		visual.add_to_group("forest_props")
+		decorated_cells[cell] = true
+		add_child(visual)
+		trash_visuals[cell] = visual
+
 func _create_kenney_props():
 	var models = [preload("res://features/levels/forest/props/rock_small_a.glb"), preload("res://features/levels/forest/props/rock_small_b.glb")]
 	for i in range(grid.cells.size()):
 		var data = grid.cells[i]
 		var cell = Vector2i(i % grid.SIZE, floori(float(i) / grid.SIZE))
-		if data.tree or data.get("terrain", "grass") == "water" or cell.distance_to(grid.start) < 2.5 or cell == grid.objective or data.shade < 0.32 or data.shade > 0.36 or data.get("spaceship", false) or grid.SPACESHIP_CELLS.has(cell):
+		if data.tree or data.get("terrain", "grass") == "water" or cell.distance_to(grid.start) < 2.5 or cell == grid.objective or data.shade < 0.32 or data.shade > 0.36 or data.get("spaceship", false) or grid.SPACESHIP_CELLS.has(cell) or data.get("recycle_bin", false) or data.get("trash", false) or cell == grid.recycle_bin_cell:
 			continue
 		var prop = models[i % 2].instantiate()
 		decorated_cells[cell] = true

@@ -19,6 +19,8 @@ var wetness = 0.0
 var hunger = 10.0
 var thirst = 10.0
 var berry_count: int = 0
+const MAX_TRASH: int = 3
+var trash_count: int = 0
 var dead = false
 var exposure: float:
 	get:
@@ -158,6 +160,20 @@ func drink() -> bool:
 	if hunger >= 9.99 and thirst >= 9.99 and health < 100.0:
 		health = minf(100.0, health + float(rates.heal_amount))
 	return true
+
+func can_pick_trash() -> bool:
+	return not dead and trash_count < MAX_TRASH
+
+func add_trash(amount: int = 1) -> bool:
+	if dead or trash_count >= MAX_TRASH:
+		return false
+	trash_count = mini(MAX_TRASH, trash_count + amount)
+	return true
+
+func dump_trash() -> int:
+	var dumped = trash_count
+	trash_count = 0
+	return dumped
 
 func _context_fraction(context: Dictionary, key: String, fallback: float) -> float:
 	var value: Variant = context.get(key, fallback)

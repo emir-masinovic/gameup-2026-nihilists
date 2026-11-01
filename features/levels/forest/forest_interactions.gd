@@ -228,7 +228,7 @@ func _begin_interact(player: Vector2i, front: Vector2i, current_cell: Dictionary
 
 	# Priority 5: Tilling untilled soil with hoe ONLY ON CURRENT CELL (Standing cell)
 	# Requirement: "Only the soil on the current player cell can be tilled, not an adjacent cell."
-	if not current_cell.get("tree",false) and not current_cell.get("log",false) and not current_cell.get("berry_bush",false) and not current_cell.get("burning",false) and not _is_water_cell(current_cell) and not current_cell.get("tilled",false) and not grid._protected_route(player) and player != grid.objective:
+	if not current_cell.get("tree",false) and not current_cell.get("log",false) and not current_cell.get("berry_bush",false) and not current_cell.get("burning",false) and not _is_water_cell(current_cell) and not current_cell.get("tilled",false) and not grid._protected_route(player) and player != grid.objective and not current_cell.get("trash", false) and not current_cell.get("recycle_bin", false):
 		target = player
 		origin = player
 		progress = 0.0

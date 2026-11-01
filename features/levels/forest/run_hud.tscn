@@ -155,6 +155,15 @@ text = "3"
 tooltip_text = "Seeds"
 custom_minimum_size = Vector2(34, 0)
 theme_override_font_sizes/font_size = 16
+[node name="TrashIcon" type="Control" parent="PlayerStatus/Rows/Supplies"]
+custom_minimum_size = Vector2(24, 24)
+script = ExtResource("3")
+kind = "trash"
+[node name="Trash" type="Label" parent="PlayerStatus/Rows/Supplies"]
+text = "0/3"
+tooltip_text = "Trash"
+custom_minimum_size = Vector2(34, 0)
+theme_override_font_sizes/font_size = 16
 [node name="Food" type="Label" parent="PlayerStatus/Rows"]
 text = "Berries 0"
 theme_override_font_sizes/font_size = 16

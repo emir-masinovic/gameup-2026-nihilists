@@ -339,7 +339,7 @@ func _reproduce_tree():
 func _can_regenerate(cell: Vector2i) -> bool:
 	if not _grid.in_bounds(cell) or _grid._protected_route(cell) or cell == _grid.objective or cell == regeneration_occupied: return false
 	var data: Dictionary = _grid.cells[cell.y*_grid.SIZE+cell.x]
-	if data.get("spaceship", false) or _grid.SPACESHIP_CELLS.has(cell): return false
+	if data.get("spaceship", false) or _grid.SPACESHIP_CELLS.has(cell) or data.get("recycle_bin", false) or data.get("trash", false) or cell == _grid.recycle_bin_cell: return false
 	if data.tree or data.get("log",false) or data.get("prepared",false) or data.get("berry_bush",false) or data.get("protected_route",false) or data.get("pending_seeds",0)>0: return false
 	if data.terrain == "water" or data.burning or data.burned or data.health < 0.55 or data.moisture <= 0.5: return false
 	# Matches the existing decorative-rock reservation, including inactive regions.

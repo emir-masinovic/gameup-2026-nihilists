@@ -167,6 +167,18 @@ func update_survival(state: RefCounted, canopy: float, eat_binding: String):
 	$PlayerStatus/Rows/Supplies/Water.text = "%d/10" % thirst_val
 	$PlayerStatus/Rows/Supplies/Food.modulate = Color("e05353") if hunger_val <= 0 else Color("edc647") if hunger_val <= 5 else Color.WHITE
 	$PlayerStatus/Rows/Supplies/Water.modulate = Color("e05353") if thirst_val <= 0 else Color("edc647") if thirst_val <= 5 else Color.WHITE
+	if $PlayerStatus/Rows/Supplies.has_node("Trash"):
+		var trash_label: Label = $PlayerStatus/Rows/Supplies/Trash
+		var t_val: int = int(state.trash_count) if "trash_count" in state else 0
+		trash_label.text = "%d/3" % t_val
+		if t_val >= 3:
+			trash_label.modulate = Color("e05353")
+			if $PlayerStatus/Rows/Supplies.has_node("TrashIcon"):
+				$PlayerStatus/Rows/Supplies/TrashIcon.modulate = Color("e05353")
+		else:
+			trash_label.modulate = Color.WHITE
+			if $PlayerStatus/Rows/Supplies.has_node("TrashIcon"):
+				$PlayerStatus/Rows/Supplies/TrashIcon.modulate = Color.WHITE
 	$PlayerStatus/Rows/Food.text = "Berries %d — [%s] Eat" % [state.berry_count, eat_binding]
 	$PlayerStatus/Rows/Wetness.visible = state.wetness >= 1.0 or canopy > 0.05
 	$PlayerStatus/Rows/Wetness.text = "Wet %d%%" % roundi(state.wetness) if state.wetness >= 1.0 else ""
