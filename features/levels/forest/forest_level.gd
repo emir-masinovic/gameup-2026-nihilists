@@ -316,7 +316,7 @@ func _try_interact(action_group: String):
 		elif interactions.action_kind == "harvest_crop":
 			msg = "Fidan/tohum çapalanıyor... hareket etmek iptal eder"
 			$GridPlayer.start_tilling(target_pos)
-		elif interactions.action_kind == "tree_cut":
+		elif interactions.action_kind in ["tree_cut","log_cleared"]:
 			msg = "Ağaç kesiliyor... hareket etmek iptal eder"
 			$GridPlayer.start_chopping(target_pos)
 		elif interactions.action_kind == "collect_seeds":
@@ -1059,7 +1059,7 @@ func _on_step_contact(cell: Vector2i):
 func _on_chop_impact(pos: Vector3):
 	if get_tree().paused or ended or transitioning or not $GridPlayer.is_chopping: return
 	var target = interactions.target
-	if not grid.in_bounds(target) or interactions.action_kind not in ["tree_cut","stump_removed"]: return
+	if not grid.in_bounds(target) or interactions.action_kind not in ["tree_cut","stump_removed","log_cleared"]: return
 	if $GridPlayer.cell != interactions.origin or target != $GridPlayer.cell+$GridPlayer.facing: return
 	if interactions.kind_for(grid.cells[target.y*grid.SIZE+target.x]) != interactions.action_kind: return
 	audio_cue.emit("chop",grid.world_position(target))
