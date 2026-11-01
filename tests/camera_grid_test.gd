@@ -45,7 +45,7 @@ func run():
 	check(camera.size < old_size and camera.size > rig.target_zoom - 0.01, "Zoom interpolates")
 	for index in range(50):
 		rig._unhandled_input(wheel)
-	check(rig.target_zoom == rig.MIN_ZOOM, "Minimum zoom clamp")
+	check(rig.target_zoom == rig._minimum_zoom(), "Minimum zoom clamp")
 	await create_timer(0.5).timeout
 	for aa in [Viewport.MSAA_DISABLED, Viewport.MSAA_4X]:
 		settings.msaa_3d = aa

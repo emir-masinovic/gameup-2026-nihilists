@@ -1,63 +1,115 @@
 extends Control
+signal perks_closed
 var world: Node
 var modal_kind = ""
 var field_notes = "Survey the forest."
 var refuge_ready = false
 var current_fire_hazard = 0.0
+var notification_queue: Array[Dictionary] = []
+var notification_active: Array[Dictionary] = []
+var notification_labels: Array[Label] = []
+var notification_delay = 0.0
 
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	$Toast.hide()
+	$Toast/Timer.stop()
+	for i in range(3):
+		var label = Label.new()
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label.add_theme_font_size_override("font_size",17)
+		label.add_theme_color_override("font_outline_color",Color(0.02,0.03,0.02,0.95))
+		label.add_theme_constant_override("outline_size",5)
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		add_child(label)
+		notification_labels.append(label)
 	$Modal/Rows/Close.pressed.connect(close_modal)
-	$Modal/Rows/Next.pressed.connect(func(): close_modal(); SceneFlow.new_game())
+	$Modal/Rows/Next.pressed.connect(func(): close_modal(); SceneFlow.retry_game())
 	$Modal/Rows/Menu.pressed.connect(func(): close_modal(); SceneFlow.main_menu())
 	$Modal/Rows/QuickChop.pressed.connect(func(): _purchase("quick_chop"))
 	$Modal/Rows/FireResilience.pressed.connect(func(): _purchase("fire_resilience"))
 	$Modal/Rows/Upgrade.pressed.connect(func():
 		if SaveManager.purchase_heat_resistance():
 			notify("Heat Resistance purchased permanently")
-		show_modal("bonfire"))
+		show_modal(modal_kind))
 
 func _input(event):
 	if $Modal.visible and event.is_action_pressed("pause"):
-		if modal_kind == "bonfire":
+		if modal_kind in ["bonfire","perks"]:
 			close_modal()
 		get_viewport().set_input_as_handled()
 
-func notify(message: String):
-	$Toast.text = message
-	$Toast/Timer.start()
+func notify(message: String, category: String = "normal"):
+	if message.is_empty(): return
+	if message.begins_with("Discovery:") or "Knowledge" in message: category = "important"
+	for item in notification_queue+notification_active:
+		if item.text == message: return
+	if notification_queue.size() >= 24:
+		var discard = -1
+		for i in range(notification_queue.size()):
+			if notification_queue[i].category != "important": discard = i; break
+		if discard < 0: return
+		notification_queue.remove_at(discard)
+	var item = {"text":message,"category":category,"age":0.0,"duration":9.0 if category == "important" else (3.0 if category == "low" else 5.0)}
+	if category == "important":
+		var slot = 0
+		while slot < notification_queue.size() and notification_queue[slot].category == "important": slot += 1
+		notification_queue.insert(slot,item)
+	else: notification_queue.append(item)
+
+func _process(delta):
+	if get_tree().paused: return
+	for i in range(notification_active.size()-1,-1,-1):
+		notification_active[i].age += delta
+		if notification_active[i].age >= notification_active[i].duration: notification_active.remove_at(i)
+	notification_delay -= delta
+	if notification_active.size() < 3 and not notification_queue.is_empty() and notification_delay <= 0:
+		notification_active.append(notification_queue.pop_front())
+		notification_delay = 0.65
+	for i in range(3):
+		var label = notification_labels[i]
+		label.visible = i < notification_active.size()
+		if not label.visible: continue
+		var item = notification_active[i]
+		label.text = item.text
+		label.position = Vector2(22,size.y-240+i*50)
+		label.size = Vector2(minf(470,size.x-44),48)
+		label.modulate.a = minf(clampf(item.age/0.25,0,1),clampf((item.duration-item.age)/1.2,0,1))*(1.0 if i == notification_active.size()-1 else 0.78)
 
 func show_modal(kind: String):
 	modal_kind = kind
 	$Modal.show()
 	$Dim.show()
 	get_tree().paused = true
-	$Modal/Rows/Title.text = {"bonfire": "Bonfire - safe shelter", "death": "The forest claimed this attempt", "success": "Wetlands refuge reached"}[kind]
+	$Modal/Rows/Title.text = {"bonfire": "Bonfire - safe shelter", "death": "The forest claimed this attempt", "success": "Wetlands refuge reached", "perks":"Perks"}[kind]
 	$Modal/Rows/Progress.text = "Knowledge: %d | Discoveries: %d\nHeat Resistance: %s" % [SaveManager.progression.knowledge, SaveManager.progression.discoveries.size(), "Owned" if SaveManager.has_heat_resistance() else "Not purchased"]
 	var names: PackedStringArray = []
 	for id in SaveManager.progression.discoveries:
 		names.append(id.get_slice(".", 1).replace("_", " ").capitalize())
-	$Modal/Rows/Progress.text += "\nField notes: " + field_notes
+	if not field_notes.is_empty(): $Modal/Rows/Progress.text += "\nField notes: " + field_notes
 	$Modal/Rows/Progress.tooltip_text = "Discovered: " + (", ".join(names) if not names.is_empty() else "Explore to find something new")
 	for pair in [["QuickChop", "quick_chop", "Quick Chop"], ["FireResilience", "fire_resilience", "Fire Resilience"]]:
 		var button = get_node("Modal/Rows/" + pair[0])
-		button.visible = kind == "bonfire"
+		button.visible = kind in ["bonfire","perks"]
 		button.disabled = SaveManager.has_upgrade(pair[1]) or SaveManager.progression.knowledge < SaveManager.upgrade_cost(pair[1])
 		button.text = pair[2] + (" - Owned" if SaveManager.has_upgrade(pair[1]) else " - %d Knowledge" % SaveManager.upgrade_cost(pair[1]))
-	$Modal/Rows/Upgrade.visible = kind == "bonfire"
+	$Modal/Rows/Upgrade.visible = kind in ["bonfire","perks"]
 	$Modal/Rows/Upgrade.disabled = SaveManager.has_heat_resistance() or SaveManager.progression.knowledge < 3
-	$Modal/Rows/Close.visible = kind == "bonfire"
-	$Modal/Rows/Next.visible = kind != "bonfire"
-	if kind == "bonfire":
+	$Modal/Rows/Close.visible = kind in ["bonfire","perks"]
+	$Modal/Rows/Close.text = "Back to Pause" if kind == "perks" else "Return to forest"
+	$Modal/Rows/Next.visible = kind not in ["bonfire","perks"]
+	if kind in ["bonfire","perks"]:
 		$Modal/Rows/Close.grab_focus()
 	else:
 		$Modal/Rows/Next.grab_focus()
 
 func close_modal():
+	var from_pause = modal_kind == "perks"
 	$Modal.hide()
 	$Dim.hide()
-	get_tree().paused = false
+	get_tree().paused = from_pause
 	modal_kind = ""
+	if from_pause: perks_closed.emit()
 
 func _on_toast_timeout():
 	$Toast.text = ""
@@ -88,7 +140,7 @@ func damage_feedback(damaged: bool):
 func _purchase(id: String):
 	if SaveManager.purchase_upgrade(id):
 		notify("Permanent upgrade purchased")
-	show_modal("bonfire")
+	show_modal(modal_kind)
 
 func set_environment_context(fire_hazard: float, notes: String, ready: bool):
 	current_fire_hazard = fire_hazard
@@ -128,3 +180,8 @@ func update_interaction(target: Dictionary, progress: float, active: bool, bindi
 
 func update_seeds(count: int):
 	$PlayerStatus/Rows/Supplies/Seeds.text = str(count)
+
+func set_wind(state: Dictionary):
+	var direction: Vector2 = state.direction
+	var sector = posmod(roundi(atan2(direction.x,-direction.y)/(PI/4.0)),8)
+	$WorldStatus/Rows/Knowledge/Wind.text = "Wind %s %d%%" % [["N","NE","E","SE","S","SW","W","NW"][sector],roundi(state.strength*100.0)]

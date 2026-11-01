@@ -50,14 +50,24 @@ func run() -> void:
         tree.set_health(0.1, false)
         var dry := mesh.get_surface_override_material(entry.surface) as ShaderMaterial
         check(dry != healthy and not dry.get_shader_parameter("bare"), "Low health uses shared dry foliage")
+        check(dry.get_shader_parameter("canopy_density") < 0.3 and tree.get_node("WitheredBranches").visible, "Drought changes canopy geometry and exposes branches, not only color")
         tree.set_health(0.0, true)
         var dead := mesh.get_surface_override_material(entry.surface) as ShaderMaterial
         check(dead.get_shader_parameter("bare"), "Dead foliage is discarded while bark remains")
+        tree.set_health(0.0,true,0.0,true)
+        check(tree.get_node("WitheredBranches").material_override.albedo_color == Color("231e1a"), "Burned branches differ from drought-dead wood")
         var bark_count := 0
         for index in range(mesh.mesh.get_surface_count()):
             if mesh.get_surface_override_material(index) is StandardMaterial3D:
                 bark_count += 1
         check(bark_count > 0, "Dead tree retains trunk surfaces")
+        # Only living improving trees may show sparse new green foliage.
+        tree.set_health(0.2,false,0.1)
+        tree.set_health(0.3,false,0.8)
+        var recovering = mesh.get_surface_override_material(entry.surface) as ShaderMaterial
+        check(tree._recovering and recovering.get_shader_parameter("canopy_density") < 0.65, "Recovering trees show sparse fresh foliage rather than an instantly full crown")
+        tree.set_health(0.0,true,1.0)
+        check(not tree._recovering, "Rain cannot visually resurrect a logically dead tree")
         tree.rotation.z = PI / 2.0
         var fallen := bounds(tree)
         check(fallen.size.x > 2.4, "Rotating the root moves the whole model around its base")

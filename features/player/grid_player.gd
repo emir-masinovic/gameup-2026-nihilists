@@ -1,5 +1,7 @@
 extends Node3D
 signal cell_entered(cell: Vector2i)
+signal step_contact(cell: Vector2i)
+var _step_contact_pending = false
 signal chop_impact(impact_position: Vector3)
 signal till_impact(impact_position: Vector3)
 signal water_fill_splash(impact_position: Vector3)
@@ -12,6 +14,14 @@ var facing = Vector2i.UP
 var cell = Vector2i.ZERO
 var grid: RefCounted
 var moving = false
+var camera_controlled = false:
+	set(value):
+		camera_controlled = value
+		if value and moving:
+			if is_instance_valid(move_tween): move_tween.kill()
+			moving = false
+			position = grid.world_position(cell) # Finish the already committed grid step.
+			emit_step_contact()
 var require_release = false
 var move_tween: Tween
 var _screen_directions: Dictionary = {}
@@ -96,6 +106,7 @@ func configure(data: RefCounted):
 	_screen_directions.clear()
 
 func _process(_delta):
+	if camera_controlled: return
 	if require_release:
 		for action in ["move_north", "move_south", "move_west", "move_east"]:
 			if Input.is_action_pressed(action):
@@ -202,18 +213,41 @@ func _nearest_visible_direction(screen_direction: Vector2i, projected: Dictionar
 	return best_direction
 
 func try_move(direction: Vector2i) -> bool:
-	if moving or grid == null or abs(direction.x) + abs(direction.y) != 1:
+	if camera_controlled or moving or grid == null or abs(direction.x) + abs(direction.y) != 1:
 		return false
 	facing = direction
-	if has_node("Body"):
-		$Body.rotation.y = atan2(-direction.x, -direction.y)
+	if has_node("Body") and $Body.has_method("face_direction"):
+		$Body.face_direction(direction)
 	var target = cell + direction
 	if not grid.traversable(target):
 		return false
 	moving = true
+	_step_contact_pending = true
 	cell = target
 	cell_entered.emit(cell)
 	move_tween = create_tween()
 	move_tween.tween_property(self, "position", grid.world_position(cell), 0.16).set_trans(Tween.TRANS_SINE)
-	move_tween.finished.connect(func(): moving = false)
+	move_tween.finished.connect(func():
+		moving = false
+		emit_step_contact())
 	return true
+
+# Grid collision occupies one tile; include the astronaut's interpolating body
+# near tile boundaries until its already committed step has visibly finished.
+func growth_occupied_cells() -> Array[Vector2i]:
+	var occupied: Array[Vector2i] = [cell]
+	if grid == null: return occupied
+	var half_width = grid.CELL_SIZE * 0.5 + 0.35
+	for y in range(cell.y-1,cell.y+2):
+		for x in range(cell.x-1,cell.x+2):
+			var candidate = Vector2i(x,y)
+			var offset = grid.world_position(candidate)-position
+			if grid.in_bounds(candidate) and absf(offset.x) < half_width and absf(offset.z) < half_width and not occupied.has(candidate):
+				occupied.append(candidate)
+	return occupied
+
+# Animation contact is preferred; tween completion covers low frame rates.
+func emit_step_contact():
+	if not _step_contact_pending: return
+	_step_contact_pending = false
+	step_contact.emit(cell)

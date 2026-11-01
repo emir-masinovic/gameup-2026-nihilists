@@ -4,6 +4,19 @@ func _initialize():
 func run():
 	var settings = root.get_node("SettingsManager")
 	settings.storage_path = "user://settings_restart_test.cfg"
+	if "--resolution-write" in OS.get_cmdline_user_args():
+		await check_native_resolution(settings)
+		return
+	if "--resolution-read" in OS.get_cmdline_user_args():
+		settings.load_settings()
+		settings.apply_settings()
+		await create_timer(0.2).timeout
+		var expected = Vector2i(1280,720) if "--resolution-1280" in OS.get_cmdline_user_args() else Vector2i(1600,900)
+		var valid = settings.resolution == expected and root.size == expected and DisplayServer.window_get_size() == expected
+		print("NATIVE RESTART requested=",settings.resolution," root=",root.size," native=",DisplayServer.window_get_size()," PASS=",valid)
+		DirAccess.remove_absolute(settings.storage_path)
+		quit(0 if valid else 1)
+		return
 	if "--write" in OS.get_cmdline_user_args():
 		settings.reset_defaults()
 		settings.rebind("move_north", 0, KEY_K)
@@ -34,3 +47,37 @@ func run():
 		quit(0 if valid else 1)
 		return
 	quit(0)
+
+func check_native_resolution(settings: Node):
+	settings.fullscreen = false
+	settings.apply_settings()
+	var options = load("res://features/menus/options_menu.tscn").instantiate()
+	root.add_child(options)
+	options.show_category("Video")
+	await process_frame
+	var failures = 0
+	var test_sizes = [Vector2i(1280,720)] if "--resolution-1280" in OS.get_cmdline_user_args() else [Vector2i(1280,720),Vector2i(1600,900)]
+	for size in test_sizes:
+		var choice = options.content.get_node("ResolutionRow/Resolution")
+		var index = -1
+		for i in range(choice.item_count):
+			if choice.get_item_text(i) == "%d × %d" % [size.x,size.y]: index = i
+		if index < 0:
+			push_error("Required test resolution is unavailable on this display")
+			quit(1)
+			return
+		choice.select(index)
+		choice.item_selected.emit(index)
+		await create_timer(0.2).timeout
+		var valid = settings.resolution == size and root.size == size and DisplayServer.window_get_size() == size
+		print("NATIVE SELECT ",size," actual=",DisplayServer.window_get_size()," PASS=",valid)
+		if not valid: failures += 1
+		# Reproduce a native resize after the cached requested size was recorded.
+		DisplayServer.window_set_size(Vector2i(1152,720))
+		await create_timer(0.1).timeout
+		choice.item_selected.emit(index)
+		await create_timer(0.2).timeout
+		valid = root.size == size and DisplayServer.window_get_size() == size
+		print("NATIVE RESELECT ",size," actual=",DisplayServer.window_get_size()," PASS=",valid)
+		if not valid: failures += 1
+	quit(1 if failures > 0 else 0)

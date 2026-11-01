@@ -20,6 +20,7 @@ func run() -> void:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
 	var saves = SAVE_SCRIPT.new()
+	saves.run_path = "user://progression_test_session.save"
 	saves.storage_path = TEST_PATH
 	check(not saves.load_progression() and saves.progression.knowledge == 0, "Missing file loads zero Knowledge")
 	check(not saves.has_resumable_run(), "Progression does not create a resumable run")
@@ -101,5 +102,41 @@ func run() -> void:
 	saves.free()
 	reloaded.free()
 	failed_purchase.free()
+	await check_fresh_game_flow()
 	print("PROGRESSION: ", checks, " checks, ", failures, " failures")
 	quit(0 if failures == 0 else 1)
+
+func check_fresh_game_flow():
+	var save = root.get_node("SaveManager")
+	var previous_path = save.storage_path
+	var previous_progression = save.progression.duplicate(true)
+	save.storage_path = "user://fresh_game_flow_test.json"
+	var settings = root.get_node("SettingsManager")
+	var volumes = settings.volumes.duplicate(true)
+	var bindings = settings.bindings.duplicate(true)
+	var flow = root.get_node("SceneFlow")
+	var old_game = {"discoveries":["old.run"],"knowledge":20,"upgrades":["heat_resistance","quick_chop","fire_resilience"]}
+	check(save.save_progression(old_game) == OK,"Test old-game progression persists")
+	flow.new_game()
+	check(save.progression == {"discoveries":[],"knowledge":0,"upgrades":[]},"New Game clears prior Knowledge, discoveries and purchased perks before loading")
+	check(save.load_progression() and save.progression.upgrades.is_empty() and save.progression.discoveries.is_empty(),"Fresh-game reset persists on disk")
+	await process_frame
+	await process_frame
+	current_scene.set_process(false)
+	check(not save.has_heat_resistance() and save.get_chop_multiplier() == 1.0 and save.get_fire_damage_multiplier() == 1.0,"Fresh game has no perk effects")
+	check(not "old.run" in save.progression.discoveries and current_scene.hud.get_node("WorldStatus/Rows/Knowledge/Value").text == "%d Knowledge" % save.progression.knowledge,"Fresh HUD reflects current progression rather than old save")
+	check(settings.volumes == volumes and settings.bindings == bindings,"Fresh game preserves audio and bindings")
+	save.save_progression(old_game)
+	flow.retry_game()
+	check(save.has_heat_resistance() and "old.run" in save.progression.discoveries,"Retry preserves progression intentionally")
+	await process_frame
+	await process_frame
+	current_scene.set_process(false)
+	flow.main_menu()
+	await process_frame
+	await process_frame
+	for path in [save.storage_path,save.storage_path+".tmp"]:
+		if FileAccess.file_exists(path): DirAccess.remove_absolute(path)
+	if FileAccess.file_exists(save.run_path): DirAccess.remove_absolute(save.run_path)
+	save.storage_path = previous_path
+	save.progression = previous_progression

@@ -132,11 +132,11 @@ func scene_checks():
 		world.trees[target].queue_free()
 		world.trees.erase(target)
 	world.decorated_cells.erase(target)
-	player.cell = Vector2i(8,5)
+	player.cell = target
 	player.position = world.grid.world_position(player.cell)
 	player.facing = Vector2i.LEFT
 	world._begin_context_action()
-	check(world.context_action.active.get("object_kind") == "prepare" and player.get_node("Body/ArmRight/Hoe").visible, "Contextual Prepare Soil starts hoe animation")
+	check(world.interactions.action_kind == "till_soil" and player.get_node("Body/ArmRight/Hoe").visible, "Contextual Prepare Soil starts hoe animation")
 	paused = true
 	world._tick_context_action(1.0)
 	check(not data.prepared, "Paused action cannot prepare soil")
@@ -145,10 +145,10 @@ func scene_checks():
 	check(data.prepared and not player.get_node("Body/ArmRight/Hoe").visible, "Preparation completes and puts away hoe")
 	world._begin_context_action()
 	world._tick_context_action(1.1)
-	check(data.tree_state == "sapling" and world.planting.seed_count == 2, "Next contextual action plants prepared soil")
+	check(data.tree_state == "seed" and world.planting.seed_count == 2, "Next contextual action plants prepared soil")
 	data.moisture = 0.0
 	world._begin_context_action()
-	check(world.context_action.active.get("object_kind") == "water_plant" and player.get_node("Body/ArmRight/Bottle").visible, "Thirsty sapling selects watering and bottle animation")
+	check(world.interactions.action_kind == "water_soil" and player.get_node("Body/ArmRight/Bottle").visible, "Thirsty sapling selects watering and bottle animation")
 	world._tick_context_action(1.0)
 	check(data.moisture == 0.5 and world.planting.water_ml == 250, "Scene watering updates shared bottle and climate moisture")
 	var pond_cell = Vector2i(7,4)
@@ -159,9 +159,12 @@ func scene_checks():
 	player.position = world.grid.world_position(player.cell)
 	player.facing = Vector2i.LEFT
 	world.survival.thirst = 55.0
+	world._update_interaction_marker()
+	check(world._action_preview("interact").cell == pond_cell,"Facing pond preview matches Interact target")
 	world._begin_context_action()
-	check(world.context_action.active.get("object_kind") == "water" and player.get_node("Body/ArmRight/Bottle").visible, "Valid pond contextual action animates filling without a new input")
-	world._tick_context_action(1.0)
+	check(world.interactions.target == pond_cell,"Pond execution uses preview target")
+	check(world.interactions.action_kind == "fill_water" and player.get_node("Body/ArmRight/Bottle").visible, "Valid pond contextual action animates filling without a new input")
+	world._tick_context_action(3.0)
 	check(world.planting.water_ml == 750 and world.survival.thirst == 100.0 and pond.water_level == 1.0, "One pond action fills bottle and preserves survival drinking without draining pond")
 	player.cell = Vector2i(8,5)
 	player.position = world.grid.world_position(player.cell)
@@ -171,19 +174,62 @@ func scene_checks():
 	native.tree = true
 	native.tree_state = "healthy"
 	native.tree_health = 1.0
+	native.planted = false
+	native.seed_yield_claimed = false
 	player.facing = Vector2i.RIGHT
+	world._update_interaction_marker()
+	check(world._action_preview("chop_gather").cell == native_cell and world.selected_interaction.cell == native_cell,"Facing tree Chop/Gather preview and ring agree")
+	player.facing = Vector2i.UP
+	world._update_interaction_marker()
+	check(world.selected_interaction.get("cell",Vector2i(-1,-1)) != native_cell,"Turning away removes old faced target")
+	player.facing = Vector2i.RIGHT
+	var audio_counts = {"chop":0,"footstep":0}
+	world.audio_cue.connect(func(cue, _at):
+		if audio_counts.has(cue): audio_counts[cue] += 1)
+	world._on_chop_impact(world.grid.world_position(native_cell))
+	check(audio_counts.chop == 0,"No ghost impact without an active axe action")
 	world._try_interact("chop_gather")
+	check(audio_counts.chop == 0,"Chop does not sound at action start")
+	player.get_node("Body").set_process(false)
+	player._update_animation(0.46)
+	check(audio_counts.chop == 1,"First actual axe impact emits once")
+	player._update_animation(0.01)
+	check(audio_counts.chop == 1,"Same swing cannot repeat impact")
+	player._update_animation(0.60)
+	check(audio_counts.chop == 2,"Second axe swing emits a second impact")
+	check(world.interactions.target == native_cell,"Chopping executes the previewed faced target")
+	world._try_interact("chop_gather")
+	check(world.interactions.progress == 0.0,"Repeated dispatch does not restart or duplicate action")
 	world._tick_context_action(1.3)
-	check(native.tree_state == "stump" and world.grid.traversable(native_cell) and world.planting.seed_count == 2, "Actual chop creates traversable stump without auto-awarding seeds")
+	world._on_chop_impact(world.grid.world_position(native_cell))
+	check(audio_counts.chop == 2,"Completed action cannot emit late ghost chop")
+	check(native.tree_state == "stump" and not world.grid.traversable(native_cell) and world.planting.seed_count == 2, "Actual chop creates blocking stump without auto-awarding seeds")
 	check(world.hud.get_node("PlayerStatus/Rows/Supplies/Seeds").text == "2", "HUD does not award seeds at chop completion")
 	check(world.grid.cells[5*world.grid.SIZE+10].log, "Tree still falls away and creates blocked log")
 	# Step onto the cut tree remains/stump to collect seeds
-	player.cell = native_cell
-	player.position = world.grid.world_position(player.cell)
+	world._update_interaction_marker()
+	check(world._action_preview("interact").object_kind == "stump_removed" and world._action_preview("chop_gather").object_kind == "collect_seeds","Stump advertises both authoritative actions instead of tilling")
 	world._try_interact("chop_gather")
 	world._tick_context_action(1.0)
-	check(world.planting.seed_count == 5 and not native.tree and world.grid.traversable(native_cell), "Collecting seeds on stump grants 3 seeds and clears stump remains")
+	check(world.planting.seed_count == 5 and native.tree and not world.grid.traversable(native_cell), "Adjacent collection grants 3 seeds and preserves blocking stump")
 	check(world.hud.get_node("PlayerStatus/Rows/Supplies/Seeds").text == "5", "HUD updates only after explicit seed collection")
+	world._try_interact("interact")
+	check(player.is_chopping,"Explicit stump removal uses axe")
+	world._tick_context_action(1.0)
+	check(not native.tree and world.grid.traversable(native_cell) and world.planting.seed_count == 5 and not world.trees.has(native_cell),"Explicit removal clears model/visual without seed reward")
+	player.cell = native_cell
+	player.position = world.grid.world_position(player.cell)
+	player.facing = Vector2i.RIGHT
+	var impact_before = audio_counts.chop
+	world._try_interact("chop_gather")
+	check(world.interactions.action_kind == "log_cleared" and player.is_chopping,"Faced fallen log uses existing axe animation")
+	player._update_animation(0.46)
+	check(audio_counts.chop == impact_before+1,"Log axe impact emits once")
+	world._tick_context_action(0.9)
+	world._on_chop_impact(world.grid.world_position(Vector2i(10,5)))
+	check(not world.grid.cells[5*world.grid.SIZE+10].log and world.planting.seed_count == 5 and audio_counts.chop == impact_before+1,"Log clears once without new seed yield or ghost audio")
+	# Keep a full-inventory seeded stump and loose pickup across regional roundtrips.
+	native.merge({"tree":true,"tree_state":"stump","pending_seeds":2},true)
 	world.region_state.grid.cells[6*world.grid.SIZE+7].pending_seeds = 1
 	var water_before: int = world.planting.water_ml
 	flow.change_region("wetlands")
@@ -195,6 +241,7 @@ func scene_checks():
 	world = current_scene
 	world.set_process(false)
 	check(world.planting.water_ml == water_before and world.grid.cells[target.y*world.grid.SIZE+target.x].prepared and world.seed_visuals.has(Vector2i(7,6)), "Scene round trip rebuilds seed drops and retains farming data")
+	check(world.grid.cells[native_cell.y*world.grid.SIZE+native_cell.x].pending_seeds == 2 and not world.grid.traversable(native_cell) and world.trees.has(native_cell),"Regional roundtrip preserves seeded blocking stump")
 	if DisplayServer.get_name() != "headless" and OS.has_environment("NIHILISTS_CAPTURE_DIR"):
 		await create_timer(0.2).timeout
 		await RenderingServer.frame_post_draw

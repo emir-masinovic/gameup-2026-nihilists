@@ -82,12 +82,45 @@ func run():
 	
 	# Test 6: Seed collection from stump requires standing directly on the stump
 	grid.cells[tree_cell.y * grid.SIZE + tree_cell.x].tree_state = "stump"
+	grid.cells[tree_cell.y * grid.SIZE + tree_cell.x].pending_seeds = 3
 	interactions.cancel()
-	check(not interactions.begin(player_pos, Vector2i.RIGHT, "chop_gather"), "Cannot collect seeds from adjacent cell")
+	check(interactions.begin(player_pos, Vector2i.RIGHT, "chop_gather"), "Collect seeds from faced adjacent stump")
 	interactions.cancel()
-	check(interactions.begin(tree_cell, Vector2i.UP, "chop_gather"), "Can collect seeds when standing directly on cut tree remains")
+	check(interactions.begin(player_pos, Vector2i.RIGHT, "chop_gather"), "Adjacent targeting remains authoritative")
 	check(interactions.action_kind == "collect_seeds", "Action kind is collect_seeds")
 	
+	# Idle animation must retain blocked movement facing in all four directions.
+	player.stop_chopping()
+	for direction in [Vector2i.UP,Vector2i.RIGHT,Vector2i.DOWN,Vector2i.LEFT]:
+		var faced = player_pos+direction
+		grid.cells[faced.y*grid.SIZE+faced.x].merge({"tree":true,"tree_state":"healthy","log":false},true)
+		check(not player.try_move(direction),"Tree blocks displacement in "+str(direction))
+		check(player.facing == direction and player.cell == player_pos,"Blocked attempt updates only persistent facing")
+		for frame in range(30): player._update_animation(1.0/60.0)
+		var forward = -player.get_node("Body").global_basis.z
+		check(Vector2(forward.x,forward.z).normalized().dot(Vector2(direction)) > 0.999,"Idle world yaw stays aligned after release")
+		interactions.cancel()
+		check(interactions.begin(player.cell,player.facing,"chop_gather") and interactions.target == faced,"Released Space targets persistent facing")
+		check(not interactions.begin(player.cell,player.facing,"chop_gather"),"Repeated begin cannot dispatch twice")
+		interactions.cancel()
+		grid.cells[faced.y*grid.SIZE+faced.x].tree_state = "sapling"
+		check(interactions.begin(player.cell,player.facing,"interact") and interactions.target == faced and interactions.action_kind == "harvest_crop","Interact uses the same facing for juvenile removal")
+		interactions.cancel()
+	var contacts = {"count":0}
+	player.step_contact.connect(func(_cell): contacts.count += 1)
+	grid.cells[(player.cell.y+player.facing.y)*grid.SIZE+player.cell.x+player.facing.x].tree_state = "healthy"
+	check(not player.try_move(player.facing) and contacts.count == 0,"Blocked input never produces contact")
+	var landing = player.cell+Vector2i.RIGHT
+	grid.cells[landing.y*grid.SIZE+landing.x].merge({"tree":false,"terrain":"soil","water":false,"log":false,"tilled":true},true)
+	check(player.try_move(Vector2i.RIGHT) and contacts.count == 0,"Successful movement waits for landing audio")
+	player._update_animation(0.13)
+	check(contacts.count == 1,"Animation foot plant emits one contact on farmland")
+	player.emit_step_contact()
+	check(contacts.count == 1,"Tween completion fallback cannot duplicate animation contact")
+	player.move_tween.kill()
+	player.moving = false
+	player._update_animation(0.2)
+	check(contacts.count == 1,"Idle never retriggers contact")
 	player.free()
 	
 	print("TREE CHOP FACING TEST: ", checks, " checks, ", failures, " failures")

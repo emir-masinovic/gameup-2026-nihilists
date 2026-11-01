@@ -17,7 +17,12 @@ func configure(grid: RefCounted, palette: Array[ShaderMaterial], water: Material
 	var soil = palette[0].duplicate()
 	soil.set_shader_parameter("terrain_color", Color("554636"))
 	soil.set_shader_parameter("terrain_health", 0.0)
+	soil.set_shader_parameter("terrain_moisture", 0.0)
 	materials.append(soil)
+	var wet_soil = soil.duplicate()
+	wet_soil.set_shader_parameter("terrain_color", Color("40382f"))
+	wet_soil.set_shader_parameter("terrain_moisture", 1.0)
+	materials.append(wet_soil)
 	for i in range(materials.size()):
 		var batch = MultiMeshInstance3D.new()
 		batch.multimesh = MultiMesh.new()
@@ -56,7 +61,7 @@ func update_state(grid: RefCounted):
 		var group = clampi(int(health * 3.99), 0, 3) * 4 + clampi(int(moisture * 3.99), 0, 3)
 		var cell = Vector2i(i % grid.SIZE, floori(float(i) / grid.SIZE))
 		if data.get("terrain", "grass") == "soil" and cell.distance_to(grid.start) >= 2.5 and cell.x != grid.start.x and cell.y != grid.start.y:
-			group = 18
+			group = 19 if moisture > 0.55 else 18
 		if data.get("burned", false) and data.get("burn_recovery", 0.0) < 0.2:
 			group = 17
 		var at: Vector3 = grid.world_position(cell)

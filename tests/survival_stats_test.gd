@@ -65,6 +65,17 @@ func run() -> void:
 		advance(resting, 45, -10.0, 0.0, true, false, {"weather": "clear"})
 		check(resting.body_temperature == 37.0 and resting.wetness == 0.0 and resting.health == 100.0, "Camp warms or cools safely, dries clothes and heals")
 		check(resting.hunger < 100.0 and resting.thirst < 100.0, "Camp does not invent food or drinking water")
+	var outdoor_rain = Survival.new()
+	var weak_camp_rain = Survival.new()
+	for state in [outdoor_rain,weak_camp_rain]:
+		state.body_temperature = 39.0
+		state.wetness = 98.0
+	advance(outdoor_rain,60,21.0,0.0,false,false,{"weather":"rain","wind":0.5})
+	advance(weak_camp_rain,60,21.0,0.0,true,false,{"weather":"rain","wind":0.5,"camp_intensity":0.01})
+	check(outdoor_rain.body_temperature < 38.0 and weak_camp_rain.body_temperature < 38.0, "Rain cools an overheated player even beside a nearly extinguished fire")
+	check(absf(outdoor_rain.body_temperature-weak_camp_rain.body_temperature)<0.2, "Tiny fire intensity cannot suppress environmental exchange")
+	advance(outdoor_rain,180,21.0,0.0,false,false,{"weather":"rain","wind":0.5})
+	check(outdoor_rain.body_temperature > 36.0 and outdoor_rain.health > 0.0, "Mild fully wet rain tapers toward comfort rather than rapid hypothermia")
 	var fair_start = Survival.new()
 	advance(fair_start, 180, 28.0)
 	check(fair_start.health == 100.0 and fair_start.hunger > 10.0 and fair_start.thirst > 10.0, "First three minutes do not force food or water damage")

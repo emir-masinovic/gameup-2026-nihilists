@@ -90,8 +90,13 @@ func traversable(cell: Vector2i) -> bool:
 	var data: Dictionary = cells[cell.y * SIZE + cell.x]
 	if data.get("tree", false):
 		var state = data.get("tree_state", "healthy")
+<<<<<<< HEAD
 		# Stumps, seeds, and saplings are traversable so player can stand on them to collect seeds or water.
 		if state in ["healthy", "dead"]:
+=======
+		# Only juvenile vegetation is traversable; stumps block until explicitly removed.
+		if state not in ["seed", "sapling"]:
+>>>>>>> development
 			return false
 	if data.get("log", false):
 		return false

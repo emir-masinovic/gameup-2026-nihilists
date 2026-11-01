@@ -61,6 +61,12 @@ func _cache_nodes():
 	_hoe = get_node_or_null("ArmRight/Hoe")
 	_bottle = get_node_or_null("ArmRight/Bottle")
 
+# Facing comes from GridPlayer, including blocked attempts. Animation may lean
+# or twist around this yaw, but must not restore an earlier movement direction.
+func face_direction(direction: Vector2i):
+	_target_yaw = atan2(-direction.x, -direction.y)
+	rotation.y = _target_yaw
+
 func _on_step(_cell: Vector2i):
 	stop_chopping()
 	stop_farming()
@@ -131,6 +137,7 @@ func _update_animation(delta: float):
 			# Foot plant & impact cushion phase (t >= 0.72)
 			if not _step_planted:
 				_step_planted = true
+				if get_parent().has_method("emit_step_contact"): get_parent().emit_step_contact()
 				if _step_dust != null:
 					var boot_offset_x = -0.13 if (_step_count % 2 == 1) else 0.13
 					_step_dust.position = Vector3(boot_offset_x, 0.02, 0.0)

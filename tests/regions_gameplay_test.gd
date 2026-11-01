@@ -134,6 +134,7 @@ func run() -> void:
 	var original_time_scale = Engine.time_scale
 	Engine.time_scale = 8.0
 	var saves = root.get_node("SaveManager")
+	saves.run_path = "user://regions_gameplay_test_session.save"
 	saves.storage_path = TEST_PATH
 	clean_test_files()
 	saves.load_progression()
@@ -192,7 +193,7 @@ func run() -> void:
 	check(cut.get("kind") == "tree_cut" and cut.get("landing") == scenario.landing, "Actual cut produces expected stump and log")
 	world._finish_interaction(cut)
 	check(world.cut_cells.has(scenario.tree) and world.trees.has(scenario.tree) and world.logs.has(scenario.landing), "Authoritative cut history has matching stump/log graphics")
-	check(world.grid.traversable(scenario.tree) and not world.grid.traversable(scenario.landing), "Stump is traversable for seed collection and fallen log blocks its cell")
+	check(not world.grid.traversable(scenario.tree) and not world.grid.traversable(scenario.landing), "Stump and fallen log both block occupancy")
 	var old_stump_id = world.trees[scenario.tree].get_instance_id()
 	var old_log_id = world.logs[scenario.landing].get_instance_id()
 	var dry_cells: Array = dry_grid.cells.duplicate(true)
@@ -210,11 +211,11 @@ func run() -> void:
 	check(world.trees.has(scenario.tree) and world.logs.has(scenario.landing) and world.trees[scenario.tree].get_instance_id() != old_stump_id and world.logs[scenario.landing].get_instance_id() != old_log_id, "Only active stump/log graphics are reconstructed from retained state")
 	check(world.grid.cells[scenario.tree.y * 17 + scenario.tree.x].rotation == dry_cells[scenario.tree.y * 17 + scenario.tree.x].rotation, "Retained cell generation data is unchanged")
 	check(await walk_to(scenario.origin), "Player walks back to retained stump")
-	check(world.interactions.begin(scenario.origin, scenario.direction), "Retained stump begins its real second action")
+	check(world.interactions.begin(scenario.origin, scenario.direction,"interact"), "Retained stump begins explicit removal")
 	var removed: Dictionary = world.interactions.tick(2.0, scenario.origin)
 	check(removed.get("kind") == "stump_removed", "Second real interaction clears stump")
 	world._finish_interaction(removed)
-	check(objectives.mitigation_done and not objectives.recovery_seen and world.grid.traversable(scenario.tree) and not world.trees.has(scenario.tree), "Drylands fuel mitigation requires actual stump removal")
+	check(not objectives.mitigation_done and world.grid.traversable(scenario.tree) and not world.trees.has(scenario.tree), "Stump removal opens route without awarding objective credit")
 	world = await take_exit(Vector2i(16, 8), "forest", Vector2i(1, 8))
 	if world == null:
 		finish(original_time_scale)
@@ -224,19 +225,19 @@ func run() -> void:
 		finish(original_time_scale)
 		return
 	check(world.regions == run_models and world.survival == survival and world.objectives == objectives, "Wetlands keeps shared run evidence and survival model")
-	check(world.habitat_marker != null and world.habitat_marker.visible, "Wetlands exposes the actual recovery habitat landmark")
+	check(world.get_node_or_null("HabitatMarker") == null, "Removed recovery marker is not required for regional play")
 	check(await walk_to(Vector2i(8, 6)), "Player navigates beside recovering habitat without teleportation")
 	var habitat: Dictionary = world.grid.cells[5 * 17 + 8]
 	var before_health: float = habitat.health
 	check(not objectives.recovery_seen, "Travelling to wet habitat alone does not fabricate recovery")
 	for index in range(15):
 		world._process(1.0)
-	check(habitat.health > before_health + 0.08 and objectives.recovery_seen and objectives.ready_for_clearing(), "Fifteen actual climate ticks produce witnessed recovery near habitat")
+	check(habitat.health > before_health + 0.08, "Fifteen actual climate ticks preserve environmental recovery")
 	check(run_models.elapsed >= 15.0 and world.climate.elapsed >= 15.0, "Observed habitat recovery advances real regional climate and run clocks")
 	check(await walk_to(world.grid.objective), "Player walks the protected route to Wetlands refuge")
 	await process_frame
-	check(world.ended and world.hud.modal_kind == "success" and paused, "Regional evidence plus actual refuge entry ends the attempt successfully")
-	check(saves.progression.discoveries.has("landmark.refuge") and saves.progression.discoveries.has("interaction.firebreak"), "Actual fieldwork and refuge discoveries persist in isolated test save")
+	check(not world.ended and not paused, "Removed temporary victory condition does not end regional play")
+	check(not saves.progression.discoveries.has("interaction.firebreak"), "Stump removal gives no additional discovery reward")
 	world.hud.close_modal()
 	flow.main_menu()
 	await process_frame
@@ -248,6 +249,7 @@ func finish(original_time_scale: float) -> void:
 	Input.action_release("move_north")
 	Engine.time_scale = original_time_scale
 	paused = false
+	if FileAccess.file_exists(root.get_node("SaveManager").run_path): DirAccess.remove_absolute(root.get_node("SaveManager").run_path)
 	clean_test_files()
 	print("REGIONS_GAMEPLAY: ", checks, " checks, ", failures, " failures")
 	quit(0 if failures == 0 else 1)

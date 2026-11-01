@@ -12,7 +12,7 @@ Keep feature scenes, scripts, resources and media together under `features/`; se
 - `features/audio/`: SoundPalette, selected CC0 recordings and provenance.
 - `tests/`: focused model, scene, persistence, camera/input, desktop and rendering regressions.
 
-`main_menu.tscn` is startup; `application/run/playable_scene` selects the forest. SceneFlow owns scene transitions and a Pause canvas above the world HUD. Nested Options returns to Pause; Resume restores gameplay. Gameplay modals pause the world and camera. Active-run disk restoration is not implemented, so Continue is disabled.
+`main_menu.tscn` is startup; `application/run/playable_scene` selects the forest. SceneFlow owns scene transitions and a Pause canvas above the world HUD. Nested Options returns to Pause; Resume restores gameplay. Gameplay modals pause the world and camera. Continue restores a validated versioned session saved before returning to Main Menu.
 
 ## Camera, input and settings
 
@@ -20,7 +20,7 @@ Follow Player is the default for fresh settings. Board Center is the other suppo
 
 `configure_targets(center, player, restore={})` and `get_transition_state()` connect the level and camera. GridPlayer projects cardinal steps through Camera3D and chooses one opposite-paired four-key mapping, with aggregate hysteresis0.16. Truly edge-on projections use a nearest-visible fallback. `try_move(direction)` remains world-cardinal, and camera changes never mutate grid coordinates.
 
-SettingsManager persists `user://settings.cfg`: audio, desktop window/resolution/VSync/FPS, MSAA, shadows, projection, default targeting mode and bindings. InputMap codes are positive physical keys, negative mouse buttons/wheels and zero for empty slots. Binding capture has two slots, conflict checks and Escape cancellation. Legacy C/F assignments remain intact; conflicting new defaults become unbound. Interact defaults E/Space, Eat F, orbit middle/right mouse and zoom the wheel. Controls reset bindings/sensitivity; Gameplay resets projection/mode. Window controls are disabled where Web/headless owns them.
+SettingsManager persists `user://settings.cfg`: audio, desktop window/resolution/VSync/FPS, MSAA, shadows, projection, default targeting mode and bindings. InputMap codes are positive physical keys, negative mouse buttons/wheels and zero for empty slots. Binding capture has two slots, conflict checks and Escape cancellation. Legacy C/F assignments remain intact; conflicting new defaults become unbound. Interact defaults E; Chop/Gather defaults Space; Eat defaults F. Both interaction actions are rebindable and contextual prompts use the saved bindings. Orbit uses middle/right mouse and zoom uses the wheel. Legacy binding conflicts preserve existing assignments and leave conflicting new defaults unbound. Controls reset bindings/sensitivity; Gameplay resets projection/mode. Window controls are disabled where Web/headless owns them.
 
 ## Run regions and simulation
 
@@ -44,7 +44,7 @@ An eligible healthy original tree produces one visible seed drop at its stump th
 
 VisualAstronaut adapts Onur's hoe/bottle and tilling/filling/watering/gathering poses (provenance beside it). Actions put tools away on completion, cancellation, movement or region transitions; animation never owns logical movement.
 
-Climate advances saplings through three visible sizes at 0/60/120 favorable seconds and matures them at 240. Moisture must exceed .35 and canopy-adjusted temperature stay within 8–34°C. Drought/heat stop growth and damage seedlings; dead seedlings stay dead. Mature trees use existing canopy, cutting and fire systems. Young plants also burn and never regrow after exhausted fire. Plants, death, growth progress and inventory survive regional round trips; inactive growth follows the existing bounded climate catch-up. `VisualSapling` reuses Onur's shared procedural geometry. RunHUD adds one Seeds row using the existing theme.
+Climate advances saplings through three visible sizes at 0/30/75 favorable seconds and matures them at 120. Moisture must exceed .35 and canopy-adjusted temperature stay within 8–34°C. Drought/heat stop growth and damage seedlings; dead seedlings stay dead. Mature trees use existing canopy, cutting and fire systems. Young plants also burn and never regrow after exhausted fire. Plants, death, growth progress and inventory survive regional round trips; inactive growth follows the existing bounded climate catch-up. `VisualSapling` reuses Onur's shared procedural geometry. RunHUD adds one Seeds row using the existing theme.
 
 `ResourceForaging` seeds4/3/1 nonblocking berry bushes in Forest/Wetlands/Drylands with separate RNG. Harvest yields two berries, preserves the bush and requires180 accumulated favorable seconds to replenish. Depletion survives regional re-entry. Eating restores food reserves; adjacent wet freshwater restores water without changing pond volume. First discoveries award Knowledge once.
 
@@ -62,8 +62,94 @@ The active world exposes `grid`, `climate`, `region_state`, `regions` and `survi
 
 ## Rendering, assets and validation
 
-Terrain uses at most19 shared material batches, including persistent brown generated soil with no grass cover; vegetation, fire and rain use bounded shared resources. Terrain receives tree/prop shadows but does not cast self-shadow acne. Climate drives foliage/ground appearance; shader motion is cosmetic. Day/night lighting and bonfire flame/smoke remain independent of simulation authority. SoundPalette is a SceneFlow child with four UI and eight world voices routed to SFX; Dummy headless output validates dispatch without decoder playback. Finished ambience/music is pending.
+Terrain uses at most20 shared material batches, including wet/dry brown generated soil with no grass cover; vegetation, fire and rain use bounded shared resources. Terrain receives tree/prop shadows but does not cast self-shadow acne. Climate drives foliage/ground appearance; shader motion is cosmetic. Day/night lighting and bonfire flame/smoke remain independent of simulation authority. SoundPalette is a SceneFlow child with four UI and eight world voices routed to SFX; Dummy headless output validates dispatch without decoder playback. Finished ambience/music is pending.
 
 Kenney model/audio license and attribution files remain beside selected assets; central originals are untouched. Alegreya Sans retains its OFL under `features/menus/fonts/`. Preserve notices with distributions.
 
 Import with Godot `--headless --editor --import --quit`. Run focused `tests/*_test.gd` scripts through `--headless --script`; settings_restart_test requires `-- --write` followed by a fresh reload process. Desktop/capture tests require a real display; set NIHILISTS_CAPTURE_DIR outside the repository. Use separate test save paths. Export presets supply Windows Desktop and single-thread Web; serve Web output via HTTP(S), not file://. No Cross-Origin Isolation is needed by this preset. Keep exports, screenshots and benchmark output outside Git.
+
+ClimateSimulation.temperature_at(cell) exposes canopy-cooled ground temperature; cell_conditions also retains regional_temperature for comparisons. Drying, stress and recovery use the local ground value, with snapshot canopy per simulation step. Survival keeps regional ambient plus its existing canopy response to avoid duplicate cooling. Debug-only --microclimate-demo sets sapling_growth_rate=4 in RunRegions; only favorable growth age/health advance faster. The shared StatePlanting duration/stage definition drives maturity, visuals and juvenile interactions. The contextual caption adds ground °C and soil moisture without another HUD panel.
+
+Visual ecosystem: ground_cover owns two vegetation MultiMeshes and three partitioned crack MultiMeshes (one crack variant per cell; one to four clustered grass clumps per grass cell, no decoration nodes per clump). Transform interpolation runs only until targets settle, using live moisture/health; it never changes passability or RNG. Leaf materials remain a shared four-state palette, with stable thinning/hysteresis and shared dead-branch geometry. Brown soil excludes grass/cracks. Debug-only --ecosystem-demo selects deterministic seed/initial patches and a clear/rain/clear weather schedule; all later conditions remain climate-driven, and normal generation is unchanged.
+
+Visual polish uses seeded cosmetic noise for clump counts and cached position/scale/rotation variations. Three crack patterns share a single material and partition the existing cell count. Terrain reuses existing fine noise for moisture/health-driven green flecks; no extra noise sample or texture is added. Living improving trees may use two shared sparse-green recovery materials; logical dead trees remain barren. None of these presentation choices changes soil simulation, hazards or passability.
+
+
+### Living vegetation and camp soil (Batch 3)
+
+Grass retains deterministic noise-clustered MultiMesh placement, seeded rotations and size variation. Each shared tuft now has three tapered, three-segment blades (18 triangles versus the previous imported clump's 132). Soil vitality controls density, scale, height and color; recovering vegetation starts as short shoots. Shrubs retain their imported mesh. Crack batches and prepared soil exclusions are unchanged.
+
+The shared foliage vertex shader uses a travelling world-space wind field, slow sinusoidal gusts, a small seeded instance phase offset and quadratic height weighting. Roots have zero displacement; tall healthy blades bend more. Tree leaves share the direction/field with reduced amplitudes for stressed foliage; trunks and dead branches remain rigid. Wind requires no CPU instance updates. Existing growth interpolation remains on the CPU while appearance changes settle.
+
+Technical inspiration: [SimonDev Quick_Grass](https://github.com/simondevyoutube/Quick_Grass), specifically instanced procedural blades, coherent wind and height-weighted bending. This is an original small Godot adaptation, not a port of the renderer. The video was unavailable during inspection.
+
+Region bonfire intensity feeds the existing climate simulation, defaulting to zero in standalone simulations. A smooth 3.2-world-unit radius around the rendered fire adds at most 3.5 degrees of ground warmth and 0.003 extra moisture loss per second (plus existing temperature-driven evaporation). Water tiles and distant cells are excluded. Rain can overcome this drying, and weak/extinguished fires contribute proportionally less/no influence. This changes soil conditions only: existing player warmth/drying, fire weakening, rest/progression and hazard rules are unchanged.
+
+Inspect with `-- --ecosystem-demo` for the existing deterministic drought/rain recovery schedule. At normal zoom, compare rooted grass tips over several seconds; use Board Center for clustered height/color transitions. Near camp, compare ground before and after one to two dry minutes, then rain. Desktop Compatibility captures and Web export validate rendering/export, not a browser FPS benchmark.
+
+
+### Dense vegetation and shared wind (Batch 4)
+
+Ground cover now allocates a noise-dependent 3–11 tuft capacity per eligible cell instead of 1–4. Seeded clustering, jitter, rotation and scale variation remain independent of simulation RNG. Real health/moisture still controls visibility and height; the blade mesh and maximum height have not increased. Grass is suppressed on camp, rocks, trees/stumps, logs, berry bushes, water and prepared soil; capacities remain available for growth after occupied grass cells are cleared. No per-blade nodes or extra render batches are added.
+
+`ClimateSimulation.wind_state(fractional_seconds = 0.0, run_seconds = -1.0)` is a pure deterministic API returning `direction: Vector2` (world X/Z travel **towards**), `strength: float` (normalized 0–1) and `time: float`. Regions share the run wind seed and run clock to prevent direction/strength jumps on travel; standalone samples default to local climate time. It uses seeded smooth direction drift and gentle strength variations, not an additional weather simulation. North is -Z, east +X, south +Z, west -X. Future hazards may sample this API, but this batch deliberately does not alter survival wind exposure, movement, fire spread or damage.
+
+The active scene sends one wind sample to the two ground-cover materials, six shared foliage materials and existing HUD. Grass has stronger rooted tip bending; foliage retains its restrained condition-dependent amplitudes. The shader uses this clock/direction/strength for travelling local gusts. CPU work is bounded by shared materials, not blade count. The HUD shows prevailing compass direction and normalized percentage alongside Knowledge without a new row or panel. Local gust and height weighting modulate the visible response.
+
+
+Batch 4 desktop inspection (seed 2026): Forest allocated 1,766 grass tufts, with 1,444 non-negligible target scales; Wetlands 1,824 / 1,498; Drylands 1,821 / 685. All retain five ground-cover batches and 18 triangles per grass tuft. The reference allocation rose from 705 to 1,766 (2.5x); hidden instances still consume capacity, so these are geometry/instance counts, not FPS claims. Compatibility captures, HUD checks at 800x600 / 1152x720 / 1600x900, and Web export pass. Browser runtime/FPS remains a manual acceptance check.
+
+
+### Grass distribution correction
+
+Batch 4's single-round integer hash produced correlated X/Z samples: `_sample(key + 13)` was almost a constant wrapped offset from `_sample(key)`. Tile-local anchors/clamping reinforced the diagonal rows; low-frequency noise only changed the count per tile. World-to-local conversion was correct. The accepted blades, shader, wind, tree sway, climate, height range and HUD are unchanged by this correction.
+
+Grass placement now generates fully jittered candidates in fine world-space strata across the entire region. Independent seeded RNG draws supply coordinates and appearance. A generation-only density field blends custom 2D Worley F1 (nearest of neighboring seeded cellular feature points), low-frequency coherent coverage and higher-frequency variation. Weighted sampling selects the existing total capacity from this field, allowing irregular gaps and dense patches across gameplay tile boundaries. Mapping accepted positions to logical cells happens afterwards, only for exclusions and real health/moisture response. There is no per-tile population quota or clamped tile-local offset. Appearance and growth update cached instances without resampling noise.
+
+SimonDev's inspected `grass-component.js` uses separate seeded random X/Z draws for instanced positions; the Worley field and global stratified/budgeted selection here are our implementation, not a claimed algorithm from that reference. Shrub placement, crack patterns and five ground-cover batches remain intact. Seed 2026 retains 1,766 grass instances (Forest), 1,824 (Wetlands), and 1,821 (Drylands); active population differs slightly because world-space candidates now land in different excluded/climate cells.
+
+
+### Natural regeneration and directional shelter (Batch 5)
+
+Healthy mature trees accumulate reproduction credit only above 50% soil moisture and at 8–32 degrees local ground temperature. After 90 favorable seconds they may establish one nearby sapling; each region attempts at most one birth every 30 seconds. New trees reuse the existing 120-favorable-second growth stages, drought/fire health and regional persistence. At most twelve natural trees coexist, also bounded by initial tree population plus twelve and 32% grid occupancy. Eligible targets exclude water, camp/trails/pond approaches, prepared soil, rocks, forage, logs/stumps, seed drops and the active player. A flood-fill check rejects births that disconnect previously reachable ground. Climate drives regional differences; no biome reproduction bonus exists. Natural trees are marked to suppress seed drops and planted-growth Knowledge; manual replanting clears the natural-origin marker. No seed inventory is spent or awarded.
+
+A 5x5 upwind stencil derives per-cell wind exposure from direction, tree health and maturity. Healthy near-upwind canopy attenuates strongly; multiple trees combine down to a 25% exposure floor. Young trees restore shelter gradually, dead branches provide only slight attenuation, and stumps provide none. The active region uploads 289 exposures packed into 73 vec4 uniforms on existing shared materials during visual refreshes (normally once per simulation second, immediately after interactions). Grass and foliage retain coherent GPU gusts and the global HUD is unchanged. There is no new survival or soil-drying wind formula. Inactive regions retain existing bounded catch-up; regeneration shares that limit. Field/maturation timing remains simulation time, not guaranteed wall-clock minutes under drought.
+
+
+### Final cleanup and density checkpoint
+
+Main Menu New Game atomically resets only saved progression (Knowledge, discoveries, perks), then starts fresh run state. Death-screen New attempt uses `SceneFlow.retry_game()` and retains progression. Settings are separate and unchanged. The temporary Wetlands golden refuge meshes, habitat marker/label, refuge win trigger and objective directions are disconnected from normal gameplay; recovery simulation and transition/interaction markers remain.
+
+Grass population scale is now three, with world-space candidate strata tightened by sqrt(3) to retain the Worley field's acceptance ratio and irregular distribution. Seed-2026 capacities are Forest 5,298, Wetlands 5,472 and Drylands 5,463. Degraded soil still thins cover, so visible Drylands counts need not scale exactly threefold. Blade height/geometry, wind, exclusions and five cover batches are unchanged; higher vertex workload requires browser performance acceptance.
+
+
+### Grass rendering study and visual pass
+
+Inspected SimonDev Quick_Grass: `public/shaders/grass-lighting-model-vsh.glsl`, `grass-lighting-model-fsh.glsl`, and `src/base/render/grass-component.js`. The actual source uses height-eased blade rotation (not cubic Bezier evaluation), randomized lean/orientation, paired rounded normals, sky-normal bias, root/tip color and density-based root shading, noise-driven wind, view-space edge thickening, and one-/six-segment patch LOD with distance fades/frustum culling. The YouTube reference could not be fetched; GDC-only techniques and claims about their omission are therefore unverified.
+
+Our Godot adaptation preserves world-space Worley placement, 5,298 Forest tufts, cached CPU updates, climate appearance, shared wind/shelter and tree foliage. It adds varied quadratic resting curves, a fuller taper, rounded sky-biased normals with two-sided correction, and restrained root-to-tip shading only on procedural grass. Three zero-area tip triangles were removed: each tuft now submits 15 useful triangles instead of 18, with unchanged 0.5 mesh height and instance budget. No external source code/assets were copied. Geometry and shader arithmetic work with Compatibility; no post-processing or textures were added.
+
+A per-vertex travelling-noise experiment was rejected after GPU measurements; accepted coherent wind/gusts remain. View-dependent thickening and patch LOD are deferred to avoid camera artifacts or splitting the current batches for negligible benefit at this scale. Six optional GPU ribbons use the actual global wind and per-cell shelter, fading with strength/time and away from the astronaut. They are off by default; opt in with `-- --wind-streaks`. This adds at most one transparent draw call and 96 triangles. Density, player behavior, climate and controls do not change.
+
+
+### Density-aware ecosystem shading
+
+Grass now caches a radius-weighted neighboring-tuft density in 0.65-unit spatial bins at generation. Instance custom-data blue stores this crowding proxy scaled by real vitality squared, matching climate thinning. The shader evaluates soft root occlusion, a restrained root/tip gradient and subtle seeded clump tint in the vertex stage and interpolates them; there are no new textures, passes, instances or per-frame neighbor searches. This approximates ambient depth, not true blade shadows. Static potential-neighbor density can overestimate shade near subsequently excluded/cleared cells; it deliberately remains an inexpensive visual proxy.
+
+A small terrain-domain warp reusing the existing fine noise was tested and removed because matched screenshots showed negligible gain. Existing terrain noise and climate gates remain. Worley placement and its existing multiscale field remain unchanged: further coverage warping was deferred because the accepted distribution already crosses tiles organically. SimonDev's inspected fragment shader explicitly applies density-based root ambient shading; existing curvature, normals, wind and instancing were reused. The named video transcripts were not included in the supplied attachment, so transcript-specific implementation claims are unverified. LOD, new wind noise and screen-space AO remain deferred; prior profiling did not justify them.
+
+## Integrated directional farming
+
+Facing-based Interact and Chop/Gather dispatch through one execution path. Contextual previews use the same selector as execution; registered objects and berry harvesting remain supported. StatePlanting owns seed and bottle inventory (9 seeds, 1000 ml), planting eligibility, seed consumption and watering; ForestInteractions delegates to it. Eligible native trees leave collectible seeds, partial collection preserves the remainder, and planted/dead trees cannot renew seeds. Juvenile removal gives no seed refund.
+
+Watering updates the existing cell moisture. Climate-driven hydration permits rain-fed germination in suitable moisture and temperature, then maturation requires 120 accumulated favorable seconds. Seed and sapling visuals, drought mortality and regional state restoration share this authoritative lifecycle.
+
+## Session save, notification feed and celestial presentation
+
+SaveManager writes `user://session.save` through a staged `.tmp` and atomic rename. StateRunSave captures existing RunRegions cells/models, climate counters and RNG states, inventory/survival, progression, player cell/facing, camera parameters and the presentation clock. Object-free Variant encoding preserves vector-keyed dictionaries and 64-bit RNG state; size, schema, field types, bounds and required features are validated before restoration. Invalid saves disable Continue. Failed menu saves leave gameplay open with an error dialog. New Game resets progression and run state; the old slot remains until the new game is saved on menu return. Ending/death does not overwrite the last living checkpoint. Settings are independent. Visuals regenerate; temporary actions and audio are not serialized. Free Camera mode/angles/zoom restore through the existing camera API, but its free-roaming world position is not included by that API.
+
+Future code-owned systems can call `SaveManager.register_run_extension(id, capture, restore)` before menu initialization. Capture receives the world and returns object-free data; restore receives the reconstructed run and data and must return true. Missing required providers disable restoration. Save files never name scripts or executable objects. Browser restart persistence is not yet manually accepted.
+
+The HUD notification feed shows three messages, queues at most 24, coalesces duplicates and prioritizes pending discoveries/Knowledge. Important/normal/low durations are 9/5/3 seconds. It pauses, fades and is recreated with each world scene. Existing discovery audio throttling is retained.
+
+The existing presentation clock now survives region changes and session saves. The exported day_night_duration defaults to 900 seconds; debug-only `--day-night-demo` accelerates presentation 30 times without changing climate/survival rates. One shadow-casting directional light follows the same vector used by bounded sun/moon meshes. At the horizon its energy reaches zero before switching source, avoiding brightness spikes. Rain attenuates sunlight. Close camera framing often excludes celestial meshes, so a small E/W sky compass depicts the same source trajectory. Grass geometry/shaders and density are unchanged. No FPS benchmark or browser-runtime acceptance is claimed.
