@@ -1,25 +1,9 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene format=3 uid="uid://skamhxacow2h"]
 
-[ext_resource type="Script" path="res://features/player/grid_player.gd" id="1"]
-
+[ext_resource type="Script" uid="uid://cnc7es7inh7xe" path="res://features/player/grid_player.gd" id="1"]
 [ext_resource type="PackedScene" path="res://features/player/VisualAstronaut.tscn" id="Astronaut"]
 
-[sub_resource type="StandardMaterial3D" id="Coat"]
-albedo_color = Color(0.95, 0.56, 0.14, 1)
-roughness = 1.0
-
-[sub_resource type="CylinderMesh" id="Marker"]
-material = SubResource("Coat")
-top_radius = 0.42
-bottom_radius = 0.42
-height = 0.025
-radial_segments = 12
-
-[node name="GridPlayer" type="Node3D"]
+[node name="GridPlayer" type="Node3D" unique_id=403952327]
 script = ExtResource("1")
 
-[node name="Marker" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0.025, 0)
-mesh = SubResource("Marker")
-
-[node name="Body" parent="." instance=ExtResource("Astronaut")]
+[node name="Body" parent="." unique_id=310945490 instance=ExtResource("Astronaut")]
