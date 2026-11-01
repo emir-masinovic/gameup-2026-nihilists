@@ -159,7 +159,10 @@ func scene_checks():
 	player.position = world.grid.world_position(player.cell)
 	player.facing = Vector2i.LEFT
 	world.survival.thirst = 55.0
+	world._update_interaction_marker()
+	check(world._action_preview("interact").cell == pond_cell,"Facing pond preview matches Interact target")
 	world._begin_context_action()
+	check(world.interactions.target == pond_cell,"Pond execution uses preview target")
 	check(world.interactions.action_kind == "fill_water" and player.get_node("Body/ArmRight/Bottle").visible, "Valid pond contextual action animates filling without a new input")
 	world._tick_context_action(3.0)
 	check(world.planting.water_ml == 750 and world.survival.thirst == 100.0 and pond.water_level == 1.0, "One pond action fills bottle and preserves survival drinking without draining pond")
@@ -174,7 +177,16 @@ func scene_checks():
 	native.planted = false
 	native.seed_yield_claimed = false
 	player.facing = Vector2i.RIGHT
+	world._update_interaction_marker()
+	check(world._action_preview("chop_gather").cell == native_cell and world.selected_interaction.cell == native_cell,"Facing tree Chop/Gather preview and ring agree")
+	player.facing = Vector2i.UP
+	world._update_interaction_marker()
+	check(world.selected_interaction.get("cell",Vector2i(-1,-1)) != native_cell,"Turning away removes old faced target")
+	player.facing = Vector2i.RIGHT
 	world._try_interact("chop_gather")
+	check(world.interactions.target == native_cell,"Chopping executes the previewed faced target")
+	world._try_interact("chop_gather")
+	check(world.interactions.progress == 0.0,"Repeated dispatch does not restart or duplicate action")
 	world._tick_context_action(1.3)
 	check(native.tree_state == "stump" and world.grid.traversable(native_cell) and world.planting.seed_count == 2, "Actual chop creates traversable stump without auto-awarding seeds")
 	check(world.hud.get_node("PlayerStatus/Rows/Supplies/Seeds").text == "2", "HUD does not award seeds at chop completion")

@@ -115,6 +115,9 @@ func advance(seconds: float) -> void:
 		states[current_id].last_updated = elapsed
 
 func enter(id: String) -> Dictionary:
+	if id != current_id and states.has(current_id):
+		states[current_id].climate.growth_occupied.clear()
+		states[current_id].climate.regeneration_occupied = Vector2i(-1,-1)
 	var state = get_region(id)
 	if state.is_empty():
 		return state

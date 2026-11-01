@@ -145,6 +145,59 @@ func run():
 	world._refresh_visuals()
 	check(not world.crop_indicators.has(world_target), "Crop indicator removed once tree is mature")
 	
+	# A mature transition must wait for the actual player footprint, not lose age.
+	world.set_process(false)
+	player_node.set_process(false)
+	player_node.cell = world_target
+	player_node.position = world.grid.world_position(world_target)
+	world_cell_data.merge({"tree":true,"planted":true,"natural":false,"tree_state":"sapling","tree_health":0.8,"growth_age":119.5,"moisture":0.9,"burning":false,"burned":false},true)
+	world.climate.weather_override = "rain"
+	world.climate.ignition_chance = 0.0
+	world.climate.growth_occupied = player_node.growth_occupied_cells()
+	world.climate.tick(1.0)
+	check(world_cell_data.growth_age >= 120.0 and world_cell_data.tree_state == "sapling","Favorable progress continues but occupied maturation waits")
+	check(world.grid.traversable(world_target),"Occupied sapling remains traversable")
+	world._refresh_visuals()
+	check(world.trees[world_target].has_method("update_growth"),"Pending age threshold keeps staged sapling geometry")
+	# Logical cell advances at step start, but the source body still overlaps.
+	player_node.cell = world_target+Vector2i.RIGHT
+	world.climate.growth_occupied = player_node.growth_occupied_cells()
+	check(world.climate.growth_occupied.has(world_target),"Movement footprint includes interpolated source tile")
+	world.climate.tick(1.0)
+	check(world_cell_data.tree_state == "sapling","Maturation waits until body leaves source tile")
+	player_node.position = world.grid.world_position(player_node.cell)
+	world.climate.growth_occupied = player_node.growth_occupied_cells()
+	world.climate.tick(1.0)
+	check(world_cell_data.tree_state == "healthy" and not world.grid.traversable(world_target),"Vacant sapling matures without displacement or progress reset")
+	world._refresh_visuals()
+	var mature_visual = world.trees[world_target]
+	check(not mature_visual.has_method("update_growth") and world_cell_data.growth_discovered,"One mature visual and discovery after safe transition")
+	world._refresh_visuals()
+	check(world.trees[world_target] == mature_visual,"Repeated refresh does not recreate mature tree")
+	world_cell_data.merge({"tree_state":"sapling","natural":true,"tree_health":0.8,"growth_age":119.5,"moisture":0.9},true)
+	world.climate.growth_occupied.assign([world_target])
+	world.climate.tick(1.0)
+	check(world_cell_data.tree_state == "sapling","Natural saplings use the same occupancy guard")
+	world.climate.growth_occupied.clear()
+	world.climate.tick(1.0)
+	check(world_cell_data.tree_state == "healthy","Natural sapling finishes maturation after vacancy")
+	world_cell_data.merge({"tree_state":"sapling","tree_health":0.0001,"growth_age":30.0,"moisture":0.0},true)
+	world.climate.weather_override = "heat"
+	world.climate.baseline_temperature = 45.0
+	world.climate.growth_occupied.assign([world_target])
+	world.climate.tick(1.0)
+	check(world_cell_data.tree_health == 0.0 and world_cell_data.tree_state == "sapling","Drought still kills health without introducing occupied blocking state")
+	world.climate.growth_occupied.clear()
+	world.climate.tick(1.0)
+	check(world_cell_data.tree_state == "dead","Drought mortality completes after vacancy")
+	# Re-entering cached regions must not retain an absent player's footprint.
+	var region_models = load("res://features/levels/forest/RunRegions.gd").new()
+	region_models.configure(2026)
+	var original = region_models.enter("forest")
+	original.climate.growth_occupied.assign([world_target])
+	region_models.enter("wetlands")
+	check(original.climate.growth_occupied.is_empty(),"Leaving region clears transient occupancy")
+	check(region_models.enter("forest").grid == original.grid,"Regional roundtrip preserves authoritative vegetation grid")
 	world.free()
 	
 	print("FARMING GROWTH TEST: ", checks, " checks, ", failures, " failures")

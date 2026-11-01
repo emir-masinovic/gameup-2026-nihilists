@@ -14,6 +14,7 @@ var ignition_chance = 0.65
 var spread_chance = 0.025
 var fuel_consumption = 0.055
 var regeneration_occupied = Vector2i(-1,-1)
+var growth_occupied: Array[Vector2i] = [] # Active player footprint; not persistent state.
 var _regeneration_rng = RandomNumberGenerator.new()
 var _regeneration_clock = 0.0
 var _tree_limit = 0
@@ -149,8 +150,8 @@ func _simulate(seconds: float):
 			else:
 				data.tree_health = maxf(0.0, data.tree_health - (stress + (0.003 if local_temperature < 3.0 else 0.0)) * seconds)
 			if data.tree_health <= 0.0:
-				data.tree_state = "dead"
-			elif data.get("growth_age", 0.0) >= preload("res://features/levels/forest/StatePlanting.gd").GROWTH_SECONDS:
+				if not growth_occupied.has(cell): data.tree_state = "dead"
+			elif data.get("growth_age", 0.0) >= preload("res://features/levels/forest/StatePlanting.gd").GROWTH_SECONDS and not growth_occupied.has(cell):
 				data.tree_state = "healthy"
 				data.fuel = 1.0
 		if data.tree and data.tree_state == "healthy":

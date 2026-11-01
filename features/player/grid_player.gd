@@ -203,8 +203,8 @@ func try_move(direction: Vector2i) -> bool:
 	if camera_controlled or moving or grid == null or abs(direction.x) + abs(direction.y) != 1:
 		return false
 	facing = direction
-	if has_node("Body"):
-		$Body.rotation.y = atan2(-direction.x, -direction.y)
+	if has_node("Body") and $Body.has_method("face_direction"):
+		$Body.face_direction(direction)
 	var target = cell + direction
 	if not grid.traversable(target):
 		return false
@@ -215,3 +215,17 @@ func try_move(direction: Vector2i) -> bool:
 	move_tween.tween_property(self, "position", grid.world_position(cell), 0.16).set_trans(Tween.TRANS_SINE)
 	move_tween.finished.connect(func(): moving = false)
 	return true
+
+# Grid collision occupies one tile; include the astronaut's interpolating body
+# near tile boundaries until its already committed step has visibly finished.
+func growth_occupied_cells() -> Array[Vector2i]:
+	var occupied: Array[Vector2i] = [cell]
+	if grid == null: return occupied
+	var half_width = grid.CELL_SIZE * 0.5 + 0.35
+	for y in range(cell.y-1,cell.y+2):
+		for x in range(cell.x-1,cell.x+2):
+			var candidate = Vector2i(x,y)
+			var offset = grid.world_position(candidate)-position
+			if grid.in_bounds(candidate) and absf(offset.x) < half_width and absf(offset.z) < half_width and not occupied.has(candidate):
+				occupied.append(candidate)
+	return occupied

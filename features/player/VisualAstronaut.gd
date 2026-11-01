@@ -58,6 +58,12 @@ func _cache_nodes():
 	_hoe = get_node_or_null("ArmRight/Hoe")
 	_bottle = get_node_or_null("ArmRight/Bottle")
 
+# Facing comes from GridPlayer, including blocked attempts. Animation may lean
+# or twist around this yaw, but must not restore an earlier movement direction.
+func face_direction(direction: Vector2i):
+	_target_yaw = atan2(-direction.x, -direction.y)
+	rotation.y = _target_yaw
+
 func _on_step(_cell: Vector2i):
 	stop_chopping()
 	stop_farming()

@@ -228,6 +228,7 @@ func _process(delta):
 		tick_accumulator -= 1.0
 		var health_before = survival.health
 		climate.regeneration_occupied = $GridPlayer.cell
+		climate.growth_occupied = $GridPlayer.growth_occupied_cells()
 		climate.tick(1.0)
 		regions.advance(1.0)
 		foraging.tick(1.0)
@@ -575,7 +576,7 @@ func _refresh_visuals():
 				crop_indicators[cell].queue_free()
 				crop_indicators.erase(cell)
 		if data.tree and data.get("planted", false) and data.tree_state not in ["stump","seed"]:
-			var young: bool = data.get("growth_age", 0.0) < planting.GROWTH_SECONDS
+			var young: bool = data.tree_state == "sapling" or data.get("growth_age", 0.0) < planting.GROWTH_SECONDS
 			if trees.has(cell) and trees[cell].has_method("update_growth") != young:
 				trees[cell].queue_free()
 				trees.erase(cell)
@@ -844,6 +845,10 @@ func _update_interaction_marker():
 		var preview = _action_preview(group)
 		if not preview.is_empty(): previews.append(preview)
 	selected_interaction = previews[0] if not previews.is_empty() else {}
+	# Generic underfoot tilling must not hide the faced Chop/Gather target.
+	if selected_interaction.get("object_kind", "") == "till_soil":
+		for preview in previews:
+			if preview.input_action == "chop_gather": selected_interaction = preview
 	if interactions.target.x >= 0:
 		for preview in previews:
 			if preview.cell == interactions.target: selected_interaction = preview
@@ -929,7 +934,7 @@ func _create_wet_indicator():
 func _vegetation_visual(data: Dictionary) -> Node3D:
 	if data.tree_state == "stump": return NatureProps.instantiate_stump()
 	if data.tree_state == "seed": return FOREST_SEED.instantiate()
-	if data.get("planted", false) and data.get("growth_age", 0.0) < planting.GROWTH_SECONDS:
+	if data.tree_state == "sapling" or (data.get("planted", false) and data.get("growth_age", 0.0) < planting.GROWTH_SECONDS):
 		var sprout = SAPLING.instantiate()
 		return sprout
 	var visual = TREE.instantiate()

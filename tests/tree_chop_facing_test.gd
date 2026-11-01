@@ -88,6 +88,23 @@ func run():
 	check(interactions.begin(tree_cell, Vector2i.UP, "chop_gather"), "Can collect seeds when standing directly on cut tree remains")
 	check(interactions.action_kind == "collect_seeds", "Action kind is collect_seeds")
 	
+	# Idle animation must retain blocked movement facing in all four directions.
+	player.stop_chopping()
+	for direction in [Vector2i.UP,Vector2i.RIGHT,Vector2i.DOWN,Vector2i.LEFT]:
+		var faced = player_pos+direction
+		grid.cells[faced.y*grid.SIZE+faced.x].merge({"tree":true,"tree_state":"healthy","log":false},true)
+		check(not player.try_move(direction),"Tree blocks displacement in "+str(direction))
+		check(player.facing == direction and player.cell == player_pos,"Blocked attempt updates only persistent facing")
+		for frame in range(30): player._update_animation(1.0/60.0)
+		var forward = -player.get_node("Body").global_basis.z
+		check(Vector2(forward.x,forward.z).normalized().dot(Vector2(direction)) > 0.999,"Idle world yaw stays aligned after release")
+		interactions.cancel()
+		check(interactions.begin(player.cell,player.facing,"chop_gather") and interactions.target == faced,"Released Space targets persistent facing")
+		check(not interactions.begin(player.cell,player.facing,"chop_gather"),"Repeated begin cannot dispatch twice")
+		interactions.cancel()
+		grid.cells[faced.y*grid.SIZE+faced.x].tree_state = "sapling"
+		check(interactions.begin(player.cell,player.facing,"interact") and interactions.target == faced and interactions.action_kind == "harvest_crop","Interact uses the same facing for juvenile removal")
+		interactions.cancel()
 	player.free()
 	
 	print("TREE CHOP FACING TEST: ", checks, " checks, ", failures, " failures")
