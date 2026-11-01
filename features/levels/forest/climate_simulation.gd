@@ -19,6 +19,10 @@ var _regeneration_rng = RandomNumberGenerator.new()
 var _regeneration_clock = 0.0
 var _tree_limit = 0
 var bonfire_intensity = 0.0 # Synced from the region; affects soil only.
+var recycled_trash: int = 0
+var initial_tree_count: int = 0
+var initial_trash_count: int = 0
+var planet_health: float = 50.0
 var ecosystem_demo = false # Debug weather schedule; all effects still use simulation rules.
 var sapling_growth_rate = 1.0 # Debug-only acceleration affects plants, not simulation time.
 var elapsed = 0.0
@@ -63,6 +67,10 @@ func configure(grid: RefCounted, world_seed: int, wind_seed: int = -1):
 		data.water_depth = data.get("water_depth", 1.0 if data.water else 0.0)
 		data.tilled = data.get("tilled", false)
 		data.water_needed = data.get("water_needed", 1.0)
+	initial_tree_count = _grid.cells.filter(func(data): return data.tree and data.get("tree_state", "healthy") == "healthy").size()
+	recycled_trash = 0
+	initial_trash_count = _grid.trash_cells.size() if "trash_cells" in _grid else 0
+	planet_health = calculate_planet_health()
 	_update_weather()
 
 func tick(seconds: float = 1.0):
@@ -83,6 +91,9 @@ func _update_weather():
 	if weather_override in WEATHER_CYCLE:
 		weather = weather_override
 	var offset = {"clear": 0.0, "rain": -5.0, "cool": -7.0, "heat": 8.0}[weather]
+	if weather == "heat" and planet_health >= 70.0:
+		var heat_reduction = clampf((planet_health - 70.0) / 20.0, 0.0, 1.0)
+		offset = lerpf(8.0, 3.0, heat_reduction)
 	if ecosystem_demo:
 		weather = "rain" if elapsed >= 120.0 and elapsed < 240.0 else "clear"
 		offset = {"clear":0.0,"rain":-5.0}[weather]
@@ -90,7 +101,46 @@ func _update_weather():
 	temperature = baseline_temperature + warming_pressure() + offset
 
 func warming_pressure() -> float:
-	return maxf(warming_limit, 0.0) * (1.0 - exp(-maxf(elapsed, 0.0) / maxf(warming_timescale, 1.0)))
+	var raw = maxf(warming_limit, 0.0) * (1.0 - exp(-maxf(elapsed, 0.0) / maxf(warming_timescale, 1.0)))
+	if planet_health <= 40.0:
+		return raw
+	var restoration = (planet_health - 40.0) / 35.0
+	if restoration < 1.0:
+		return raw * (1.0 - restoration)
+	else:
+		var extra_cooling = minf((restoration - 1.0) * 2.5, 2.5)
+		return -extra_cooling
+
+func calculate_planet_health() -> float:
+	if _grid == null or _grid.cells.is_empty():
+		return 30.0
+	var healthy_trees = 0
+	var player_planted_trees = 0
+	var current_trash = 0
+	var total_vegetation = 0.0
+	var total_cells = _grid.cells.size()
+	for data in _grid.cells:
+		if data.tree:
+			if data.get("tree_state", "removed") == "healthy":
+				healthy_trees += 1
+				if data.get("planted", false) and not data.get("natural", false):
+					player_planted_trees += 1
+			elif data.get("tree_state", "") == "sapling":
+				total_vegetation += 0.3 * data.get("tree_health", 0.5)
+		if data.get("trash", false):
+			current_trash += 1
+		total_vegetation += float(data.get("health", 0.0))
+	var avg_veg = total_vegetation / float(total_cells)
+	var score = avg_veg * 25.0
+	var base_trees = maxf(float(initial_tree_count), 20.0)
+	var tree_ratio = clampf(float(healthy_trees) / base_trees, 0.0, 1.0)
+	score += tree_ratio * 20.0
+	score += minf(float(player_planted_trees) * 6.0, 30.0)
+	var cleared_trash = max(0, initial_trash_count - current_trash)
+	score += float(cleared_trash) * 3.0
+	score += float(recycled_trash) * 6.0
+	score -= float(current_trash) * 4.0
+	return clampf(score, 0.0, 100.0)
 
 func _simulate(seconds: float):
 	var shades: Array[float] = []
@@ -100,10 +150,11 @@ func _simulate(seconds: float):
 		var data: Dictionary = _grid.cells[i]
 		var cell = Vector2i(i % _grid.SIZE, floori(float(i) / _grid.SIZE))
 		var terrain: String = data.get("terrain", "grass")
+		var has_trash: bool = data.get("trash", false)
 		var camp = bonfire_influence_at(cell)
-		var local_temperature = temperature - shades[i] * 4.0 + camp * 3.5
+		var local_temperature = temperature - shades[i] * 4.0 + camp * 3.5 + (2.0 if has_trash else 0.0)
 		var exposure = 1.0 - shades[i] * 0.7
-		var drying = (0.0015 + maxf(local_temperature - 20.0, 0.0) * 0.00035) * exposure + camp * 0.003
+		var drying = (0.0015 + maxf(local_temperature - 20.0, 0.0) * 0.00035) * exposure + camp * 0.003 + (0.0035 if has_trash else 0.0)
 		var rain = 0.015 if weather == "rain" else (0.0015 if weather == "cool" else 0.0)
 		var retention = 0.65 if terrain == "soil" else 1.0
 		var water_help = 0.0
@@ -121,8 +172,10 @@ func _simulate(seconds: float):
 		else:
 			data.moisture = clampf(data.moisture + (rain + water_help - drying / retention) * seconds, 0.0, 1.0)
 		data.trampled = maxf(0.0, data.get("trampled", 0.0) - 0.001 * seconds)
+		if has_trash:
+			data.health = maxf(0.0, data.health - 0.015 * seconds)
 		var stress = maxf(0.28 - data.moisture, 0.0) * 0.022 + maxf(local_temperature - 36.0, 0.0) * 0.0006 * exposure
-		var recovery = 0.006 if data.moisture > 0.35 and local_temperature < 35.0 else 0.0
+		var recovery = 0.006 if data.moisture > 0.35 and local_temperature < 35.0 and not has_trash else 0.0
 		if data.get("burned", false):
 			# Char persists through drought. Moist conditions slowly establish new ground cover;
 			# exhausted fuel and dead trees remain exhausted/dead.
@@ -158,6 +211,12 @@ func _simulate(seconds: float):
 			data.tree_health = clampf(data.tree_health + (recovery * 0.6 - stress * 0.6) * seconds, 0.0, 1.0)
 			if data.tree_health <= 0.0:
 				data.tree_state = "dead"
+			elif data.tree_health > 0.5:
+				for offset in NEIGHBORS:
+					var neighbor = cell + offset
+					if _grid.in_bounds(neighbor):
+						var adj_data: Dictionary = _grid.cells[neighbor.y * _grid.SIZE + neighbor.x]
+						adj_data.moisture = minf(1.0, adj_data.moisture + 0.0006 * seconds)
 		if data.tree and data.tree_state == "healthy" and data.tree_health > 0.75 and data.moisture > 0.5 and local_temperature >= 8.0 and local_temperature <= 32.0 and not data.burning:
 			data.regeneration_credit = minf(180.0,data.get("regeneration_credit",0.0)+seconds)
 		else:
@@ -167,6 +226,7 @@ func _simulate(seconds: float):
 		_regeneration_clock -= 30.0
 		_reproduce_tree()
 	_simulate_fire(seconds)
+	planet_health = calculate_planet_health()
 
 func _can_burn(cell: Vector2i) -> bool:
 	if not _grid.in_bounds(cell) or cell.distance_to(_grid.start) < 2.5:
@@ -296,7 +356,8 @@ func cell_conditions(cell: Vector2i) -> Dictionary:
 		"canopy": shade_at(cell), "fire_hazard": fire_at(cell)}
 
 func temperature_at(cell: Vector2i) -> float:
-	return temperature - shade_at(cell) * 4.0 + bonfire_influence_at(cell) * 3.5
+	var trash_heat = 2.0 if (_grid != null and _grid.in_bounds(cell) and _grid.cells[cell.y * _grid.SIZE + cell.x].get("trash", false)) else 0.0
+	return temperature - shade_at(cell) * 4.0 + bonfire_influence_at(cell) * 3.5 + trash_heat
 
 # The rendered fire is offset within the camp tile. No ignition or player damage.
 func bonfire_influence_at(cell: Vector2i) -> float:
@@ -339,6 +400,7 @@ func _reproduce_tree():
 func _can_regenerate(cell: Vector2i) -> bool:
 	if not _grid.in_bounds(cell) or _grid._protected_route(cell) or cell == _grid.objective or cell == regeneration_occupied: return false
 	var data: Dictionary = _grid.cells[cell.y*_grid.SIZE+cell.x]
+	if data.get("spaceship", false) or _grid.SPACESHIP_CELLS.has(cell) or data.get("recycle_bin", false) or data.get("trash", false) or cell == _grid.recycle_bin_cell: return false
 	if data.tree or data.get("log",false) or data.get("prepared",false) or data.get("berry_bush",false) or data.get("protected_route",false) or data.get("pending_seeds",0)>0: return false
 	if data.terrain == "water" or data.burning or data.burned or data.health < 0.55 or data.moisture <= 0.5: return false
 	# Matches the existing decorative-rock reservation, including inactive regions.

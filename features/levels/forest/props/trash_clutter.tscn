@@ -1,0 +1,78 @@
+[gd_scene load_steps=13 format=3]
+
+[sub_resource type="StandardMaterial3D" id="CanMat"]
+albedo_color = Color(0.82, 0.22, 0.2, 1)
+metallic = 0.7
+roughness = 0.3
+
+[sub_resource type="CylinderMesh" id="CanMesh"]
+material = SubResource("CanMat")
+top_radius = 0.065
+bottom_radius = 0.065
+height = 0.18
+radial_segments = 6
+
+[sub_resource type="StandardMaterial3D" id="BottleMat"]
+transparency = 1
+albedo_color = Color(0.35, 0.75, 0.95, 0.7)
+roughness = 0.2
+
+[sub_resource type="CylinderMesh" id="BottleMesh"]
+material = SubResource("BottleMat")
+top_radius = 0.055
+bottom_radius = 0.055
+height = 0.22
+radial_segments = 6
+
+[sub_resource type="StandardMaterial3D" id="CapMat"]
+albedo_color = Color(0.95, 0.95, 0.95, 1)
+roughness = 0.5
+
+[sub_resource type="CylinderMesh" id="CapMesh"]
+material = SubResource("CapMat")
+top_radius = 0.03
+bottom_radius = 0.03
+height = 0.04
+radial_segments = 6
+
+[sub_resource type="StandardMaterial3D" id="CartonMat"]
+albedo_color = Color(0.68, 0.54, 0.38, 1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="CartonMesh"]
+material = SubResource("CartonMat")
+size = Vector3(0.18, 0.1, 0.15)
+
+[sub_resource type="StandardMaterial3D" id="WrapperMat"]
+albedo_color = Color(0.95, 0.8, 0.15, 1)
+roughness = 0.4
+
+[sub_resource type="BoxMesh" id="WrapperMesh"]
+material = SubResource("WrapperMat")
+size = Vector3(0.2, 0.015, 0.12)
+
+[node name="TrashClutter" type="Node3D"]
+
+[node name="Can" type="MeshInstance3D" parent="."]
+position = Vector3(-0.16, 0.06, 0.14)
+rotation = Vector3(1.4, 0.4, 0.2)
+mesh = SubResource("CanMesh")
+
+[node name="Bottle" type="MeshInstance3D" parent="."]
+position = Vector3(0.2, 0.055, -0.12)
+rotation = Vector3(0.2, 1.2, 1.5)
+mesh = SubResource("BottleMesh")
+
+[node name="Cap" type="MeshInstance3D" parent="."]
+position = Vector3(0.31, 0.055, -0.14)
+mesh = SubResource("CapMesh")
+
+[node name="Carton" type="MeshInstance3D" parent="."]
+position = Vector3(0.08, 0.05, 0.18)
+rotation = Vector3(-0.15, 0.8, 0.2)
+mesh = SubResource("CartonMesh")
+
+[node name="Wrapper" type="MeshInstance3D" parent="."]
+position = Vector3(-0.12, 0.02, -0.18)
+rotation = Vector3(0.1, -0.6, 0.05)
+mesh = SubResource("WrapperMesh")

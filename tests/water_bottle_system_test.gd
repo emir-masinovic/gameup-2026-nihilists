@@ -187,7 +187,7 @@ func run():
 	world._unhandled_input(interact_key)
 	
 	var toast = world.hud.get_node("Toast")
-	check(toast.text.contains("Yeterli suyunuz yok"), "HUD alerts player when trying to water without water")
+	check(toast.text.contains("Not enough water"), "HUD alerts player when trying to water without water")
 	
 	world.free()
 	

@@ -121,9 +121,13 @@ func run():
 	world.set_process(false)
 	
 	var seeds_node = world.hud.get_node_or_null("PlayerStatus/Rows/Supplies/Seeds")
+	if seeds_node == null:
+		seeds_node = world.hud.get_node_or_null("PlayerStatus/Rows/Seeds")
 	check(seeds_node != null, "HUD contains Seeds indicator in PlayerStatus")
 	
 	var seeds_val = world.hud.get_node_or_null("PlayerStatus/Rows/Supplies/Seeds")
+	if seeds_val == null:
+		seeds_val = world.hud.get_node_or_null("PlayerStatus/Rows/Seeds/Value")
 	check(seeds_val != null and seeds_val.text == "3", "HUD seeds value starts at 3")
 	
 	# Set a tree directly next to player and run world interaction to verify HUD updates

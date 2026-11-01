@@ -21,8 +21,8 @@ func run():
 	check(body.position.y > 0.05, "Onur hop animates only visual child")
 	check(player.cell == origin + Vector2i.UP, "Logical step remains one cell")
 	check(absf(body.get_node("LegLeft").rotation.x) > 0.1, "Walking swings limbs")
-	check(is_equal_approx(body.step_duration, 0.16), "Visual timing follows existing 0.16-second step")
-	await create_timer(0.2).timeout
+	check(is_equal_approx(body.step_duration, 0.28), "Visual timing follows simulation step")
+	await create_timer(0.35).timeout
 	check(not player.moving, "Existing movement tween completes")
 	var impact = {"count":0,"position":Vector3.ZERO}
 	body.chop_impact.connect(func(at): impact.count += 1; impact.position = at)

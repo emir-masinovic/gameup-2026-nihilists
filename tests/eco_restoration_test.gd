@@ -25,7 +25,6 @@ func run():
 	
 	# Use eligible ground away from protected spawn routes.
 	var target = Vector2i(5,5)
-
 	var player = target
 	var data = grid.cells[target.y * grid.SIZE + target.x]
 	

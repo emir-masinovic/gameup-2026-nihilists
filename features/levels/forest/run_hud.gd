@@ -24,8 +24,16 @@ func _ready():
 		add_child(label)
 		notification_labels.append(label)
 	$Modal/Rows/Close.pressed.connect(close_modal)
-	$Modal/Rows/Next.pressed.connect(func(): close_modal(); SceneFlow.retry_game())
-	$Modal/Rows/Menu.pressed.connect(func(): close_modal(); SceneFlow.main_menu())
+	$Modal/Rows/Next.pressed.connect(func():
+		close_modal()
+		var flow = get_tree().root.get_node_or_null("SceneFlow") if get_tree() and get_tree().root else null
+		if flow != null: flow.retry_game()
+	)
+	$Modal/Rows/Menu.pressed.connect(func():
+		close_modal()
+		var flow = get_tree().root.get_node_or_null("SceneFlow") if get_tree() and get_tree().root else null
+		if flow != null: flow.main_menu()
+	)
 	$Modal/Rows/QuickChop.pressed.connect(func(): _purchase("quick_chop"))
 	$Modal/Rows/FireResilience.pressed.connect(func(): _purchase("fire_resilience"))
 	$Modal/Rows/Upgrade.pressed.connect(func():
@@ -56,6 +64,8 @@ func notify(message: String, category: String = "normal"):
 		while slot < notification_queue.size() and notification_queue[slot].category == "important": slot += 1
 		notification_queue.insert(slot,item)
 	else: notification_queue.append(item)
+	if has_node("Toast"):
+		$Toast.text = message
 
 func _process(delta):
 	if get_tree().paused: return
@@ -129,7 +139,12 @@ func update_status(health: float, exposure: float, temperature: float, weather: 
 		$PlayerStatus/Rows/Supplies/Seeds.text = str(seeds)
 	$WorldStatus/Rows/Climate/Value.text = "%.1f C | %s" % [temperature, weather.capitalize()]
 	$WorldStatus/Rows/Climate/Icon.set_weather(weather)
-	$WorldStatus/Rows/Trend.text = "+%.1f C warming" % trend
+	if trend < -0.05:
+		$WorldStatus/Rows/Trend.text = "-%.1f C cooling" % absf(trend)
+		$WorldStatus/Rows/Trend.modulate = Color("4ebd5f")
+	else:
+		$WorldStatus/Rows/Trend.text = "+%.1f C warming" % maxf(trend, 0.0)
+		$WorldStatus/Rows/Trend.modulate = Color(0.9, 0.72, 0.45, 1)
 	$WorldStatus/Rows/Knowledge/Value.text = "%d Knowledge" % knowledge
 	$Context.text = "Chopping..." if chopping else "Bonfire shelter - Interact to rest" if safe else ""
 	$Context.visible = not $Context.text.is_empty()
@@ -159,8 +174,24 @@ func update_survival(state: RefCounted, canopy: float, eat_binding: String):
 	$PlayerStatus/Rows/Heat/Bar.value = state.body_temperature
 	$PlayerStatus/Rows/Heat/Value.text = "%.1f°C" % state.body_temperature
 	$PlayerStatus/Rows/Heat.modulate = Color("e69e6a") if state.body_temperature >= 39.0 else Color("81bed9") if state.body_temperature <= 35.0 else Color.WHITE
-	$PlayerStatus/Rows/Supplies/Food.text = str(roundi(state.hunger))
-	$PlayerStatus/Rows/Supplies/Water.text = str(roundi(state.thirst))
+	var hunger_val = roundi(state.hunger)
+	var thirst_val = roundi(state.thirst)
+	$PlayerStatus/Rows/Supplies/Food.text = "%d/10" % hunger_val
+	$PlayerStatus/Rows/Supplies/Water.text = "%d/10" % thirst_val
+	$PlayerStatus/Rows/Supplies/Food.modulate = Color("e05353") if hunger_val <= 0 else Color("edc647") if hunger_val <= 5 else Color.WHITE
+	$PlayerStatus/Rows/Supplies/Water.modulate = Color("e05353") if thirst_val <= 0 else Color("edc647") if thirst_val <= 5 else Color.WHITE
+	if $PlayerStatus/Rows/Supplies.has_node("Trash"):
+		var trash_label: Label = $PlayerStatus/Rows/Supplies/Trash
+		var t_val: int = int(state.trash_count) if "trash_count" in state else 0
+		trash_label.text = "%d/3" % t_val
+		if t_val >= 3:
+			trash_label.modulate = Color("e05353")
+			if $PlayerStatus/Rows/Supplies.has_node("TrashIcon"):
+				$PlayerStatus/Rows/Supplies/TrashIcon.modulate = Color("e05353")
+		else:
+			trash_label.modulate = Color.WHITE
+			if $PlayerStatus/Rows/Supplies.has_node("TrashIcon"):
+				$PlayerStatus/Rows/Supplies/TrashIcon.modulate = Color.WHITE
 	$PlayerStatus/Rows/Food.text = "Berries %d — [%s] Eat" % [state.berry_count, eat_binding]
 	$PlayerStatus/Rows/Wetness.visible = state.wetness >= 1.0 or canopy > 0.05
 	$PlayerStatus/Rows/Wetness.text = "Wet %d%%" % roundi(state.wetness) if state.wetness >= 1.0 else ""
@@ -177,6 +208,18 @@ func update_interaction(target: Dictionary, progress: float, active: bool, bindi
 	var description = str(target.get("action", "Interact")) if target.get("available", true) else str(target.get("reason", "Unavailable"))
 	$Context.show()
 	$Context.text = "%s — [%s] %s%s" % [target.get("name", "Object"), binding, description, "..." if active else ""]
+
+func update_planet_health(percent: float):
+	if has_node("WorldStatus/Rows/Planet/Label"):
+		var p_val = roundi(clampf(percent, 0.0, 100.0))
+		$WorldStatus/Rows/Planet/Label.text = "Planet %d%%" % p_val
+		var color = Color("4ebd5f") if p_val >= 70 else (Color("edc647") if p_val >= 40 else Color("e05353"))
+		$WorldStatus/Rows/Planet/Label.modulate = color
+		if has_node("WorldStatus/Rows/Planet/Bar"):
+			$WorldStatus/Rows/Planet/Bar.value = p_val
+			$WorldStatus/Rows/Planet/Bar.modulate = color
+		if has_node("WorldStatus/Rows/Planet/Icon"):
+			$WorldStatus/Rows/Planet/Icon.modulate = color
 
 func update_seeds(count: int):
 	$PlayerStatus/Rows/Supplies/Seeds.text = str(count)

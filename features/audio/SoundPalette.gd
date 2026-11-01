@@ -13,9 +13,10 @@ const FILES = {
 	"step_wet": ["SoundStepWet.mp3"],
 	"chop": ["impactWood_medium_000.ogg"],
 	"tree_fall": ["impactWood_heavy_000.ogg"],
+	"eat": ["freesound_community-eating-sound-effect-36186.mp3"],
 }
 const LEVELS = {"ui_confirm": -17.0, "ui_back": -17.0, "discovery": -13.0,
-	"footstep": -12.0, "chop": -9.0, "tree_fall": -7.0}
+	"footstep": -12.0, "chop": -9.0, "tree_fall": -7.0, "eat": -6.0}
 var emitted_counts: Dictionary = {}
 # Counts dispatched voices; a Dummy driver has no audible output.
 var played_counts: Dictionary = {}
@@ -29,6 +30,7 @@ var _voice_levels: Array[float] = []
 var _voice_categories: Array[String] = []
 var _world_ref: WeakRef
 var ambience: Node
+var music: Node
 var footstep_surface = "grass"
 var _step_variation = 0
 var _ui_index = 0
@@ -40,6 +42,8 @@ func _ready():
 	# Keep real streams/routing testable without submitting work to a missing device.
 	ambience = preload("res://features/audio/ControllerAmbience.gd").new()
 	add_child(ambience)
+	music = preload("res://features/audio/ControllerMusic.gd").new()
+	add_child(music)
 	_has_audio_output = AudioServer.get_driver_name() != "Dummy"
 	for cue in FILES:
 		var clips: Array[AudioStream] = []
@@ -64,6 +68,8 @@ func _ready():
 
 func _exit_tree():
 	_detach_world()
+	if is_instance_valid(music):
+		music.stop()
 	for voice in _ui_voices:
 		voice.stop()
 		voice.stream = null
@@ -148,7 +154,7 @@ func play_cue(cue: String, at: Vector3 = Vector3.ZERO) -> bool:
 	var gap = 60 if cue.begins_with("ui_") else 100
 	if now - int(_last_played.get(cue, -1000)) < gap:
 		return false
-	var positional = cue in ["footstep", "chop", "tree_fall"]
+	var positional = cue in ["footstep", "chop", "tree_fall", "eat"]
 	if positional and (_world_voices.is_empty() or get_tree().paused):
 		return false
 	var stream_key = cue

@@ -21,7 +21,7 @@ func run() -> void:
 	var comfortable = Survival.new()
 	advance(comfortable, 240, 24.0)
 	check(comfortable.health == 100.0 and comfortable.body_temperature == 37.0, "Comfortable exploration preserves normal body temperature and health for four minutes")
-	check(comfortable.hunger > 70.0 and comfortable.thirst > 60.0, "Food and water remain forgiving during early exploration")
+	check(comfortable.hunger > 7.0 and comfortable.thirst > 6.0, "Food and water remain forgiving during early exploration")
 	var exposed = Survival.new()
 	var shaded = Survival.new()
 	var resistant = Survival.new()
@@ -64,7 +64,7 @@ func run() -> void:
 		resting.health = 40.0
 		advance(resting, 45, -10.0, 0.0, true, false, {"weather": "clear"})
 		check(resting.body_temperature == 37.0 and resting.wetness == 0.0 and resting.health == 100.0, "Camp warms or cools safely, dries clothes and heals")
-		check(resting.hunger < 100.0 and resting.thirst < 100.0, "Camp does not invent food or drinking water")
+		check(resting.hunger < 10.0 and resting.thirst < 10.0, "Camp does not invent food or drinking water")
 	var outdoor_rain = Survival.new()
 	var weak_camp_rain = Survival.new()
 	for state in [outdoor_rain,weak_camp_rain]:
@@ -78,10 +78,10 @@ func run() -> void:
 	check(outdoor_rain.body_temperature > 36.0 and outdoor_rain.health > 0.0, "Mild fully wet rain tapers toward comfort rather than rapid hypothermia")
 	var fair_start = Survival.new()
 	advance(fair_start, 180, 28.0)
-	check(fair_start.health == 100.0 and fair_start.hunger > 10.0 and fair_start.thirst > 10.0, "First three minutes do not force food or water damage")
+	check(fair_start.health == 100.0 and fair_start.hunger > 1.0 and fair_start.thirst > 1.0, "First three minutes do not force food or water damage")
 	var depleted = Survival.new()
-	depleted.hunger = 11.0
-	depleted.thirst = 11.0
+	depleted.hunger = 2.0
+	depleted.thirst = 2.0
 	depleted.tick(5.0, 24.0, 0.0, false, false)
 	check(depleted.health == 100.0, "Reserves above the critical threshold do not damage health")
 	depleted.hunger = 0.0
@@ -92,26 +92,32 @@ func run() -> void:
 	depleted.add_berries(2)
 	depleted.add_berries(-5)
 	check(depleted.berry_count == 2 and depleted.eat_berry() and depleted.berry_count == 1, "Eating consumes exactly one collected berry")
-	check(depleted.hunger == 24.0 and depleted.thirst == 3.0, "Berries restore bounded food and a little water")
-	check(depleted.drink() and depleted.thirst == 48.0, "Drinking restores water reserves")
-	depleted.hunger = 99.0
-	depleted.thirst = 99.0
-	check(depleted.eat_berry() and depleted.hunger == 100.0 and depleted.thirst == 100.0, "Consumption clamps reserves at full")
+	check(depleted.hunger == 3.0, "Berries restore 3 food")
+	check(depleted.drink() and depleted.thirst == 3.0, "Drinking restores 3 water reserves")
+	depleted.hunger = 9.0
+	depleted.thirst = 9.0
+	check(depleted.eat_berry() and depleted.hunger == 10.0, "Consumption clamps reserves at full")
+	check(depleted.drink() and depleted.thirst == 10.0, "Drinking clamps water at full")
 	depleted.add_berries(1)
-	check(not depleted.eat_berry() and depleted.berry_count == 1 and not depleted.drink(), "Full reserves do not waste berries or report a drink")
+	check(not depleted.eat_berry() and depleted.berry_count == 1 and not depleted.drink(), "Full reserves and full health do not waste berries or report a drink")
+	depleted.health = 75.0
+	check(depleted.eat_berry() and depleted.health == 85.0 and depleted.berry_count == 0, "Eating with both reserves full restores 10 health")
+	check(depleted.drink() and depleted.health == 95.0, "Drinking with both reserves full restores 10 health")
+	check(depleted.drink() and depleted.health == 100.0, "Health clamps at 100")
+	check(not depleted.drink(), "Full health and reserves cannot drink more")
 	depleted.damage(1000.0)
 	depleted.tick(30.0, 24.0, 1.0, true, true)
 	check(depleted.dead and depleted.health == 0.0, "Lethal damage latches death and camp cannot resurrect")
 	check(not depleted.eat_berry() and not depleted.drink(), "Consumption cannot revive a dead run")
 	var fresh = Survival.new()
-	check(not fresh.dead and fresh.health == 100.0 and fresh.body_temperature == 37.0 and fresh.wetness == 0.0 and fresh.hunger == 100.0 and fresh.thirst == 100.0 and fresh.berry_count == 0, "A new attempt resets every temporary survival state")
+	check(not fresh.dead and fresh.health == 100.0 and fresh.body_temperature == 37.0 and fresh.wetness == 0.0 and fresh.hunger == 10.0 and fresh.thirst == 10.0 and fresh.berry_count == 0, "A new attempt resets every temporary survival state")
 	for delta in [-1.0, 0.0, NAN, INF]:
 		fresh.tick(delta, 45.0, 0.0, false, false)
 	fresh.tick(1.0, NAN, 0.0, false, false)
 	fresh.tick(1.0, 24.0, INF, false, false)
 	fresh.damage(NAN)
 	fresh.damage(-1.0)
-	check(fresh.health == 100.0 and fresh.body_temperature == 37.0 and fresh.hunger == 100.0 and fresh.thirst == 100.0, "Invalid deltas, environment and damage cannot mutate state")
+	check(fresh.health == 100.0 and fresh.body_temperature == 37.0 and fresh.hunger == 10.0 and fresh.thirst == 10.0, "Invalid deltas, environment and damage cannot mutate state")
 	fresh.tick(1.0, 24.0, 0.0, false, false, {"canopy": NAN, "wind": "bad", "fire_hazard": INF})
 	check(is_finite(fresh.body_temperature) and is_finite(fresh.wetness), "Malformed optional context falls back safely")
 	var extreme = Survival.new()

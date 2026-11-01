@@ -6,10 +6,12 @@ signal chop_impact(impact_position: Vector3)
 signal till_impact(impact_position: Vector3)
 signal water_fill_splash(impact_position: Vector3)
 signal water_pour_splash(impact_position: Vector3)
+signal eat_cue(impact_position: Vector3)
 
 const CARDINAL_DIRECTIONS = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
 const INPUT_ALIGNMENT_HYSTERESIS = 0.08
 const MAPPING_ALIGNMENT_HYSTERESIS = 0.16
+@export var move_duration: float = 0.28
 var facing = Vector2i.UP
 var cell = Vector2i.ZERO
 var grid: RefCounted
@@ -38,6 +40,8 @@ var is_gathering: bool:
 	get: return $Body.is_gathering if has_node("Body") else false
 var is_drinking: bool:
 	get: return $Body.is_drinking if has_node("Body") else false
+var is_eating: bool:
+	get: return $Body.is_eating if has_node("Body") else false
 
 func _ready():
 	if has_node("Body"):
@@ -46,6 +50,7 @@ func _ready():
 		if body.has_signal("till_impact"): body.till_impact.connect(func(pos): till_impact.emit(pos))
 		if body.has_signal("water_fill_splash"): body.water_fill_splash.connect(func(pos): water_fill_splash.emit(pos))
 		if body.has_signal("water_pour_splash"): body.water_pour_splash.connect(func(pos): water_pour_splash.emit(pos))
+		if body.has_signal("eat_cue"): body.eat_cue.connect(func(pos): eat_cue.emit(pos))
 
 func start_chopping(target_world_pos: Vector3):
 	if has_node("Body") and $Body.has_method("start_chopping"):
@@ -86,6 +91,14 @@ func start_gathering(target_world_pos: Vector3):
 func stop_gathering():
 	if has_node("Body") and $Body.has_method("stop_gathering"):
 		$Body.stop_gathering()
+
+func start_eating():
+	if has_node("Body") and $Body.has_method("start_eating"):
+		$Body.start_eating()
+
+func stop_eating():
+	if has_node("Body") and $Body.has_method("stop_eating"):
+		$Body.stop_eating()
 
 func start_drinking(target_world_pos: Vector3):
 	if has_node("Body") and $Body.has_method("start_drinking"):
@@ -226,11 +239,29 @@ func try_move(direction: Vector2i) -> bool:
 	cell = target
 	cell_entered.emit(cell)
 	move_tween = create_tween()
-	move_tween.tween_property(self, "position", grid.world_position(cell), 0.16).set_trans(Tween.TRANS_SINE)
-	move_tween.finished.connect(func():
-		moving = false
-		emit_step_contact())
+	move_tween.tween_property(self, "position", grid.world_position(cell), move_duration).set_trans(Tween.TRANS_SINE)
+	move_tween.finished.connect(_on_move_finished)
 	return true
+
+func _on_move_finished():
+	moving = false
+	emit_step_contact()
+	_check_continuous_movement()
+
+func _check_continuous_movement():
+	if camera_controlled or moving or grid == null or require_release:
+		return
+	var direction = Vector2i.ZERO
+	if Input.is_action_pressed("move_north"):
+		direction = Vector2i.UP
+	elif Input.is_action_pressed("move_south"):
+		direction = Vector2i.DOWN
+	elif Input.is_action_pressed("move_west"):
+		direction = Vector2i.LEFT
+	elif Input.is_action_pressed("move_east"):
+		direction = Vector2i.RIGHT
+	if direction != Vector2i.ZERO:
+		try_move(screen_direction_to_grid(direction))
 
 # Grid collision occupies one tile; include the astronaut's interpolating body
 # near tile boundaries until its already committed step has visibly finished.

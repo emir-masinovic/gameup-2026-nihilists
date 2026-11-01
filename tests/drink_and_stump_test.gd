@@ -58,15 +58,15 @@ func run():
 	water.merge({"tree":false,"terrain":"water","water":true,"water_depth":1.0,"water_level":1.0,"burning":false},true)
 	actions.seeds = 0
 	actions.water_ml = 200
-	survival.thirst = 30
+	survival.thirst = 3.0
 	level._try_interact("chop_gather")
 	check(actions.action_kind == "drink_water" and player.is_drinking,"Direct drinking starts animation")
 	level._finish_interaction(actions.tick(1.0,stand))
-	check(survival.thirst == 75 and actions.water_ml == 200 and not player.is_drinking,"Drinking changes hydration only and stops animation")
+	check(is_equal_approx(survival.thirst, 6.0) and actions.water_ml == 200 and not player.is_drinking,"Drinking changes hydration only and stops animation")
 	level._try_interact("interact")
 	check(actions.action_kind == "fill_water","Unavailable planting falls back to bottle filling")
 	level._finish_interaction(actions.tick(3.0,stand))
-	check(actions.water_ml == 700 and survival.thirst == 75,"Filling changes bottle only")
+	check(actions.water_ml == 700 and is_equal_approx(survival.thirst, 6.0),"Filling changes bottle only")
 	actions.water_ml = 900
 	actions.begin(stand,Vector2i.DOWN,"interact")
 	level._finish_interaction(actions.tick(3.0,stand))
@@ -93,7 +93,7 @@ func run():
 		var hydration = survival.thirst
 		event = actions.tick(3.0,stand)
 		level._finish_interaction(event)
-		check(event.is_empty() and actions.water_ml == 0 and survival.thirst == hydration,"Missing water cancels without resource changes")
+		check(event.is_empty() and actions.water_ml == 0 and is_equal_approx(survival.thirst, hydration),"Missing water cancels without resource changes")
 		water.water = true
 		water.water_depth = 1.0
 		water.terrain = "water"

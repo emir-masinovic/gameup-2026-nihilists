@@ -14,7 +14,7 @@ func _initialize():
 	assert(interaction.begin(player, Vector2i.RIGHT))
 	var cut = interaction.tick(2.0, player)
 	assert(cut.kind == "tree_cut" and cut.direction == target - player)
-	assert(not grid.traversable(target))
+	assert(grid.traversable(target))
 	assert(grid.cells[target.y * grid.SIZE + target.x].tree_state == "stump")
 	assert(interaction.begin(player, Vector2i.RIGHT,"interact"))
 	assert(interaction.tick(2.0, player).kind == "stump_removed")

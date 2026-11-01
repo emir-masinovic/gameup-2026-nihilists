@@ -43,6 +43,10 @@ func configure(grid: RefCounted) -> void:
 func update_state(grid: RefCounted) -> void:
 	for bush in bushes:
 		var data: Dictionary = grid.cells[bush.index]
+		var has_bush: bool = data.get("berry_bush", false)
+		bush.node.visible = has_bush
+		if not has_bush:
+			continue
 		var healthy: bool = float(data.get("health", 1.0)) > 0.4 and float(data.get("moisture", 1.0)) > 0.35 and not data.get("burning", false)
 		_apply_material(bush.model, _healthy if healthy else _stressed)
 		bush.berries.visible = int(data.get("berries", 0)) > 0 and not data.get("burning", false) and float(data.get("health", 1.0)) > 0.05 and float(data.get("moisture", 1.0)) >= 0.12

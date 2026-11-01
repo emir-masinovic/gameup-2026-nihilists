@@ -77,7 +77,7 @@ static func restore(data):
 	if run.survival.health <= 0 or run.survival.health > 100 or run.survival.dead or run.planting.seed_count < 0 or run.planting.seed_count > 9 or run.planting.water_ml < 0 or run.planting.water_ml > 1000: return null
 	for key in ["wetness","hunger","thirst"]:
 		if run.survival.get(key) < 0 or run.survival.get(key) > 100: return null
-	if run.survival.body_temperature < 20 or run.survival.body_temperature > 50 or run.survival.berry_count < 0: return null
+	if run.survival.body_temperature < 20 or run.survival.body_temperature > 50 or run.survival.berry_count < 0 or run.survival.trash_count < 0 or run.survival.trash_count > run.survival.MAX_TRASH: return null
 	for id in data.states:
 		if not id in Regions.IDS: return null
 		var saved = data.states[id]

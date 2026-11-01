@@ -59,8 +59,8 @@ func _seconds(world: Node, count: int) -> void:
 
 func _reset_survival(world: Node) -> void:
 	world.survival.health = 100.0
-	world.survival.hunger = 100.0
-	world.survival.thirst = 100.0
+	world.survival.hunger = 10.0
+	world.survival.thirst = 10.0
 	world.survival.body_temperature = 37.0
 	world.survival.wetness = 0.0
 	world.survival.dead = false
@@ -123,13 +123,13 @@ func run() -> void:
 	world._tick_context_action(1.0)
 	check(world.survival.berry_count == 2 and world.grid.cells[8 * world.grid.SIZE + 6].berries == 0, "Common action harvests exactly two berries and depletes source")
 	check(saves.progression.discoveries.has("food.berry_bush") and saves.progression.discoveries.has("food.first_harvest"), "First harvest and food source award stable discoveries")
-	world.survival.hunger = 40.0
-	world.survival.thirst = 40.0
+	world.survival.hunger = 4.0
+	world.survival.thirst = 4.0
 	var eat := InputEventAction.new()
 	eat.action = "eat"
 	eat.pressed = true
 	world._unhandled_input(eat)
-	check(world.survival.berry_count == 1 and world.survival.hunger == 64.0 and world.survival.thirst == 43.0, "Eat input consumes one berry and restores food plus modest water")
+	check(world.survival.berry_count == 1 and world.survival.hunger == 7.0 and world.survival.thirst == 4.0, "Eat input consumes one berry and restores food")
 	check(world.hud.get_node("PlayerStatus/Rows/Food").text.contains("Berries 1"), "Food HUD reflects actual carried berries")
 	var forest_grid: RefCounted = world.grid
 	var forage: RefCounted = world.foraging
@@ -158,10 +158,10 @@ func run() -> void:
 		check(world.selected_interaction.object_kind == "water", "Facing reachable shore selects pond for drinking")
 		var pond: Dictionary = world.grid.cells[shore.pond.y * world.grid.SIZE + shore.pond.x]
 		var level_before: float = pond.water_level
-		world.survival.thirst = 20.0
+		world.survival.thirst = 2.0
 		world._begin_context_action()
 		world._tick_context_action(1.0)
-		check(world.survival.thirst == 65.0 and pond.water_level == level_before, "Drinking restores thirst without draining pond volume")
+		check(world.survival.thirst == 5.0 and pond.water_level == level_before, "Drinking restores thirst without draining pond volume")
 		check(saves.progression.discoveries.has("water.freshwater"), "Freshwater discovery recorded once")
 		var water_knowledge: int = saves.progression.knowledge
 		world._begin_context_action()
@@ -227,7 +227,7 @@ func _test_climate_context(world: Node) -> void:
 	check(world.survival.body_temperature < 36.0 and not world.survival.dead, "Cold wet outdoor context cools the body during bounded exploration")
 	world._update_hud()
 	check(world.wet_indicator.visible and world.hud.get_node("PlayerStatus/Rows/Wetness").visible, "Wetness has both player and HUD feedback")
-	check(world.hud.get_node("PlayerStatus/Rows/Supplies/Food").text == str(roundi(world.survival.hunger)) and world.hud.get_node("PlayerStatus/Rows/Heat/Value").text.contains("°C"), "HUD reports reserves and body Celsius")
+	check(world.hud.get_node("PlayerStatus/Rows/Supplies/Food").text == ("%d/10" % roundi(world.survival.hunger)) and world.hud.get_node("PlayerStatus/Rows/Heat/Value").text.contains("°C"), "HUD reports reserves and body Celsius")
 	var body_before: float = world.survival.body_temperature
 	var wet_before: float = world.survival.wetness
 	world.survival.health = 80.0

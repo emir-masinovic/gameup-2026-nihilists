@@ -1,7 +1,16 @@
 extends Node3D
 # Visual adaptation of Onur's astronaut at 638ba20. No controller or grid logic.
 signal chop_impact(impact_position: Vector3)
-const step_duration = 0.16
+signal eat_cue(impact_position: Vector3)
+signal eating_finished()
+var step_duration: float:
+	get:
+		if is_instance_valid(get_parent()) and "move_duration" in get_parent():
+			return get_parent().move_duration
+		return _step_duration
+	set(value):
+		_step_duration = value
+var _step_duration: float = 0.28
 var _body: Node3D
 var _arm_left: Node3D
 var _arm_right: Node3D
@@ -27,6 +36,11 @@ var _gather_elapsed: float = 0.0
 var is_drinking: bool = false
 var _drink_target_pos: Vector3 = Vector3.ZERO
 var _drink_elapsed: float = 0.0
+var _berry: Node3D
+var _eat_audio: AudioStreamPlayer3D
+var is_eating: bool = false
+var _eat_elapsed: float = 0.0
+var _eat_sound_played: bool = false
 signal till_impact(impact_position: Vector3)
 signal water_fill_splash(impact_position: Vector3)
 signal water_pour_splash(impact_position: Vector3)
@@ -59,13 +73,16 @@ func _cache_nodes():
 	_leg_right = get_node_or_null("LegRight")
 	_axe = get_node_or_null("ArmRight/Axe")
 	_hoe = get_node_or_null("ArmRight/Hoe")
+	_berry = get_node_or_null("ArmRight/Berry")
+	_eat_audio = get_node_or_null("EatingAudio")
 	_bottle = get_node_or_null("ArmRight/Bottle")
 
 # Facing comes from GridPlayer, including blocked attempts. Animation may lean
 # or twist around this yaw, but must not restore an earlier movement direction.
 func face_direction(direction: Vector2i):
 	_target_yaw = atan2(-direction.x, -direction.y)
-	rotation.y = _target_yaw
+	if not moving:
+		rotation.y = _target_yaw
 
 func _on_step(_cell: Vector2i):
 	stop_chopping()
@@ -104,64 +121,65 @@ func _update_animation(delta: float):
 	if moving:
 		_step_elapsed += delta
 		var t = clampf(_step_elapsed / step_duration, 0.0, 1.0)
-		var foot_side = 1.0 if (_step_count % 2 == 1) else -1.0
 
-		if t < 0.72:
-			# Stride phase (push-off and aerial stride)
-			var stride_t = t / 0.72
-			var stride_curve = sin(stride_t * PI)
+		# Smooth continuous walking stride
+		var leg_l: float = 0.0
+		var leg_r: float = 0.0
 
-			# Hop arc
-			_body.position.y = stride_curve * 0.11
-			_body.scale = Vector3.ONE
-			# Leaning into the step & shifting weight
-			_body.rotation.x = -stride_curve * 0.14
-			_body.rotation.z = stride_curve * 0.06 * foot_side
-
-			# Deliberate leg strides
-			var leg_angle = stride_curve * 0.75 * foot_side
-			if _leg_left:
-				_leg_left.rotation.x = leg_angle
-			if _leg_right:
-				_leg_right.rotation.x = -leg_angle
-
-			# Natural opposing arm swings with mass
-			if _arm_left:
-				_arm_left.rotation.x = -leg_angle * 0.75
-				_arm_left.rotation.z = 0.06
-			if _arm_right:
-				_arm_right.rotation.y = 0.0
-				_arm_right.rotation.x = leg_angle * 0.75
-				_arm_right.rotation.z = -0.06
+		if _step_count <= 1:
+			# First step starting from standstill:
+			# Smoothly ease legs from neutral (0) into forward/back stride
+			var stride = sin(t * PI * 0.5)
+			leg_l = stride * 0.55
+			leg_r = -stride * 0.55
+		elif _step_count % 2 == 1:
+			# Odd steps (left foot stride):
+			# Left leg swings smoothly from rear (-0.55) through center (0) to front (+0.55)
+			var phase = t * PI
+			leg_l = -cos(phase) * 0.55
+			leg_r = cos(phase) * 0.55
 		else:
-			# Foot plant & impact cushion phase (t >= 0.72)
-			if not _step_planted:
-				_step_planted = true
-				if get_parent().has_method("emit_step_contact"): get_parent().emit_step_contact()
-				if _step_dust != null:
-					var boot_offset_x = -0.13 if (_step_count % 2 == 1) else 0.13
-					_step_dust.position = Vector3(boot_offset_x, 0.02, 0.0)
-					_step_dust.restart()
+			# Even steps (right foot stride):
+			# Right leg swings smoothly from rear (-0.55) through center (0) to front (+0.55)
+			var phase = t * PI
+			leg_l = cos(phase) * 0.55
+			leg_r = -cos(phase) * 0.55
 
-			var impact_t = (t - 0.72) / 0.28
-			var cushion = sin(impact_t * PI)
-			# Heel strike dip & rebound
-			_body.position.y = -cushion * 0.035
-			# Weight compression / squash
-			_body.scale = Vector3(1.0 + cushion * 0.05, 1.0 - cushion * 0.06, 1.0 + cushion * 0.05)
+		if _leg_left:
+			_leg_left.rotation.x = leg_l
+		if _leg_right:
+			_leg_right.rotation.x = leg_r
 
-			_body.rotation.x = lerpf(_body.rotation.x, 0.0, impact_t * 1.5)
-			_body.rotation.z = lerpf(_body.rotation.z, 0.0, impact_t * 1.5)
+		# Natural opposing arm swing with mass and slight outward clearance
+		var arm_l = -leg_l * 0.75
+		var arm_r = leg_l * 0.75
+		if _arm_left:
+			_arm_left.rotation.x = arm_l
+			_arm_left.rotation.z = 0.08
+		if _arm_right:
+			_arm_right.rotation.y = 0.0
+			_arm_right.rotation.x = arm_r
+			_arm_right.rotation.z = -0.08
 
-			# Legs plant firmly on ground
-			if _leg_left:
-				_leg_left.rotation.x = lerpf(_leg_left.rotation.x, 0.0, impact_t * 2.0)
-			if _leg_right:
-				_leg_right.rotation.x = lerpf(_leg_right.rotation.x, 0.0, impact_t * 2.0)
-			if _arm_left:
-				_arm_left.rotation.x = lerpf(_arm_left.rotation.x, 0.0, impact_t * 2.0)
-			if _arm_right:
-				_arm_right.rotation.x = lerpf(_arm_right.rotation.x, 0.0, impact_t * 2.0)
+		# Grounded simulation walk bob (rises at mid-step, lands smoothly at tile contact)
+		var bob_curve = sin(t * PI)
+		_body.position.y = bob_curve * 0.12
+		_body.scale = Vector3.ONE
+
+		# Torso dynamics: slight forward lean into movement & subtle side sway
+		_body.rotation.x = -0.06 - bob_curve * 0.02
+		var foot_side = 1.0 if (_step_count % 2 == 1) else -1.0
+		_body.rotation.z = sin(t * PI) * 0.035 * foot_side
+
+		# Smooth foot plant & audio contact near end of stride
+		if t >= 0.45 and not _step_planted:
+			_step_planted = true
+			if get_parent().has_method("emit_step_contact"):
+				get_parent().emit_step_contact()
+			if _step_dust != null:
+				var boot_offset_x = -0.13 if (_step_count % 2 == 1) else 0.13
+				_step_dust.position = Vector3(boot_offset_x, 0.02, 0.0)
+				_step_dust.restart()
 
 		_body.rotation.y = lerp_angle(_body.rotation.y, _target_yaw, delta * 20.0)
 	elif is_chopping:
@@ -323,19 +341,69 @@ func _update_animation(delta: float):
 	elif is_gathering:
 		_gather_elapsed += delta
 		var kneel = minf(_gather_elapsed * 3.5, 1.0)
-		_body.position.y = lerpf(0.0, -0.16, kneel)
-		_body.rotation.x = lerpf(0.0, -0.4, kneel)
+		_body.position.y = lerpf(0.0, -0.20, kneel)
+		_body.rotation.x = lerpf(0.0, -0.52, kneel)
 		if _leg_left:
-			_leg_left.rotation.x = lerpf(0.0, -0.42, kneel)
+			_leg_left.rotation.x = lerpf(0.0, -0.45, kneel)
 		if _leg_right:
-			_leg_right.rotation.x = lerpf(0.0, 0.38, kneel)
-		var reach = sin(_gather_elapsed * 6.0) * 0.1
+			_leg_right.rotation.x = lerpf(0.0, 0.40, kneel)
+		var reach = sin(_gather_elapsed * 8.0) * 0.08
 		if _arm_left:
-			_arm_left.rotation.x = lerpf(0.0, -0.85 + reach, kneel)
-			_arm_left.rotation.z = lerpf(0.0, 0.2, kneel)
+			_arm_left.rotation.x = lerpf(0.0, 0.65 + reach, kneel)
+			_arm_left.rotation.z = lerpf(0.0, 0.22, kneel)
 		if _arm_right:
-			_arm_right.rotation.x = lerpf(0.0, -0.85 - reach, kneel)
-			_arm_right.rotation.z = lerpf(0.0, -0.2, kneel)
+			_arm_right.rotation.x = lerpf(0.0, 0.65 - reach, kneel)
+			_arm_right.rotation.z = lerpf(0.0, -0.22, kneel)
+	elif is_eating:
+		_eat_elapsed += delta
+		var total_duration = 1.1
+		var t = clampf(_eat_elapsed / total_duration, 0.0, 1.0)
+		if t < 0.35:
+			var raise_t = t / 0.35
+			var ease_raise = sin(raise_t * PI * 0.5)
+			if _arm_right:
+				_arm_right.rotation.x = lerpf(0.0, 2.05, ease_raise)
+				_arm_right.rotation.y = lerpf(0.0, 0.35, ease_raise)
+				_arm_right.rotation.z = lerpf(-0.08, -0.52, ease_raise)
+			if _arm_left:
+				_arm_left.rotation.x = lerpf(0.0, 0.25, ease_raise)
+				_arm_left.rotation.z = lerpf(0.08, 0.16, ease_raise)
+			_body.rotation.x = lerpf(0.0, -0.10, ease_raise)
+		elif t < 0.70:
+			var munch_t = (t - 0.35) / 0.35
+			var chew = sin(munch_t * PI * 6.0) * 0.04
+			if _arm_right:
+				_arm_right.rotation.x = 2.05 + chew
+				_arm_right.rotation.y = 0.35
+				_arm_right.rotation.z = -0.52 + chew * 0.4
+			if _arm_left:
+				_arm_left.rotation.x = 0.25
+				_arm_left.rotation.z = 0.16
+			_body.rotation.x = -0.10 + chew * 0.5
+			if not _eat_sound_played:
+				_eat_sound_played = true
+				if _eat_audio != null:
+					_eat_audio.play()
+				eat_cue.emit(global_position)
+			if munch_t >= 0.5:
+				if _berry != null:
+					_berry.visible = false
+		else:
+			var lower_t = (t - 0.70) / 0.30
+			var ease_lower = sin(lower_t * PI * 0.5)
+			if _berry != null:
+				_berry.visible = false
+			if _arm_right:
+				_arm_right.rotation.x = lerpf(2.05, 0.0, ease_lower)
+				_arm_right.rotation.y = lerpf(0.35, 0.0, ease_lower)
+				_arm_right.rotation.z = lerpf(-0.52, -0.08, ease_lower)
+			if _arm_left:
+				_arm_left.rotation.x = lerpf(0.25, 0.0, ease_lower)
+				_arm_left.rotation.z = lerpf(0.16, 0.08, ease_lower)
+			_body.rotation.x = lerpf(-0.10, 0.0, ease_lower)
+		if _eat_elapsed >= total_duration:
+			stop_eating()
+			eating_finished.emit()
 	elif is_drinking:
 		_drink_elapsed += delta
 		# Character kneels down towards water, scoops water with cupped hands up to helmet/face to drink
@@ -352,23 +420,24 @@ func _update_animation(delta: float):
 			var t = cycle / 0.45
 			var ease_down = sin(t * PI * 0.5)
 			if _arm_left:
-				_arm_left.rotation.x = lerpf(0.0, -0.85, ease_down)
+				_arm_left.rotation.x = lerpf(0.0, 0.65, ease_down)
 				_arm_left.rotation.z = lerpf(0.08, 0.28, ease_down)
 			if _arm_right:
-				_arm_right.rotation.x = lerpf(0.0, -0.85, ease_down)
+				_arm_right.rotation.x = lerpf(0.0, 0.65, ease_down)
 				_arm_right.rotation.z = lerpf(-0.08, -0.28, ease_down)
 		else:
 			# Bring cupped hands up to helmet visor to drink, head tilting slightly
 			var t = (cycle - 0.45) / 0.45
 			var ease_up = sin(t * PI * 0.5)
 			if _arm_left:
-				_arm_left.rotation.x = lerpf(-0.85, -1.55, ease_up)
-				_arm_left.rotation.z = lerpf(0.28, 0.42, ease_up)
+				_arm_left.rotation.x = lerpf(0.65, 1.85, ease_up)
+				_arm_left.rotation.z = lerpf(0.28, 0.35, ease_up)
 			if _arm_right:
-				_arm_right.rotation.x = lerpf(-0.85, -1.55, ease_up)
-				_arm_right.rotation.z = lerpf(-0.28, -0.42, ease_up)
-			_body.rotation.x = lerpf(-0.38, -0.18, ease_up)
+				_arm_right.rotation.x = lerpf(0.65, 1.85, ease_up)
+				_arm_right.rotation.z = lerpf(-0.28, -0.35, ease_up)
+			_body.rotation.x = lerpf(-0.38, -0.15, ease_up)
 	else:
+		_step_count = 0
 		# Return limbs smoothly to relaxed stance
 		var blend = delta * 12.0
 		if _leg_left:
@@ -528,6 +597,30 @@ func start_drinking(target_world_pos: Vector3):
 func stop_drinking():
 	is_drinking = false
 	_drink_elapsed = 0.0
+
+func start_eating():
+	stop_farming()
+	stop_chopping()
+	is_eating = true
+	_eat_elapsed = 0.0
+	_eat_sound_played = false
+	_cache_nodes()
+	if _berry != null:
+		_berry.visible = true
+	if _bottle != null:
+		_bottle.visible = false
+	if _axe != null:
+		_axe.visible = false
+	if _hoe != null:
+		_hoe.visible = false
+
+func stop_eating():
+	is_eating = false
+	_eat_elapsed = 0.0
+	_eat_sound_played = false
+	_cache_nodes()
+	if _berry != null:
+		_berry.visible = false
 
 func stop_farming():
 	stop_tilling()

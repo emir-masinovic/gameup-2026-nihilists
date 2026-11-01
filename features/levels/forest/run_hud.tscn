@@ -133,18 +133,18 @@ custom_minimum_size = Vector2(24, 24)
 script = ExtResource("3")
 kind = "food"
 [node name="Food" type="Label" parent="PlayerStatus/Rows/Supplies"]
-text = "100"
+text = "10/10"
 tooltip_text = "Food"
-custom_minimum_size = Vector2(34, 0)
+custom_minimum_size = Vector2(42, 0)
 theme_override_font_sizes/font_size = 16
 [node name="WaterIcon" type="Control" parent="PlayerStatus/Rows/Supplies"]
 custom_minimum_size = Vector2(24, 24)
 script = ExtResource("3")
 kind = "water"
 [node name="Water" type="Label" parent="PlayerStatus/Rows/Supplies"]
-text = "100"
+text = "10/10"
 tooltip_text = "Water"
-custom_minimum_size = Vector2(34, 0)
+custom_minimum_size = Vector2(42, 0)
 theme_override_font_sizes/font_size = 16
 [node name="SeedsIcon" type="Control" parent="PlayerStatus/Rows/Supplies"]
 custom_minimum_size = Vector2(24, 24)
@@ -153,6 +153,15 @@ kind = "seeds"
 [node name="Seeds" type="Label" parent="PlayerStatus/Rows/Supplies"]
 text = "3"
 tooltip_text = "Seeds"
+custom_minimum_size = Vector2(34, 0)
+theme_override_font_sizes/font_size = 16
+[node name="TrashIcon" type="Control" parent="PlayerStatus/Rows/Supplies"]
+custom_minimum_size = Vector2(24, 24)
+script = ExtResource("3")
+kind = "trash"
+[node name="Trash" type="Label" parent="PlayerStatus/Rows/Supplies"]
+text = "0/3"
+tooltip_text = "Trash"
 custom_minimum_size = Vector2(34, 0)
 theme_override_font_sizes/font_size = 16
 [node name="Food" type="Label" parent="PlayerStatus/Rows"]
@@ -172,7 +181,7 @@ anchor_right = 1.0
 offset_left = -280.0
 offset_right = -20.0
 offset_top = 20.0
-offset_bottom = 124.0
+offset_bottom = 158.0
 theme_override_styles/panel = SubResource("Surface")
 [node name="Rows" type="VBoxContainer" parent="WorldStatus"]
 theme_override_constants/separation = 4
@@ -192,6 +201,23 @@ theme_override_font_sizes/font_size = 18
 text = "+0.0 C warming"
 theme_override_font_sizes/font_size = 14
 theme_override_colors/font_color = Color(0.9, 0.72, 0.45, 1)
+[node name="Planet" type="HBoxContainer" parent="WorldStatus/Rows"]
+theme_override_constants/separation = 8
+[node name="Icon" type="Control" parent="WorldStatus/Rows/Planet"]
+custom_minimum_size = Vector2(24, 24)
+script = ExtResource("3")
+kind = "planet"
+[node name="Label" type="Label" parent="WorldStatus/Rows/Planet"]
+text = "Planet 50%"
+theme_override_font_sizes/font_size = 14
+[node name="Bar" type="ProgressBar" parent="WorldStatus/Rows/Planet"]
+custom_minimum_size = Vector2(80, 10)
+size_flags_vertical = 4
+size_flags_horizontal = 3
+max_value = 100.0
+value = 50.0
+show_percentage = false
+theme_override_styles/fill = SubResource("HealthFill")
 [node name="Knowledge" type="HBoxContainer" parent="WorldStatus/Rows"]
 theme_override_constants/separation = 8
 [node name="Icon" type="Control" parent="WorldStatus/Rows/Knowledge"]

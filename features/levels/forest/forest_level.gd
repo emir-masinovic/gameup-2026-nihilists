@@ -23,6 +23,8 @@ var interactions = preload("res://features/levels/forest/forest_interactions.gd"
 var survival = preload("res://features/player/survival_state.gd").new()
 var terrain_renderer: Node3D
 var trees = {}
+var recycle_bin_visual: Node3D = null
+var trash_visuals: Dictionary = {}
 var palette: Array[ShaderMaterial] = []
 var tick_accumulator = 0.0
 var ended = false
@@ -59,6 +61,10 @@ var dirt_puff: CPUParticles3D
 var seed_visuals = {}
 var decorated_cells = {}
 var wet_indicator: MeshInstance3D
+var hazard_system: Node3D = null
+var hazard_damage_accumulator: float = 0.0
+var _damage_icon_tex: ImageTexture = null
+var _heal_icon_tex: ImageTexture = null
 
 
 
@@ -109,6 +115,8 @@ func _ready():
 		$GridPlayer.water_fill_splash.connect(_on_water_fill_splash)
 	if $GridPlayer.has_signal("water_pour_splash"):
 		$GridPlayer.water_pour_splash.connect(_on_water_pour_splash)
+	if $GridPlayer.has_signal("eat_cue"):
+		$GridPlayer.eat_cue.connect(func(pos): audio_cue.emit("eat", pos))
 	var regional_palette: Dictionary = regions.palette_for(region_id)
 	for health_bin in range(4):
 		for moisture_bin in range(4):
@@ -198,7 +206,12 @@ func _ready():
 	_apply_shadow_quality()
 	if region_state.get("camp_enabled",false): _create_landmarks()
 	_update_bonfire_visuals()
+	if region_id == "forest":
+		_create_spaceship()
+	_create_recycle_bin()
+	_create_trash_visuals()
 	_create_kenney_props()
+	_create_environmental_hazards()
 	water_material = StandardMaterial3D.new()
 	water_material.albedo_color = Color("477c88")
 	water_material.roughness = 0.5
@@ -242,6 +255,7 @@ func _process(delta):
 	_advance_presentation(delta)
 	_tick_context_action(delta)
 	_update_interaction_marker()
+	_tick_hazard_damage(delta)
 	if get_tree().paused: return
 	tick_accumulator += delta * simulation_time_scale
 	if tick_accumulator >= 1.0:
@@ -263,6 +277,8 @@ func _process(delta):
 			if not warned_fire:
 				hud.notify("Fire nearby: retreat to wet ground or a cleared route")
 				warned_fire = true
+		if survival.health > health_before:
+			_spawn_health_popup("+5", Color("4ebd5f"), "heal")
 		if climate.weather != last_weather:
 			last_weather = climate.weather
 			audio_cue.emit("weather_" + last_weather, $GridPlayer.position)
@@ -287,12 +303,7 @@ func _unhandled_input(event):
 	if ended or transitioning or get_tree().paused:
 		return
 	if event.is_action_pressed("eat") and not event.is_echo():
-		if survival.eat_berry():
-			hud.notify("Ate berries")
-			audio_cue.emit("discovery", $GridPlayer.position)
-		else:
-			hud.notify("No berries to eat" if survival.berry_count <= 0 else "Food and water reserves are full")
-		_update_hud()
+		_try_eat()
 		get_viewport().set_input_as_handled()
 		return
 	if $GridPlayer.moving or event.is_echo():
@@ -304,28 +315,122 @@ func _unhandled_input(event):
 		_try_interact("chop_gather")
 		get_viewport().set_input_as_handled()
 
+func _try_eat():
+	if ended or transitioning or get_tree().paused or $GridPlayer.moving:
+		return
+	var player_cell = $GridPlayer.cell
+	if not grid.in_bounds(player_cell):
+		return
+	if survival.berry_count <= 0:
+		hud.notify("No berries to eat.")
+		return
+	var health_before = survival.health
+	if survival.eat_berry():
+		$GridPlayer.start_eating()
+		if survival.health > health_before:
+			hud.notify("Berry eaten! Health restored (%d/100)." % roundi(survival.health))
+			_spawn_health_popup("+5", Color("4ebd5f"), "heal")
+		else:
+			hud.notify("Berry eaten! Hunger restored (%d/10)." % roundi(survival.hunger))
+		_update_hud()
+	else:
+		if survival.hunger >= 9.99 and survival.thirst < 9.99:
+			hud.notify("Must satisfy thirst before restoring health (Thirst: %d/10)." % roundi(survival.thirst))
+		elif survival.hunger >= 9.99 and survival.health >= 100.0:
+			hud.notify("Hunger and health are already full.")
+		else:
+			hud.notify("Could not eat berry.")
+
 func _try_interact(action_group: String):
-	if interactions.target.x >= 0 or not context_action.active.is_empty(): return
+	if interactions.target.x >= 0:
+		if interactions.target != $GridPlayer.cell and interactions.target != $GridPlayer.cell + $GridPlayer.facing:
+			interactions.cancel()
+		else:
+			return
+	if not context_action.active.is_empty(): return
 	if action_group == "interact":
 		var custom = _custom_preview()
 		if not custom.is_empty():
 			context_action.begin(custom,$GridPlayer.cell)
 			return
-		var front = $GridPlayer.cell+$GridPlayer.facing
-		if grid.in_bounds(front) and grid.cells[front.y*grid.SIZE+front.x].get("berry_bush",false):
-			var amount = foraging.harvest(front)
-			survival.add_berries(amount)
-			if amount > 0: _discover("food.first_harvest","Food gathered for the journey")
-			_update_hud()
-			return
+		var underfoot = $GridPlayer.cell
+		var underfoot_data: Dictionary = grid.cells[underfoot.y * grid.SIZE + underfoot.x] if grid.in_bounds(underfoot) else {}
+		if underfoot_data.get("trash", false):
+			if survival.trash_count >= survival.MAX_TRASH:
+				hud.notify("You must dump trashes into the recyle bin before taking new trashes")
+				return
+			if survival.add_trash(1):
+				underfoot_data.trash = false
+				if trash_visuals.has(underfoot):
+					var visual = trash_visuals[underfoot]
+					if is_instance_valid(visual):
+						visual.queue_free()
+					trash_visuals.erase(underfoot)
+				$GridPlayer.start_gathering(grid.world_position(underfoot))
+				var tree = get_tree()
+				if tree != null:
+					var gather_timer = tree.create_timer(0.65)
+					gather_timer.timeout.connect(func():
+						if is_instance_valid($GridPlayer):
+							$GridPlayer.stop_gathering()
+					)
+				_update_hud()
+				return
+		if _facing_recycle_bin(underfoot, $GridPlayer.facing):
+			if survival.trash_count > 0:
+				var dumped = survival.dump_trash()
+				$GridPlayer.start_gathering(grid.world_position(grid.recycle_bin_cell))
+				var tree = get_tree()
+				if tree != null:
+					var gather_timer = tree.create_timer(0.65)
+					gather_timer.timeout.connect(func():
+						if is_instance_valid($GridPlayer):
+							$GridPlayer.stop_gathering()
+					)
+				hud.notify("Dumped %d trash into the recycle bin." % dumped)
+				_update_hud()
+				return
+			else:
+				hud.notify("No trash to dump.")
+				return
+		elif _near_recycle_bin(underfoot):
+			if survival.trash_count > 0:
+				hud.notify("Face the recycle bin to dump trash.")
+				return
+		var harvest_target = Vector2i(-1, -1)
+		if grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berry_bush",false) and int(grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berries", 0)) > 0 and not grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("water", false):
+			harvest_target = underfoot
+		if harvest_target.x >= 0 and foraging != null:
+			var amount = foraging.harvest(harvest_target)
+			if amount > 0:
+				survival.add_berries(amount)
+				$GridPlayer.start_gathering(grid.world_position(harvest_target))
+				var tree = get_tree()
+				if tree != null:
+					var gather_timer = tree.create_timer(0.65)
+					gather_timer.timeout.connect(func():
+						if is_instance_valid($GridPlayer):
+							$GridPlayer.stop_gathering()
+					)
+				_discover("food.berry_bush", "Berry bushes supply food")
+				_discover("food.first_harvest", "Food gathered for the journey")
+				hud.notify("Harvested %d berries" % amount)
+				audio_cue.emit("discovery", grid.world_position(harvest_target))
+				_update_hud()
+				return
+			else:
+				var avail = foraging.availability(harvest_target)
+				if not avail.available and not avail.reason.is_empty():
+					hud.notify(avail.reason)
+				return
 	if interactions.begin($GridPlayer.cell, $GridPlayer.facing, action_group):
 		var target_pos = grid.world_position(interactions.target)
 		var msg = ""
 		if interactions.action_kind == "drink_water":
-			msg = "Drinking from water... moving cancels."
+			msg = "Drinking pond water... moving cancels."
 			$GridPlayer.start_drinking(target_pos)
 		elif interactions.action_kind == "fill_water":
-			msg = "Filling bottle... moving cancels."
+			msg = "Filling water bottle... moving cancels."
 			$GridPlayer.start_filling_water(target_pos)
 		elif interactions.action_kind == "water_soil":
 			msg = "Watering... moving cancels."
@@ -355,27 +460,45 @@ func _try_interact(action_group: String):
 			if _camp_active() and $GridPlayer.cell.distance_to(grid.start) <= 1.5:
 				hud.show_modal("bonfire")
 				return
-			var front = $GridPlayer.cell + $GridPlayer.facing
-			if grid.in_bounds(front) and grid.cells[front.y * grid.SIZE + front.x].get("berry_bush", false) and foraging != null:
-				var amount: int = foraging.harvest(front)
+			var underfoot = $GridPlayer.cell
+			var harvest_target = Vector2i(-1, -1)
+			if grid.in_bounds(underfoot) and grid.cells[underfoot.y * grid.SIZE + underfoot.x].get("berry_bush", false) and int(grid.cells[underfoot.y * grid.SIZE + underfoot.x].get("berries", 0)) > 0 and foraging != null:
+				harvest_target = underfoot
+			if harvest_target.x >= 0:
+				var amount: int = foraging.harvest(harvest_target)
 				if amount > 0:
 					survival.add_berries(amount)
+					$GridPlayer.start_gathering(grid.world_position(harvest_target))
+					var tree = get_tree()
+					if tree != null:
+						var gather_timer = tree.create_timer(0.65)
+						gather_timer.timeout.connect(func():
+							if is_instance_valid($GridPlayer):
+								$GridPlayer.stop_gathering()
+						)
 					_discover("food.berry_bush", "Berry bushes supply food")
 					_discover("food.first_harvest", "Food gathered for the journey")
 					hud.notify("Harvested %d berries" % amount)
-					audio_cue.emit("discovery", grid.world_position(front))
+					audio_cue.emit("discovery", grid.world_position(harvest_target))
 					_update_hud()
+					return
+				else:
+					var avail = foraging.availability(harvest_target)
+					if not avail.available and not avail.reason.is_empty():
+						hud.notify(avail.reason)
 					return
 			if interactions.last_error == "no_seeds":
 				hud.notify("No seeds. Gather seeds from tree remains.")
 			elif interactions.last_error == "no_water":
-				hud.notify("Need %d ml of water. Refill at a pond." % interactions.WATER_PER_POUR)
+				hud.notify("Not enough water. Need %d ml of water. Refill at a pond." % interactions.WATER_PER_POUR)
 			elif interactions.last_error == "water_full":
 				hud.notify("Bottle full (%d ml)." % interactions.MAX_WATER_ML)
 			else:
 				hud.notify("Use [%s] to prepare soil, plant, water or refill." % _binding_label("interact"))
 
 func _on_cell_entered(cell: Vector2i):
+	if interactions.target.x >= 0 and interactions.target != cell and interactions.target != cell + $GridPlayer.facing:
+		interactions.cancel()
 	if transitioning:
 		return
 	var destination: String = regions.exit_destination(region_id, cell)
@@ -385,7 +508,11 @@ func _on_cell_entered(cell: Vector2i):
 	_discover("region." + region_id, regions.region_name(region_id) + " surveyed")
 	climate.trample(cell)
 	var here = grid.cells[cell.y * grid.SIZE + cell.x]
-	if here.get("berry_bush", false):
+	if here.get("trash", false):
+		hud.notify("In order to pick trash, press E")
+	elif _near_recycle_bin(cell):
+		hud.notify("Press E for dumbing trashes into the recycle bin.")
+	elif here.get("berry_bush", false):
 		_discover("food.berry_bush", "Berry bushes supply food")
 	if here.moisture < 0.45 or here.get("burned", false):
 		objectives.observe_problem(region_id)
@@ -427,10 +554,21 @@ func _finish_interaction(event: Dictionary):
 		return
 	var cell: Vector2i = event.cell
 	if event.kind == "drink_water":
-		survival.drink()
+		var health_before = survival.health
+		var drank = survival.drink()
 		_discover("water.freshwater", "Freshwater source found")
 		audio_cue.emit("discovery", grid.world_position(cell))
-		hud.notify("Drank freshwater. Hydration: %d%%." % roundi(survival.thirst))
+		if drank:
+			if survival.health > health_before:
+				hud.notify("Drank pond water! Health restored (%d/100)." % roundi(survival.health))
+				_spawn_health_popup("+5", Color("4ebd5f"), "heal")
+			else:
+				hud.notify("Drank pond water! Thirst restored (%d/10)." % roundi(survival.thirst))
+		else:
+			if survival.thirst >= 9.99 and survival.hunger < 9.99:
+				hud.notify("Must satisfy hunger before restoring health (Hunger: %d/10)." % roundi(survival.hunger))
+			elif survival.thirst >= 9.99 and survival.health >= 100.0:
+				hud.notify("Thirst and health are already full (%d/10)." % roundi(survival.thirst))
 		_update_hud()
 	elif event.kind == "fill_water":
 		_discover("interaction.fill_water", "Water filled: bottle replenished from lake")
@@ -604,6 +742,8 @@ func _refresh_visuals():
 			elif not data.get("growth_discovered", false) and not data.get("natural",false):
 				data.growth_discovered = true
 				_discover("flora.planted_growth", "A planted tree matured: new shade and habitat")
+				climate.planet_health = climate.calculate_planet_health()
+				hud.notify("Planted tree matured! Planet Health improved.")
 		if trees.has(cell) and data.tree_state in ["healthy", "dead"]:
 			if trees[cell].has_method("set_health"):
 				trees[cell].set_health(data.tree_health, data.tree_state == "dead", data.moisture, data.get("burned", false))
@@ -637,6 +777,10 @@ func _refresh_visuals():
 func _update_hud():
 	var safe = _camp_active() and $GridPlayer.cell.distance_to(grid.start) <= 2.2
 	hud.update_status(survival.health, survival.exposure, climate.temperature, climate.weather, climate.warming_pressure(), SaveManager.progression.knowledge, safe, interactions.target.x >= 0, interactions.seeds, interactions.water_ml)
+	if climate != null:
+		hud.update_planet_health(climate.planet_health)
+		if hazard_system != null and is_instance_valid(hazard_system) and hazard_system.has_method("update_planet_health"):
+			hazard_system.update_planet_health(climate.planet_health)
 	_update_wind(tick_accumulator)
 	hud.set_environment_context(climate.fire_at($GridPlayer.cell), "", false)
 	hud.set_region(regions.region_name(region_id))
@@ -774,12 +918,75 @@ func _update_lighting(delta: float = 0.0):
 		disc.position = grid.world_position(grid.start)+ray*42.0
 		disc.visible = ray.y > 0
 
+func _create_spaceship():
+	var ship_scene = preload("res://features/levels/forest/props/spaceship.glb")
+	var ship = ship_scene.instantiate()
+	ship.name = "Spaceship"
+	var sum_pos := Vector3.ZERO
+	for cell in grid.SPACESHIP_CELLS:
+		decorated_cells[cell] = true
+		sum_pos += grid.world_position(cell)
+	var count := float(grid.SPACESHIP_CELLS.size())
+	ship.position = sum_pos / count
+	ship.scale = Vector3.ONE * 2.0
+	# rocket_classic.glb stands upright along Y axis from Y=0 to Y=6.75 on landing fins.
+	# Facing 0.0 keeps porthole oriented towards the arriving player.
+	ship.rotation.y = 0.0
+	ship.add_to_group("forest_props")
+	add_child(ship)
+
+func _facing_recycle_bin(cell: Vector2i, facing: Vector2i) -> bool:
+	if not grid.in_bounds(grid.recycle_bin_cell):
+		return false
+	return (cell + facing) == grid.recycle_bin_cell
+
+func _near_recycle_bin(cell: Vector2i) -> bool:
+	if not grid.in_bounds(grid.recycle_bin_cell):
+		return false
+	var diff = (cell - grid.recycle_bin_cell).abs()
+	return maxi(diff.x, diff.y) == 1 and cell != grid.recycle_bin_cell
+
+func _create_recycle_bin():
+	if recycle_bin_visual != null and is_instance_valid(recycle_bin_visual):
+		recycle_bin_visual.queue_free()
+		recycle_bin_visual = null
+	if not grid.in_bounds(grid.recycle_bin_cell):
+		return
+	var bin_scene = preload("res://features/levels/forest/props/recycle_bin.tscn")
+	var bin = bin_scene.instantiate()
+	bin.name = "RecycleBin"
+	bin.position = grid.world_position(grid.recycle_bin_cell)
+	bin.add_to_group("forest_props")
+	decorated_cells[grid.recycle_bin_cell] = true
+	add_child(bin)
+	recycle_bin_visual = bin
+
+func _create_trash_visuals():
+	for visual in trash_visuals.values():
+		if is_instance_valid(visual):
+			visual.queue_free()
+	trash_visuals.clear()
+	var trash_scene = preload("res://features/levels/forest/props/trash_clutter.tscn")
+	for cell in grid.trash_cells:
+		if not grid.in_bounds(cell):
+			continue
+		var data: Dictionary = grid.cells[cell.y * grid.SIZE + cell.x]
+		if not data.get("trash", false):
+			continue
+		var visual = trash_scene.instantiate()
+		visual.name = "TrashClutter_%d_%d" % [cell.x, cell.y]
+		visual.position = grid.world_position(cell)
+		visual.add_to_group("forest_props")
+		decorated_cells[cell] = true
+		add_child(visual)
+		trash_visuals[cell] = visual
+
 func _create_kenney_props():
 	var models = [preload("res://features/levels/forest/props/rock_small_a.glb"), preload("res://features/levels/forest/props/rock_small_b.glb")]
 	for i in range(grid.cells.size()):
 		var data = grid.cells[i]
 		var cell = Vector2i(i % grid.SIZE, floori(float(i) / grid.SIZE))
-		if data.tree or data.get("terrain", "grass") == "water" or cell.distance_to(grid.start) < 2.5 or cell == grid.objective or data.shade < 0.32 or data.shade > 0.36:
+		if data.tree or data.get("terrain", "grass") == "water" or cell.distance_to(grid.start) < 2.5 or cell == grid.objective or data.shade < 0.32 or data.shade > 0.36 or data.get("spaceship", false) or grid.SPACESHIP_CELLS.has(cell) or data.get("recycle_bin", false) or data.get("trash", false) or cell == grid.recycle_bin_cell:
 			continue
 		var prop = models[i % 2].instantiate()
 		decorated_cells[cell] = true
@@ -876,10 +1083,20 @@ func _action_preview(group: String) -> Dictionary:
 			preview.input_action = group
 			return preview
 	var front = $GridPlayer.cell+$GridPlayer.facing
-	if group == "interact" and grid.in_bounds(front) and grid.cells[front.y*grid.SIZE+front.x].get("berry_bush",false):
-		var berry = _descriptor(front,"berries","Berry Bush","Harvest",0.0)
-		berry.input_action = group
-		return berry
+	var underfoot = $GridPlayer.cell
+	if group == "interact":
+		if grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("trash", false):
+			var trash = _descriptor(underfoot, "trash", "Trash", "Pick Trash", 0.0)
+			trash.input_action = group
+			return trash
+		if _facing_recycle_bin(underfoot, $GridPlayer.facing):
+			var bin = _descriptor(grid.recycle_bin_cell, "recycle_bin", "Recycle Bin", "Dump Trash", 0.0)
+			bin.input_action = group
+			return bin
+		if grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berry_bush",false) and int(grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berries", 0)) > 0:
+			var berry = _descriptor(underfoot,"berries","Berry Bush","Harvest",0.0)
+			berry.input_action = group
+			return berry
 	var probe = preload("res://features/levels/forest/forest_interactions.gd").new()
 	probe.configure(grid,planting)
 	if not probe.begin($GridPlayer.cell,$GridPlayer.facing,group): return {}
@@ -1138,3 +1355,119 @@ func _update_wind(fractional_seconds: float):
 	preload("res://features/levels/forest/nature/nature_tree.gd").set_wind(state)
 	if hud != null: hud.set_wind(state)
 	if effects != null: effects.update_wind(state,$GridPlayer.global_position)
+
+
+func _tick_hazard_damage(delta: float) -> void:
+	if hazard_system == null or not is_instance_valid(hazard_system):
+		return
+	if not is_instance_valid($GridPlayer):
+		return
+	var in_hazard = hazard_system.is_cell_in_hazard($GridPlayer.cell) or hazard_system.is_pos_in_hazard($GridPlayer.global_position)
+	if in_hazard:
+		hazard_damage_accumulator += delta
+		if hazard_damage_accumulator >= 1.0:
+			hazard_damage_accumulator -= 1.0
+			var dmg = 5.0
+			if climate != null and climate.planet_health >= 70.0:
+				dmg = 3.0
+			survival.damage(dmg)
+			_spawn_health_popup("-%d" % roundi(dmg), Color("e05353"), "damage")
+			audio_cue.emit("damage", $GridPlayer.position)
+			hud.damage_feedback(true)
+			if survival.dead:
+				_end_run("death")
+			_update_hud()
+	else:
+		hazard_damage_accumulator = 0.0
+
+func _create_environmental_hazards() -> void:
+	if hazard_system != null and is_instance_valid(hazard_system):
+		hazard_system.queue_free()
+		hazard_system = null
+	var HazardClass = preload("res://features/levels/forest/environmental_hazards.gd")
+	hazard_system = HazardClass.new()
+	hazard_system.name = "EnvironmentalHazards"
+	add_child(hazard_system)
+	hazard_system.configure(region_id, grid, world_seed)
+
+func _spawn_health_popup(text_val: String, color_val: Color, icon_type: String = "damage") -> Node3D:
+	if not is_instance_valid($GridPlayer):
+		return null
+	var popup = Node3D.new()
+	popup.name = "HealthPopup_%d" % Time.get_ticks_msec()
+	popup.position = $GridPlayer.global_position + Vector3(0, 2.1, 0)
+
+	var icon_tex = _get_health_icon_texture(icon_type)
+	var sprite = Sprite3D.new()
+	sprite.name = "Icon"
+	sprite.texture = icon_tex
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.no_depth_test = true
+	sprite.pixel_size = 0.012
+	sprite.position = Vector3(-0.25, 0, 0)
+	popup.add_child(sprite)
+
+	var label = Label3D.new()
+	label.name = "Amount"
+	label.text = text_val
+	label.modulate = color_val
+	label.outline_modulate = Color(0.1, 0.1, 0.1, 0.9)
+	label.outline_size = 6
+	label.font_size = 42
+	label.pixel_size = 0.007
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.position = Vector3(0.15, 0, 0)
+	popup.add_child(label)
+
+	add_child(popup)
+
+	if is_inside_tree():
+		var tween = popup.create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(popup, "position:y", popup.position.y + 0.9, 1.1).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tween.tween_property(sprite, "modulate:a", 0.0, 1.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tween.tween_property(label, "modulate:a", 0.0, 1.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tween.chain().tween_callback(popup.queue_free)
+
+	return popup
+
+func _get_health_icon_texture(icon_type: String) -> Texture2D:
+	if icon_type == "damage":
+		if _damage_icon_tex == null:
+			_damage_icon_tex = _generate_heart_texture(Color(0.92, 0.22, 0.22))
+		return _damage_icon_tex
+	else:
+		if _heal_icon_tex == null:
+			_heal_icon_tex = _generate_plus_texture(Color(0.25, 0.85, 0.35))
+		return _heal_icon_tex
+
+func _generate_heart_texture(color_val: Color) -> ImageTexture:
+	var img = Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	for y in range(32):
+		for x in range(32):
+			var nx = (x - 15.5) / 11.0
+			var ny = -(y - 14.5) / 11.0
+			var val = pow(nx * nx + ny * ny - 1.0, 3) - (nx * nx) * pow(ny, 3)
+			if val <= 0.0:
+				img.set_pixel(x, y, color_val)
+			elif val <= 0.35:
+				img.set_pixel(x, y, Color(color_val.r * 0.4, color_val.g * 0.4, color_val.b * 0.4, 0.8))
+	return ImageTexture.create_from_image(img)
+
+func _generate_plus_texture(color_val: Color) -> ImageTexture:
+	var img = Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	for y in range(32):
+		for x in range(32):
+			var in_vert = (x >= 12 and x <= 19 and y >= 6 and y <= 25)
+			var in_horiz = (y >= 12 and y <= 19 and x >= 6 and x <= 25)
+			if in_vert or in_horiz:
+				img.set_pixel(x, y, color_val)
+			else:
+				var border_v = (x >= 10 and x <= 21 and y >= 4 and y <= 27)
+				var border_h = (y >= 10 and y <= 21 and x >= 4 and x <= 27)
+				if border_v or border_h:
+					img.set_pixel(x, y, Color(color_val.r * 0.3, color_val.g * 0.3, color_val.b * 0.3, 0.7))
+	return ImageTexture.create_from_image(img)

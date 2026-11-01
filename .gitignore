@@ -13,5 +13,4 @@ node_modules/
 package-lock.json
 package.json
 index.js
-
 # Keep Godot .uid files and source asset .import metadata tracked.

@@ -72,9 +72,39 @@ func begin(player: Vector2i, facing: Vector2i, action_group: String = "") -> boo
 	if action_group == "interact":
 		return _begin_interact(player, front, current_cell, front_cell)
 
-	if current_cell.get("pending_seeds",0)>0 or (front_cell != null and (front_cell.get("tree",false) or front_cell.get("log",false) or front_cell.get("pending_seeds",0)>0)):
-		return _begin_chop_gather(player,front,current_cell,front_cell)
-	return _begin_interact(player,front,current_cell,front_cell)
+	# Action Group: "" (Auto-detect / unconstrained call)
+	if current_cell.get("pending_seeds", 0) > 0:
+		return _begin_chop_gather(player, front, current_cell, front_cell)
+	if current_cell.get("tree", false) and current_cell.get("tree_state") == "stump":
+		return _begin_chop_gather(player, front, current_cell, front_cell)
+	if current_cell.get("tree", false) and current_cell.get("tree_state") in ["seed", "sapling"]:
+		return _begin_interact(player, front, current_cell, front_cell)
+	if not current_cell.get("tree", false) and current_cell.get("tilled", false):
+		return _begin_interact(player, front, current_cell, front_cell)
+	if front_cell != null and _is_water_cell(front_cell):
+		return _begin_interact(player, front, current_cell, front_cell)
+	if front_cell != null and front_cell.get("tree", false) and front_cell.get("tree_state") == "stump":
+		target = front
+		origin = player
+		progress = 0.0
+		action_kind = "stump_removed"
+		_interaction_kind = "stump_removed"
+		duration = 0.8
+		return true
+	if front_cell != null and front_cell.get("tree", false) and front_cell.get("tree_state") in ["seed", "sapling"]:
+		return _begin_interact(player, front, current_cell, front_cell)
+	if front_cell != null and front_cell.get("tree", false):
+		return _begin_chop_gather(player, front, current_cell, front_cell)
+	if front_cell != null and front_cell.get("log", false):
+		target = front
+		origin = player
+		progress = 0.0
+		action_kind = "log_cleared"
+		_interaction_kind = "log_cleared"
+		duration = 1.2
+		return true
+
+	return _begin_interact(player, front, current_cell, front_cell)
 
 func _start_action(player: Vector2i, cell: Vector2i, kind: String) -> bool:
 	target = cell
@@ -94,19 +124,22 @@ func _is_water_cell(cell: Dictionary) -> bool:
 
 func _begin_chop_gather(player: Vector2i, front: Vector2i, current_cell: Dictionary, front_cell) -> bool:
 	# Loose seeds remain collectible on occupied/farmed ground without blocking it.
-	if current_cell.get("pending_seeds",0)>0 and seeds < inventory.MAX_SEEDS and not current_cell.get("burning",false):
-		return _start_action(player,player,"collect_seeds")
-	if front_cell == null or front_cell.get("burning",false): return false
-	if front_cell.get("pending_seeds",0)>0:
-		if seeds < inventory.MAX_SEEDS: return _start_action(player,front,"collect_seeds")
-		if front_cell.get("tree",false) and front_cell.get("tree_state") == "stump": return false
+	if current_cell.get("pending_seeds", 0) > 0 and seeds < inventory.MAX_SEEDS and not current_cell.get("burning", false):
+		return _start_action(player, player, "collect_seeds")
+	if front_cell == null or front_cell.get("burning", false):
+		return false
+	if front_cell.get("pending_seeds", 0) > 0:
+		if seeds < inventory.MAX_SEEDS:
+			return _start_action(player, front, "collect_seeds")
+		if front_cell.get("tree", false) and front_cell.get("tree_state") == "stump":
+			return false
 	if front_cell.get("tree",false) and front_cell.get("tree_state") == "stump":
 		return false
 	if _is_water_cell(front_cell):
-		return _start_action(player,front,"drink_water")
+		return _start_action(player, front, "drink_water")
 	var kind = kind_for(front_cell)
-	if kind in ["tree_cut","sapling_removed","log_cleared"]:
-		return _start_action(player,front,kind)
+	if kind in ["tree_cut", "sapling_removed", "log_cleared"]:
+		return _start_action(player, front, kind)
 	return false
 
 func _begin_interact(player: Vector2i, front: Vector2i, current_cell: Dictionary, front_cell) -> bool:
@@ -116,11 +149,11 @@ func _begin_interact(player: Vector2i, front: Vector2i, current_cell: Dictionary
 	elif current_cell.get("tilled", false) and not current_cell.get("tree", false) and seeds <= 0:
 		last_error = "no_seeds"
 	# Explicit removal always wins over underfoot farming, even at full inventory.
-	if front_cell != null and front_cell.get("tree",false) and front_cell.get("tree_state") == "stump" and not front_cell.get("burning",false):
-		return _start_action(player,front,"stump_removed")
+	if front_cell != null and front_cell.get("tree", false) and front_cell.get("tree_state") == "stump" and not front_cell.get("burning", false):
+		return _start_action(player, front, "stump_removed")
+
 	# Priority 1: Standing on a growing seed or sapling (Watering)
-	# Requirement: "Su, yalnızca büyümekte olan tohum ya da fidanın grid hücresinin üzerine gelindiğinde sulanabilmeli."
-	if current_cell.get("tree", false) and current_cell.get("tree_state") in ["seed", "sapling"] and not current_cell.get("burning",false) and not current_cell.get("burned",false) and water_ml >= WATER_PER_POUR:
+	if current_cell.get("tree", false) and current_cell.get("tree_state") in ["seed", "sapling"] and not current_cell.get("burning", false) and not current_cell.get("burned", false) and water_ml >= WATER_PER_POUR:
 		target = player
 		origin = player
 		progress = 0.0
@@ -130,8 +163,7 @@ func _begin_interact(player: Vector2i, front: Vector2i, current_cell: Dictionary
 		return true
 
 	# Priority 2: Standing on tilled ground without a tree (Planting seed)
-	# Requirement: "Tohum, yalnızca çapalanan toprağa ekilebilmeli ve karakter hangi grid hücresinin üzerindeyse oraya ekilebilmeli."
-	if not current_cell.get("tree", false) and current_cell.get("tilled", false) and not current_cell.get("burning",false) and not current_cell.get("burned",false) and inventory.availability(grid,player).available:
+	if not current_cell.get("tree", false) and current_cell.get("tilled", false) and not current_cell.get("burning", false) and not current_cell.get("burned", false) and inventory.availability(grid, player).available:
 		target = player
 		origin = player
 		progress = 0.0
@@ -140,9 +172,32 @@ func _begin_interact(player: Vector2i, front: Vector2i, current_cell: Dictionary
 		duration = 1.0
 		return true
 
-	# Priority 3: Prepare eligible untilled soil underfoot before filling.
-	# Requirement: "Sadece bulunduğun hücrenin üzerindeki toprak çapalanabilir, ağaç kesme işlemi gibi bir sonraki hücredeki toprak değil."
-	if not current_cell.get("tree",false) and not current_cell.get("log",false) and not current_cell.get("berry_bush",false) and not current_cell.get("burning",false) and not _is_water_cell(current_cell) and not current_cell.get("tilled",false) and not grid._protected_route(player) and player != grid.objective:
+	# Priority 3: Facing sapling/seed (Harvest/clear crop with hoe)
+	if front_cell != null and front_cell.get("tree", false) and front_cell.get("tree_state") in ["seed", "sapling"]:
+		target = front
+		origin = player
+		progress = 0.0
+		action_kind = "harvest_crop"
+		_interaction_kind = "harvest_crop"
+		duration = 0.8
+		return true
+
+	# Priority 4: Prepare eligible untilled soil underfoot before filling.
+	if not current_cell.get("tree", false) \
+			and not current_cell.get("log", false) \
+			and not current_cell.get("berry_bush", false) \
+			and int(current_cell.get("berries", 0)) <= 0 \
+			and not current_cell.get("trash", false) \
+			and not current_cell.get("burning", false) \
+			and not current_cell.get("burned", false) \
+			and not _is_water_cell(current_cell) \
+			and not current_cell.get("tilled", false) \
+			and not grid._protected_route(player) \
+			and player != grid.objective \
+			and player != grid.start \
+			and not current_cell.get("spaceship", false) \
+			and not current_cell.get("recycle_bin", false) \
+			and player != grid.recycle_bin_cell:
 		target = player
 		origin = player
 		progress = 0.0
@@ -151,7 +206,7 @@ func _begin_interact(player: Vector2i, front: Vector2i, current_cell: Dictionary
 		duration = 0.8
 		return true
 
-	# Priority 4: Facing water source, after valid underfoot farming.
+	# Priority 5: Facing water source, after valid underfoot farming.
 	if front_cell != null and _is_water_cell(front_cell):
 		if water_ml >= MAX_WATER_ML:
 			last_error = "water_full"
@@ -165,16 +220,6 @@ func _begin_interact(player: Vector2i, front: Vector2i, current_cell: Dictionary
 		duration = 2.4
 		return true
 
-	# Priority 5: Facing sapling/seed (Harvest/clear crop with hoe)
-	if front_cell != null and front_cell.get("tree", false) and front_cell.get("tree_state") in ["seed", "sapling"]:
-		target = front
-		origin = player
-		progress = 0.0
-		action_kind = "harvest_crop"
-		_interaction_kind = "harvest_crop"
-		duration = 0.8
-		return true
-
 	return false
 
 func tick(delta: float, player: Vector2i) -> Dictionary:
@@ -184,10 +229,21 @@ func tick(delta: float, player: Vector2i) -> Dictionary:
 		cancel()
 		return {}
 	var cell = grid.cells[target.y * grid.SIZE + target.x]
-	if action_kind in ["drink_water", "fill_water"] and not _is_water_cell(cell):
-		cancel()
-		return {}
-	if (action_kind == "till_soil" and (cell.tree or cell.get("log",false))) or cell.get("burning",false) or (action_kind == "plant_sapling" and (cell.tree or seeds <= 0 or not cell.get("prepared",false))) or (action_kind == "water_soil" and (water_ml < WATER_PER_POUR or cell.tree_state not in ["seed","sapling"])) or (action_kind == "collect_seeds" and (cell.get("pending_seeds",0)<=0 or seeds >= inventory.MAX_SEEDS)):
+	if (action_kind in ["drink_water", "fill_water"] and not _is_water_cell(cell)) \
+			or (action_kind == "till_soil" and (
+				cell.get("tree", false) \
+				or cell.get("log", false) \
+				or cell.get("berry_bush", false) \
+				or int(cell.get("berries", 0)) > 0 \
+				or cell.get("trash", false) \
+				or cell.get("burned", false) \
+				or _is_water_cell(cell)
+			)) \
+			or cell.get("burning", false) \
+			or (action_kind == "plant_sapling" and (cell.tree or seeds <= 0 or not cell.get("prepared", false))) \
+			or (action_kind == "water_soil" and (water_ml < WATER_PER_POUR or cell.tree_state not in ["seed", "sapling"])) \
+			or (action_kind == "harvest_crop" and (not cell.get("tree", false) or cell.get("tree_state", "") not in ["seed", "sapling"])) \
+			or (action_kind == "collect_seeds" and (cell.get("pending_seeds", 0) <= 0 or seeds >= inventory.MAX_SEEDS)):
 		cancel()
 		return {}
 	if action_kind in ["tree_cut", "sapling_removed", "log_cleared", "stump_removed"]:
@@ -214,6 +270,10 @@ func tick(delta: float, player: Vector2i) -> Dictionary:
 		cell.prepared = true
 		cell.health = 0.9
 		cell.trampled = 0.0
+		if cell.get("berry_bush", false):
+			cell.berry_bush = false
+			cell.berries = 0
+			cell.berry_regrowth = 0.0
 	elif action_kind == "water_soil":
 		if not inventory.water_crop(grid,target):
 			cancel()
@@ -229,7 +289,7 @@ func tick(delta: float, player: Vector2i) -> Dictionary:
 		cell.tree_health = 0.0
 		# Removing a crop never refunds a seed (natural/planted exploit prevention).
 	elif action_kind == "collect_seeds":
-		event.amount = inventory.collect_seed(grid,event)
+		event.amount = inventory.collect_seed(grid, event)
 
 	elif action_kind == "tree_cut":
 		event.seed_eligible = cell.get("tree_state", "healthy") == "healthy" and cell.get("tree_health", 1.0) >= 0.66 and not cell.get("planted", false)
