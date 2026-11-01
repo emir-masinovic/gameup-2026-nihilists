@@ -16,6 +16,7 @@ var update_ms = 0.0
 var baseline = OS.is_debug_build() and OS.get_cmdline_user_args().has("--grass-baseline")
 var lod_controller: Node
 var _wind_texture: NoiseTexture2D
+var grass_wind_multiplier = _debug_wind_multiplier()
 var _grid: RefCounted
 var _crack_sizes: Array[float] = []
 var _crack_targets: Array[float] = []
@@ -289,7 +290,7 @@ func set_wind(state: Dictionary):
 	for batch in batches:
 		var material = batch.renderer.material_override
 		material.set_shader_parameter("wind_direction",direction)
-		material.set_shader_parameter("wind_strength",state.strength)
+		material.set_shader_parameter("wind_strength",state.strength * grass_wind_multiplier if batch.renderer.name == "Grass" else state.strength)
 		material.set_shader_parameter("wind_time",state.time)
 
 # Generation-only, continuous world-space density. One jittered candidate per
@@ -361,3 +362,15 @@ func _crowding(placement: Array[Dictionary]) -> Array[float]:
 					if distance > 0.001: overlap += maxf(0.0,1.0-distance/0.65)
 		values.append(clampf(overlap/3.0,0.0,1.0))
 	return values
+
+# Rendering-only diagnostic. Never alters the shared climate/wind state.
+static func _debug_wind_multiplier() -> float:
+	if OS.is_debug_build():
+		for argument in OS.get_cmdline_user_args():
+			if argument.begins_with("--grass-wind-multiplier="):
+				var value = argument.get_slice("=",1)
+				return _parse_wind_multiplier(value)
+	return 1.0
+
+static func _parse_wind_multiplier(value: String) -> float:
+	return clampf(float(value),0.0,3.0) if value.is_valid_float() and is_finite(float(value)) else 1.0

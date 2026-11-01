@@ -73,15 +73,23 @@ func run():
 				root.get_texture().get_image().save_png(OS.get_environment("GRASS_BENCH_OUT")+"-"+str(projection)+"-"+str(int(zoom))+".png")
 	if OS.get_cmdline_user_args().has("--grass-wind-frames") and OS.has_environment("GRASS_BENCH_OUT"):
 		camera.get_node("Camera3D").projection = Camera3D.PROJECTION_ORTHOGONAL
-		camera.get_node("Camera3D").size = 20
+		camera.mode = "Board Center" if OS.get_cmdline_user_args().has("--grass-board-view") else "Follow Player"
+		camera.target_zoom = 56.0 if camera.mode == "Board Center" else 20.0
+		camera.get_node("Camera3D").size = camera.target_zoom
+		camera.rotation.y = PI/4
 		camera.pitch = 0.75
 		camera._update_camera()
 		if cover.get("lod_controller") != null:
 			for settle in range(120): cover.get("lod_controller")._process(1.0/60.0)
 			cover.get("lod_controller").set_process(false)
-		for frame in range(181):
+		print("WIND AB seed=2026 camera=",camera.mode," zoom=",camera.target_zoom," multiplier=",cover.grass_wind_multiplier," perlin=",not OS.get_cmdline_user_args().has("--grass-no-perlin")," tufts=",cover.batches[0].indices.size())
+		for frame in range(180):
 			var wind = world.climate.wind_state(0.0,float(frame)/30.0)
+			var authoritative = wind.duplicate(true)
 			cover.set_wind(wind)
+			assert(wind == authoritative, "Visual wind must not mutate authoritative state")
+			assert(is_equal_approx(cover.batches[0].renderer.material_override.get_shader_parameter("wind_strength"), wind.strength * cover.grass_wind_multiplier))
+			assert(is_equal_approx(cover.batches[1].renderer.material_override.get_shader_parameter("wind_strength"), wind.strength))
 			world.hud.set_wind(wind)
 			load("res://features/levels/forest/nature/nature_tree.gd").set_wind(wind)
 			await process_frame

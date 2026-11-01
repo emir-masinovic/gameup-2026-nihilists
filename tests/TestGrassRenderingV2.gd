@@ -16,6 +16,9 @@ func run():
 	world.set_process(false)
 	world.get_node("GridPlayer").set_process(false)
 	var cover = world.ground_cover
+	check(cover.grass_wind_multiplier == 1.0,"Default wind deformation is unchanged")
+	for sample in [["2.5",2.5],["999",3.0],["-9",0.0],["oops",1.0],["nan",1.0]]:
+		check(cover._parse_wind_multiplier(sample[0]) == sample[1],"Debug multiplier is finite and bounded: "+sample[0])
 	var lod = cover.lod_controller
 	check(lod != null,"Screen-space LOD is enabled only in the experimental renderer")
 	if lod == null: quit(1); return
@@ -76,6 +79,17 @@ func run():
 		cover.set_wind({"direction":Vector2.ZERO if strength == 0 else Vector2(-1,0),"strength":strength,"time":6.0})
 		check(batch.renderer.material_override.get_shader_parameter("wind_strength") == strength,"Authoritative wind intensity passes unchanged to shader")
 		check(batch.renderer.material_override.get_shader_parameter("wind_direction").length_squared() > 0.9,"Zero-wind direction cannot normalize to NaN")
+	cover.grass_wind_multiplier = 2.5
+	var state = {"direction":Vector2.RIGHT,"strength":0.6,"time":2.0}
+	var unchanged = state.duplicate(true)
+	cover.set_wind(state)
+	check(is_equal_approx(batch.renderer.material_override.get_shader_parameter("wind_strength"),1.5),"Debug multiplier affects grass deformation")
+	check(is_equal_approx(cover.batches[1].renderer.material_override.get_shader_parameter("wind_strength"),0.6),"Debug multiplier excludes shrubs")
+	check(state == unchanged,"Shared wind state remains unchanged for trees, audio, HUD and climate")
+	cover.grass_wind_multiplier = 1.0
 	check(world.grid.cells == original,"Wind presentation never modifies climate or ecological state")
 	print("GRASS V2: ",checks," checks, ",failures," failures")
+	world.queue_free()
+	await process_frame
+	await process_frame
 	quit(1 if failures else 0)
