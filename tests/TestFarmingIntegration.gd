@@ -203,16 +203,33 @@ func scene_checks():
 	world._tick_context_action(1.3)
 	world._on_chop_impact(world.grid.world_position(native_cell))
 	check(audio_counts.chop == 2,"Completed action cannot emit late ghost chop")
-	check(native.tree_state == "stump" and world.grid.traversable(native_cell) and world.planting.seed_count == 2, "Actual chop creates traversable stump without auto-awarding seeds")
+	check(native.tree_state == "stump" and not world.grid.traversable(native_cell) and world.planting.seed_count == 2, "Actual chop creates blocking stump without auto-awarding seeds")
 	check(world.hud.get_node("PlayerStatus/Rows/Supplies/Seeds").text == "2", "HUD does not award seeds at chop completion")
 	check(world.grid.cells[5*world.grid.SIZE+10].log, "Tree still falls away and creates blocked log")
 	# Step onto the cut tree remains/stump to collect seeds
-	player.cell = native_cell
-	player.position = world.grid.world_position(player.cell)
+	world._update_interaction_marker()
+	check(world._action_preview("interact").object_kind == "stump_removed" and world._action_preview("chop_gather").object_kind == "collect_seeds","Stump advertises both authoritative actions instead of tilling")
 	world._try_interact("chop_gather")
 	world._tick_context_action(1.0)
-	check(world.planting.seed_count == 5 and not native.tree and world.grid.traversable(native_cell), "Collecting seeds on stump grants 3 seeds and clears stump remains")
+	check(world.planting.seed_count == 5 and native.tree and not world.grid.traversable(native_cell), "Adjacent collection grants 3 seeds and preserves blocking stump")
 	check(world.hud.get_node("PlayerStatus/Rows/Supplies/Seeds").text == "5", "HUD updates only after explicit seed collection")
+	world._try_interact("interact")
+	check(player.is_chopping,"Explicit stump removal uses axe")
+	world._tick_context_action(1.0)
+	check(not native.tree and world.grid.traversable(native_cell) and world.planting.seed_count == 5 and not world.trees.has(native_cell),"Explicit removal clears model/visual without seed reward")
+	player.cell = native_cell
+	player.position = world.grid.world_position(player.cell)
+	player.facing = Vector2i.RIGHT
+	var impact_before = audio_counts.chop
+	world._try_interact("chop_gather")
+	check(world.interactions.action_kind == "log_cleared" and player.is_chopping,"Faced fallen log uses existing axe animation")
+	player._update_animation(0.46)
+	check(audio_counts.chop == impact_before+1,"Log axe impact emits once")
+	world._tick_context_action(0.9)
+	world._on_chop_impact(world.grid.world_position(Vector2i(10,5)))
+	check(not world.grid.cells[5*world.grid.SIZE+10].log and world.planting.seed_count == 5 and audio_counts.chop == impact_before+1,"Log clears once without new seed yield or ghost audio")
+	# Keep a full-inventory seeded stump and loose pickup across regional roundtrips.
+	native.merge({"tree":true,"tree_state":"stump","pending_seeds":2},true)
 	world.region_state.grid.cells[6*world.grid.SIZE+7].pending_seeds = 1
 	var water_before: int = world.planting.water_ml
 	flow.change_region("wetlands")
@@ -224,6 +241,7 @@ func scene_checks():
 	world = current_scene
 	world.set_process(false)
 	check(world.planting.water_ml == water_before and world.grid.cells[target.y*world.grid.SIZE+target.x].prepared and world.seed_visuals.has(Vector2i(7,6)), "Scene round trip rebuilds seed drops and retains farming data")
+	check(world.grid.cells[native_cell.y*world.grid.SIZE+native_cell.x].pending_seeds == 2 and not world.grid.traversable(native_cell) and world.trees.has(native_cell),"Regional roundtrip preserves seeded blocking stump")
 	if DisplayServer.get_name() != "headless" and OS.has_environment("NIHILISTS_CAPTURE_DIR"):
 		await create_timer(0.2).timeout
 		await RenderingServer.frame_post_draw

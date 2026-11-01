@@ -82,10 +82,11 @@ func run():
 	
 	# Test 6: Seed collection from stump requires standing directly on the stump
 	grid.cells[tree_cell.y * grid.SIZE + tree_cell.x].tree_state = "stump"
+	grid.cells[tree_cell.y * grid.SIZE + tree_cell.x].pending_seeds = 3
 	interactions.cancel()
-	check(not interactions.begin(player_pos, Vector2i.RIGHT, "chop_gather"), "Cannot collect seeds from adjacent cell")
+	check(interactions.begin(player_pos, Vector2i.RIGHT, "chop_gather"), "Collect seeds from faced adjacent stump")
 	interactions.cancel()
-	check(interactions.begin(tree_cell, Vector2i.UP, "chop_gather"), "Can collect seeds when standing directly on cut tree remains")
+	check(interactions.begin(player_pos, Vector2i.RIGHT, "chop_gather"), "Adjacent targeting remains authoritative")
 	check(interactions.action_kind == "collect_seeds", "Action kind is collect_seeds")
 	
 	# Idle animation must retain blocked movement facing in all four directions.

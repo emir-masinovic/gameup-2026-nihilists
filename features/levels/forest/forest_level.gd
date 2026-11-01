@@ -416,7 +416,7 @@ func _finish_interaction(event: Dictionary):
 		cut_cells[cell] = true
 		_discover("interaction.first_tree_cut", "Tree cut: shade is lost")
 		audio_cue.emit("tree_fall", grid.world_position(cell))
-		hud.notify("Tree cut: enter the stump tile and gather with [%s]." % _binding_label("chop_gather"))
+		hud.notify("Tree cut: face the stump to gather with [%s]." % _binding_label("chop_gather"))
 		if crop_indicators.has(cell):
 			crop_indicators[cell].queue_free()
 			crop_indicators.erase(cell)
@@ -442,18 +442,9 @@ func _finish_interaction(event: Dictionary):
 	elif event.kind == "collect_seeds":
 		_discover("interaction.collect_seeds", "Seeds collected from tree remains")
 		hud.notify("Collected %d seeds." % event.get("amount",0))
-		if grid.cells[cell.y*grid.SIZE+cell.x].tree:
-			_refresh_visuals()
-			_update_hud()
-			return
-		if trees.has(cell):
-			trees[cell].queue_free()
-			trees.erase(cell)
-		if crop_indicators.has(cell):
-			crop_indicators[cell].queue_free()
-			crop_indicators.erase(cell)
-		if planting != null:
-			planting.seed_count = interactions.seeds
+		_refresh_visuals()
+		_update_hud()
+		return
 	elif event.kind == "till_soil":
 		_discover("interaction.till_soil", "Soil tilled: prepared for planting")
 		hud.notify("Toprak çapalandı! Tohum ekmeye hazır.")
@@ -520,7 +511,7 @@ func _finish_interaction(event: Dictionary):
 		if crop_indicators.has(cell):
 			crop_indicators[cell].queue_free()
 			crop_indicators.erase(cell)
-		if cut_cells.has(cell) and objectives.record_mitigation(region_id):
+		if event.kind != "stump_removed" and cut_cells.has(cell) and objectives.record_mitigation(region_id):
 			_discover("interaction.firebreak", "Cleared fuel breaks the fire path; shade is lost")
 		hud.notify("Stump removed: fuel cleared and route open")
 	_refresh_visuals()
