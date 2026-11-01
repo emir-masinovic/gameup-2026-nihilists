@@ -313,10 +313,6 @@ func _try_eat():
 	var player_cell = $GridPlayer.cell
 	if not grid.in_bounds(player_cell):
 		return
-	var cell_data = grid.cells[player_cell.y * grid.SIZE + player_cell.x]
-	if not cell_data.get("berry_bush", false):
-		hud.notify("Berries can only be eaten on a berry bush cell.")
-		return
 	if survival.berry_count <= 0:
 		hud.notify("No berries to eat.")
 		return

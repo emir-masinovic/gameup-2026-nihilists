@@ -76,7 +76,7 @@ func run():
 	var toast = hud.get_node("Toast")
 	check(toast.text.contains("Harvested 2 berries"), "English toast displayed on berry harvest")
 
-	# 4. Test eating on a NON-BERRY cell
+	# 4. Test eating on ANY cell (player can eat berries on non-berry cells)
 	var non_berry_cell = Vector2i(8, 8)
 	grid.cells[non_berry_cell.y * grid.SIZE + non_berry_cell.x].berry_bush = false
 	player.cell = non_berry_cell
@@ -86,16 +86,6 @@ func run():
 	eat_action.action = "eat"
 	eat_action.pressed = true
 
-	level._unhandled_input(eat_action)
-	check(survival.berry_count == 7, "Cannot eat berries on a non-berry cell (count stays 7)")
-	check(not player.is_eating, "Player does not start eating animation on non-berry cell")
-	check(not berry_node.visible, "Berry does not appear on non-berry cell")
-	check(toast.text.contains("Berries can only be eaten on a berry bush cell"), "English toast displayed when trying to eat off-bush")
-
-	# 5. Move to a BERRY cell and eat (+3 hunger)
-	player.cell = berry_cell
-	player.position = grid.world_position(berry_cell)
-
 	var signal_state = {"eat_cue": false, "audio_cue": false}
 	player.eat_cue.connect(func(_pos): signal_state.eat_cue = true)
 	level.audio_cue.connect(func(cue, _pos):
@@ -103,11 +93,12 @@ func run():
 	)
 
 	level._unhandled_input(eat_action)
-	check(survival.berry_count == 6, "Eating on berry cell consumes 1 berry (7 -> 6)")
+	check(survival.berry_count == 6, "Player can eat berries on any cell (count 7 -> 6)")
 	check(is_equal_approx(survival.hunger, 7.0), "Hunger restored by exactly 3 units (4.0 -> 7.0)")
 	check(survival.health == 80.0, "Health not increased when hunger and thirst not full (thirst=5.0)")
-	check(player.is_eating, "Player enters eating state")
-	check(toast.text.contains("Berry eaten! Hunger restored"), "English toast displayed on eating berry")
+	check(player.is_eating, "Player enters eating state on non-berry cell")
+	check(toast.text.contains("Berry eaten! Hunger restored"), "English toast displayed on eating berry anywhere")
+	check(not toast.text.contains("Berries can only be eaten on a berry bush cell"), "No restriction warning displayed")
 	check(berry_node.visible, "Berry appears in right hand at start of eating")
 
 	# 5. Advance animation - check hand raising towards visor
