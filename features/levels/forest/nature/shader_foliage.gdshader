@@ -6,9 +6,9 @@ uniform float canopy_density = 1.0;
 varying vec3 leaf_position;
 uniform bool instance_health = false;
 uniform bool blade_grass = false;
+uniform float view_thickening : hint_range(0.0, 0.6) = 0.0;
 uniform bool spatial_wind_enabled = false;
 uniform sampler2D wind_field : repeat_enable, filter_linear;
-uniform float view_thickening : hint_range(0.0, 0.6) = 0.0;
 uniform float lod_straighten : hint_range(0.0,1.0) = 0.0;
 varying float blade_height;
 varying vec3 blade_tint;
@@ -25,18 +25,25 @@ void vertex() {
     blade_height = UV.y;
     float occlusion = blade_grass ? INSTANCE_CUSTOM.b : 0.0;
     float root_shade = mix(0.88,0.38,occlusion);
-    float top = smoothstep(0.0,0.95,UV.y);
+    float top = mix(smoothstep(0.0,0.95,UV.y),UV.y,lod_straighten);
     float hue = fract(INSTANCE_CUSTOM.g*17.31);
     vec3 variation = mix(vec3(0.94,0.99,0.88),vec3(1.03,1.01,0.98),hue);
     blade_tint = mix(vec3(root_shade),vec3(1.03,1.07,0.94),top)*variation;
     vitality = INSTANCE_CUSTOM.r;
     leaf_position = VERTEX;
     vec3 world = MODEL_MATRIX[3].xyz;
+    if (blade_grass) {
+        vec3 blade_axis = vec3(COLOR.r*2.0-1.0,0.0,COLOR.g*2.0-1.0);
+        vec3 blade_side = cross(blade_axis,vec3(0.0,1.0,0.0));
+        vec3 straight = vec3(0.0,UV.y*0.5,0.0)+blade_axis*(0.03+UV2.y)*UV.y+blade_side*(UV.x*2.0-1.0)*(1.0-UV.y)*UV2.x;
+        VERTEX = mix(VERTEX,straight,lod_straighten);
+        NORMAL = normalize(mix(NORMAL,vec3(0.0,1.0,0.0),lod_straighten));
+    }
     float height = clamp(VERTEX.y / wind_height, 0.0, 1.0);
     float vigor = instance_health ? (0.3 + vitality * 0.7) : 1.0;
     if (blade_grass) {
         float lean = fract(INSTANCE_CUSTOM.g*13.17+COLOR.b*0.371)-0.5;
-        VERTEX.xz += (COLOR.rg*2.0-1.0)*lean*0.06*height*height;
+        VERTEX.xz += (COLOR.rg*2.0-1.0)*lean*0.06*mix(height*height,height,lod_straighten);
     }
     if (instance_health) { VERTEX.y *= 0.4 + vitality * 0.6; }
     // A shared travelling field, with only a small seeded local phase offset.
@@ -63,7 +70,7 @@ void vertex() {
     ivec2 cell = ivec2(floor((world.xz-shelter_origin)/2.0+vec2(0.5)));
     int index = clamp(cell.y*17+cell.x,0,288);
     float exposure = shelter_enabled ? wind_exposure[index/4][index%4] : 1.0;
-    VERTEX += local_direction * exposure * (0.6 + wave * 0.4) * gust * wind_strength * 1.8 * sway * height * height * vigor;
+    VERTEX += local_direction * exposure * (0.6 + wave * 0.4) * gust * wind_strength * 1.8 * sway * mix(height*height,height,lod_straighten) * vigor;
     if (blade_grass && view_thickening > 0.0) {
         vec3 blade_axis = normalize(vec3(COLOR.r*2.0-1.0,0.0,COLOR.g*2.0-1.0));
         vec3 face = normalize((MODEL_MATRIX*vec4(blade_axis,0.0)).xyz);

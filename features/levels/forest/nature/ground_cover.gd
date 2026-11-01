@@ -11,13 +11,17 @@ var _appearance_seed = 0
 var _patch_noise = FastNoiseLite.new()
 var _detail_noise = FastNoiseLite.new()
 var _grass_sites: Dictionary = {}
+var generation_ms = 0.0
+var update_ms = 0.0
 var baseline = OS.is_debug_build() and OS.get_cmdline_user_args().has("--grass-baseline")
+var lod_controller: Node
 var _wind_texture: NoiseTexture2D
 var _grid: RefCounted
 var _crack_sizes: Array[float] = []
 var _crack_targets: Array[float] = []
 
 func configure(grid: RefCounted, occupied: Dictionary = {}):
+	var begin = Time.get_ticks_usec()
 	_grass_sites.clear()
 	occupied_cells = occupied
 	_grid = grid
@@ -34,6 +38,11 @@ func configure(grid: RefCounted, occupied: Dictionary = {}):
 	_build_cracks(grid)
 	update_state(grid)
 	_process(1.0)
+	generation_ms = (Time.get_ticks_usec()-begin)/1000.0
+	if not baseline and not (OS.is_debug_build() and OS.get_cmdline_user_args().has("--grass-no-lod")):
+		lod_controller = preload("res://features/levels/forest/nature/ControllerGrassLOD.gd").new()
+		add_child(lod_controller)
+		lod_controller.configure(self)
 
 func _find_mesh(node: Node, parent_transform: Transform3D) -> Dictionary:
 	var transform = parent_transform * node.transform if node is Node3D else parent_transform
@@ -62,7 +71,11 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	var placement: Array[Dictionary] = []
 	if not shrubs:
 		# Retain the old total capacity, not its per-tile layout.
-		placement = _grass_placement(grid,indices.size()*GRASS_POPULATION_SCALE)
+		var budget = indices.size()*GRASS_POPULATION_SCALE
+		if OS.is_debug_build():
+			for argument in OS.get_cmdline_user_args():
+				if argument.begins_with("--grass-count="): budget = clampi(int(argument.get_slice("=",1)),1,20000)
+		placement = _grass_placement(grid,budget)
 		indices.clear()
 		for candidate in placement: indices.append(candidate.index)
 	var renderer = MultiMeshInstance3D.new()
@@ -132,6 +145,7 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	model.free()
 
 func update_state(grid: RefCounted):
+	var begin = Time.get_ticks_usec()
 	for batch in batches:
 		var last_cell = -1
 		var vitality = 0.0
@@ -164,6 +178,8 @@ func update_state(grid: RefCounted):
 		# Dry cracks persist into early recovery, fading as real ground health returns.
 		_crack_targets[i] = clampf((0.72-data.health)/0.45,0.0,1.0) * clampf((0.72-data.moisture)/0.45,0.0,1.0) if bare_ground else 0.0
 	set_process(true)
+
+	update_ms = (Time.get_ticks_usec()-begin)/1000.0
 
 func _process(delta: float):
 	if _grid == null: return
@@ -284,7 +300,7 @@ func _grass_placement(grid: RefCounted, budget: int) -> Array[Dictionary]:
 	var first: Vector3 = grid.world_position(Vector2i.ZERO)
 	var edge = Vector2(first.x,first.z)-Vector2.ONE*grid.CELL_SIZE*0.5
 	var extent = grid.SIZE*grid.CELL_SIZE
-	var steps = ceili(extent/(0.45/sqrt(float(GRASS_POPULATION_SCALE))))
+	var steps = maxi(ceili(extent/(0.45/sqrt(float(GRASS_POPULATION_SCALE)))),ceili(sqrt(float(budget)*2.0)))
 	var spacing = extent/steps
 	var candidates: Array[Dictionary] = []
 	for z in range(steps):
