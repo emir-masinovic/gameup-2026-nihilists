@@ -30,6 +30,7 @@ var _voice_levels: Array[float] = []
 var _voice_categories: Array[String] = []
 var _world_ref: WeakRef
 var ambience: Node
+var music: Node
 var footstep_surface = "grass"
 var _step_variation = 0
 var _ui_index = 0
@@ -41,6 +42,8 @@ func _ready():
 	# Keep real streams/routing testable without submitting work to a missing device.
 	ambience = preload("res://features/audio/ControllerAmbience.gd").new()
 	add_child(ambience)
+	music = preload("res://features/audio/ControllerMusic.gd").new()
+	add_child(music)
 	_has_audio_output = AudioServer.get_driver_name() != "Dummy"
 	for cue in FILES:
 		var clips: Array[AudioStream] = []
@@ -65,6 +68,8 @@ func _ready():
 
 func _exit_tree():
 	_detach_world()
+	if is_instance_valid(music):
+		music.stop()
 	for voice in _ui_voices:
 		voice.stop()
 		voice.stream = null
