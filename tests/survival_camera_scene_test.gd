@@ -141,7 +141,7 @@ func run():
 	for second in range(60):
 		world._process(1.0)
 	check(world.climate.elapsed >= elapsed_before + 60.0 and world.survival.wetness > 1.0, "Sixty real rainy level ticks wet the player outside camp")
-	check(world.survival.hunger < 100.0 and world.survival.thirst < 100.0, "Real ticks deplete food and water reserves")
+	check(world.survival.hunger < 10.0 and world.survival.thirst < 10.0, "Real ticks deplete food and water reserves")
 	var wet_before: float = world.survival.wetness
 	world._update_hud()
 	check(world.hud.get_node("PlayerStatus/Rows/Wetness").visible, "Real wetness is visible in HUD")

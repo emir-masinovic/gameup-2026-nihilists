@@ -314,13 +314,21 @@ func _try_eat():
 	if survival.berry_count <= 0:
 		hud.notify("No berries to eat")
 		return
-	if survival.hunger >= 100.0 and survival.thirst >= 100.0:
-		hud.notify("Food and water reserves are full")
-		return
+	var health_before = survival.health
 	if survival.eat_berry():
 		$GridPlayer.start_eating()
-		hud.notify("Ate berries")
+		if survival.health > health_before:
+			hud.notify("Böğürtlen yendi! Can yenilendi (%d/100)." % roundi(survival.health))
+		else:
+			hud.notify("Böğürtlen yendi! Açlık giderildi (%d/10)." % roundi(survival.hunger))
 		_update_hud()
+	else:
+		if survival.hunger >= 9.99 and survival.thirst < 9.99:
+			hud.notify("Can kazanmak için önce susuzluğunu gidermelisin (Susuzluk: %d/10)" % roundi(survival.thirst))
+		elif survival.hunger >= 9.99 and survival.health >= 100.0:
+			hud.notify("Açlık ve can zaten dolu")
+		else:
+			hud.notify("Böğürtlen yenemedi")
 
 func _try_interact(action_group: String):
 	if interactions.target.x >= 0 or not context_action.active.is_empty(): return
@@ -457,10 +465,20 @@ func _finish_interaction(event: Dictionary):
 		return
 	var cell: Vector2i = event.cell
 	if event.kind == "drink_water":
-		survival.drink()
+		var health_before = survival.health
+		var drank = survival.drink()
 		_discover("water.freshwater", "Freshwater source found")
 		audio_cue.emit("discovery", grid.world_position(cell))
-		hud.notify("Gölden su içildi! Susuzluk giderildi (%d%%)." % roundi(survival.thirst))
+		if drank:
+			if survival.health > health_before:
+				hud.notify("Gölden su içildi! Can yenilendi (%d/100)." % roundi(survival.health))
+			else:
+				hud.notify("Gölden su içildi! Susuzluk giderildi (%d/10)." % roundi(survival.thirst))
+		else:
+			if survival.thirst >= 9.99 and survival.hunger < 9.99:
+				hud.notify("Can kazanmak için önce açlığını gidermelisin (Açlık: %d/10)" % roundi(survival.hunger))
+			elif survival.thirst >= 9.99 and survival.health >= 100.0:
+				hud.notify("Susuzluk ve can zaten dolu (%d/10)." % roundi(survival.thirst))
 		_update_hud()
 	elif event.kind == "fill_water":
 		_discover("interaction.fill_water", "Water filled: bottle replenished from lake")

@@ -35,10 +35,11 @@ func run():
 	check(audio_node != null, "Body has EatingAudio node")
 	check(audio_node != null and audio_node.stream != null, "EatingAudio has eating sound effect loaded")
 
-	# 2. Give berries to player
-	survival.berry_count = 3
-	survival.hunger = 50.0
-	survival.thirst = 50.0
+	# 2. Give berries to player; hunger and thirst out of 10
+	survival.berry_count = 5
+	survival.hunger = 4.0
+	survival.thirst = 5.0
+	survival.health = 80.0
 
 	# 3. Test eating on a NON-BERRY cell
 	var non_berry_cell = Vector2i(8, 8)
@@ -51,11 +52,11 @@ func run():
 	eat_action.pressed = true
 
 	level._unhandled_input(eat_action)
-	check(survival.berry_count == 3, "Cannot eat berries on a non-berry cell (count stays 3)")
+	check(survival.berry_count == 5, "Cannot eat berries on a non-berry cell (count stays 5)")
 	check(not player.is_eating, "Player does not start eating animation on non-berry cell")
 	check(not berry_node.visible, "Berry does not appear on non-berry cell")
 
-	# 4. Move to a BERRY cell and eat
+	# 4. Move to a BERRY cell and eat (+3 hunger)
 	var berry_cell = Vector2i(6, 8)
 	grid.cells[berry_cell.y * grid.SIZE + berry_cell.x].berry_bush = true
 	player.cell = berry_cell
@@ -68,8 +69,9 @@ func run():
 	)
 
 	level._unhandled_input(eat_action)
-	check(survival.berry_count == 2, "Eating on berry cell consumes 1 berry (3 -> 2)")
-	check(survival.hunger > 50.0, "Hunger restored after eating")
+	check(survival.berry_count == 4, "Eating on berry cell consumes 1 berry (5 -> 4)")
+	check(is_equal_approx(survival.hunger, 7.0), "Hunger restored by exactly 3 units (4.0 -> 7.0)")
+	check(survival.health == 80.0, "Health not increased when hunger and thirst not full (thirst=5.0)")
 	check(player.is_eating, "Player enters eating state")
 	check(berry_node.visible, "Berry appears in right hand at start of eating")
 
@@ -93,19 +95,49 @@ func run():
 	check(not player.is_eating, "Eating animation completed and player returned to idle")
 	check(not berry_node.visible, "Berry remains hidden after eating ends")
 
-	# 9. Test when reserves are full
-	survival.hunger = 100.0
-	survival.thirst = 100.0
+	# 9. Test healing: satisfy thirst to 10 and hunger to 10, then eat berry -> health +10
+	survival.thirst = 10.0
+	survival.hunger = 8.0
+	survival.health = 80.0
 	level._unhandled_input(eat_action)
-	check(survival.berry_count == 2, "Cannot eat when food and water are full")
-	check(not player.is_eating, "Player does not eat when full")
+	check(is_equal_approx(survival.hunger, 10.0), "Hunger reaches 10.0")
+	check(is_equal_approx(survival.health, 90.0), "Reaching 10 on both hunger and thirst heals 10 health (80 -> 90)")
+	body.stop_eating()
 
-	# 10. Test when 0 berries
-	survival.hunger = 50.0
-	survival.berry_count = 0
+	# Eat again when hunger=10 and thirst=10 -> health heals again (+10 -> 100)
 	level._unhandled_input(eat_action)
-	check(survival.berry_count == 0, "Cannot eat when berry count is 0")
-	check(not player.is_eating, "Player does not eat with 0 berries")
+	check(is_equal_approx(survival.health, 100.0), "Eating with full reserves heals health to max 100")
+	body.stop_eating()
+
+	# 10. When hunger=10, thirst=10, health=100 -> cannot eat more
+	var count_before = survival.berry_count
+	level._unhandled_input(eat_action)
+	check(survival.berry_count == count_before, "Cannot eat when hunger, thirst, and health are all full")
+	check(not player.is_eating, "Player does not eat when fully satisfied")
+
+	# 11. Test water drinking healing: hunger=10, thirst=8, health=85
+	survival.health = 85.0
+	survival.hunger = 10.0
+	survival.thirst = 8.0
+	var drank = survival.drink()
+	check(drank and is_equal_approx(survival.thirst, 10.0), "Drinking brings thirst to 10.0")
+	check(is_equal_approx(survival.health, 95.0), "Drinking with hunger=10 brings health +10 (85 -> 95)")
+
+	# Drink again to cap health at 100
+	drank = survival.drink()
+	check(drank and is_equal_approx(survival.health, 100.0), "Drinking heals health capped at 100")
+
+	# Cannot drink when health=100 and thirst=10
+	drank = survival.drink()
+	check(not drank, "Cannot drink when thirst=10 and health=100")
+
+	# Cannot drink to heal if hunger < 10
+	survival.health = 80.0
+	survival.thirst = 10.0
+	survival.hunger = 6.0
+	drank = survival.drink()
+	check(not drank, "Cannot drink to heal when hunger is not yet 10")
+	check(survival.health == 80.0, "Health remains unchanged when hunger not satisfied")
 
 	level.queue_free()
 	await process_frame

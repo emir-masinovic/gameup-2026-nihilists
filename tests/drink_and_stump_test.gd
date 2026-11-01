@@ -79,7 +79,7 @@ func run():
 	
 	# Player is at (8, 9), facing DOWN toward water at (8, 10)
 	player.facing = Vector2i.DOWN
-	survival.thirst = 30.0 # Make player thirsty
+	survival.thirst = 3.0 # Make player thirsty
 	interactions.water_ml = 200 # Bottle has low water
 	if level.planting != null:
 		level.planting.water_ml = 200
@@ -93,7 +93,7 @@ func run():
 	level._finish_interaction(drink_evt)
 	
 	check(not player.is_drinking, "Drinking animation finishes")
-	check(survival.thirst == 75.0, "Player thirst replenished by 45 (30 -> 75)")
+	check(survival.thirst == 6.0, "Player thirst replenished by 3 (3 -> 6)")
 	check(interactions.water_ml == 200, "Bottle water remains untouched when drinking directly with Space")
 	
 	# Press E (interact) -> FILLS BOTTLE
@@ -106,7 +106,7 @@ func run():
 	
 	check(not player.is_filling_water, "Filling water animation finishes")
 	check(interactions.water_ml == 700, "Bottle water replenished (+500 ml -> 700 ml)")
-	check(survival.thirst == 75.0, "Player thirst remains unchanged when filling bottle with E")
+	check(survival.thirst == 6.0, "Player thirst remains unchanged when filling bottle with E")
 	
 	print("DRINK AND STUMP TEST: ", checks, " checks, ", failures, " failures")
 	level.free()

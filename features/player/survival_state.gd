@@ -8,12 +8,16 @@ const DANGER_EXPOSURE = 60.0
 const MAX_TICK_SECONDS = 30.0
 const STEP_SECONDS = 0.25
 
+const MAX_HUNGER = 10.0
+const MAX_THIRST = 10.0
+const MAX_HEALTH = 100.0
+
 var health = 100.0
 var body_temperature = NORMAL_BODY_TEMPERATURE
 var wetness = 0.0
-# Food and water are remaining reserves: a high value is good.
-var hunger = 100.0
-var thirst = 100.0
+# Food and water are remaining reserves: a high value is good (0.0 to 10.0).
+var hunger = 10.0
+var thirst = 10.0
 var berry_count: int = 0
 var dead = false
 var exposure: float:
@@ -38,19 +42,20 @@ var rates: Dictionary = {
 	"camp_temperature_recovery": 0.14,
 	"camp_drying": 2.5,
 	"camp_healing": 4.0,
-	"hunger_depletion": 0.10,
-	"thirst_depletion": 0.14,
-	"hot_thirst_depletion": 0.005,
-	"critical_reserve": 10.0,
+	"hunger_depletion": 0.010,
+	"thirst_depletion": 0.014,
+	"hot_thirst_depletion": 0.0005,
+	"critical_reserve": 1.0,
 	"hunger_damage": 0.35,
 	"thirst_damage": 0.55,
 	"hot_danger": 39.0,
 	"cold_danger": 35.0,
 	"temperature_damage": 0.8,
 	"temperature_severity": 1.8,
-	"berry_food": 24.0,
-	"berry_water": 3.0,
-	"drink_water": 45.0,
+	"berry_food": 3.0,
+	"berry_water": 0.0,
+	"drink_water": 3.0,
+	"heal_amount": 10.0,
 }
 
 func tick(seconds: float, temperature: float, shade: float, safe: bool, heat_resistance: bool, context: Dictionary = {}) -> void:
@@ -71,8 +76,8 @@ func tick(seconds: float, temperature: float, shade: float, safe: bool, heat_res
 	var remaining = minf(seconds, MAX_TICK_SECONDS)
 	while remaining > 0.0:
 		var step = minf(remaining, STEP_SECONDS)
-		hunger = clampf(hunger - float(rates.hunger_depletion) * step, 0.0, 100.0)
-		thirst = clampf(thirst - (float(rates.thirst_depletion) + hot_air * float(rates.hot_thirst_depletion)) * step, 0.0, 100.0)
+		hunger = clampf(hunger - float(rates.hunger_depletion) * step, 0.0, 10.0)
+		thirst = clampf(thirst - (float(rates.thirst_depletion) + hot_air * float(rates.hot_thirst_depletion)) * step, 0.0, 10.0)
 		var rain_gain = float(rates.rain_wetting) * (1.0 - canopy * float(rates.canopy_interception)) if raining else 0.0
 		var drying = (float(rates.drying) + hot_air * float(rates.hot_drying)) * (1.0 + wind * 0.5) + fire * 0.8
 		if safe:
@@ -132,17 +137,26 @@ func add_berries(amount: int) -> void:
 	berry_count += mini(amount, 2147483647 - berry_count)
 
 func eat_berry() -> bool:
-	if dead or berry_count <= 0 or (hunger >= 100.0 and thirst >= 100.0):
+	if dead or berry_count <= 0:
+		return false
+	if hunger >= 9.99 and (thirst < 9.99 or health >= 100.0):
 		return false
 	berry_count -= 1
-	hunger = minf(100.0, hunger + float(rates.berry_food))
-	thirst = minf(100.0, thirst + float(rates.berry_water))
+	hunger = minf(10.0, hunger + float(rates.berry_food))
+	if float(rates.berry_water) > 0.0:
+		thirst = minf(10.0, thirst + float(rates.berry_water))
+	if hunger >= 9.99 and thirst >= 9.99 and health < 100.0:
+		health = minf(100.0, health + float(rates.heal_amount))
 	return true
 
 func drink() -> bool:
-	if dead or thirst >= 100.0:
+	if dead:
 		return false
-	thirst = minf(100.0, thirst + float(rates.drink_water))
+	if thirst >= 9.99 and (hunger < 9.99 or health >= 100.0):
+		return false
+	thirst = minf(10.0, thirst + float(rates.drink_water))
+	if hunger >= 9.99 and thirst >= 9.99 and health < 100.0:
+		health = minf(100.0, health + float(rates.heal_amount))
 	return true
 
 func _context_fraction(context: Dictionary, key: String, fallback: float) -> float:
