@@ -11,11 +11,23 @@ func check(value, message):
 func _initialize():
 	call_deferred("run")
 func run():
+	var adaptive = load("res://features/audio/ControllerAmbience.gd")
+	check(adaptive.surface({"terrain":"grass","moisture":0.5}) == "grass","Healthy grass surface")
+	check(adaptive.surface({"terrain":"soil","moisture":0.85,"tilled":true}) == "mud","Saturated farmland uses mud")
+	check(adaptive.surface({"terrain":"soil","moisture":0.4}) == "dry","Prepared soil uses soil step")
+	check(adaptive.surface({"terrain":"grass","moisture":0.2}) == "dry","Drought changes footsteps without biome lookup")
+	check(adaptive.surface({"water":true,"water_depth":0.1}) == "wet","Shallow water takes priority")
+	var quiet = adaptive.mix(0.1,false,0,1,0.2)
+	var strong = adaptive.mix(0.9,true,0,1,1)
+	check(strong.y > quiet.y and quiet.z == 0 and strong.z > 0,"Wind nonlinear response and rain gating")
+	check(adaptive.mix(0.9,true,1,0,1).y < strong.y and adaptive.mix(0.9,true,1,0,1).z < strong.z,"Existing canopy and wind shelter attenuate weather")
 	var button = Button.new()
 	button.name = "ExistingConfirm"
 	root.add_child(button)
 	var palette = load("res://features/audio/SoundPalette.gd").new()
 	root.add_child(palette)
+	check(palette.ambience.voices.size() == 4,"Fixed four voices for three layers including biome crossfade")
+	check(palette.ambience.load_optional("DefinitelyMissing") == null,"Missing asset safely returns null")
 	check(palette._ui_voices.size() == 4, "UI pool is bounded")
 	palette._hook_button(button)
 	button.pressed.emit()
