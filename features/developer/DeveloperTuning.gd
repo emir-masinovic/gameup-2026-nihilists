@@ -1,5 +1,6 @@
 extends Node
 ## DEBUG Remote Inspector visual overrides only. Never writes Resources, climate or saves.
+const CLOUDS = preload("res://features/levels/forest/ResourceClouds.tres")
 const DEFAULTS = preload("res://features/developer/NihilistsTuning.tres")
 const VFX = preload("res://features/levels/forest/ResourceClimateVFX.tres")
 @export_group("Preview Safety")
@@ -39,6 +40,19 @@ const VFX = preload("res://features/levels/forest/ResourceClimateVFX.tres")
 ## Force a visual arc; disable to return to the normal post-rain lifecycle.
 @export var preview_rainbow = false
 @export_range(0.0,0.6,0.01) var rainbow_opacity: float = VFX.rainbow_opacity
+@export_group("Clouds (Live)")
+@export var clouds_enabled: bool = CLOUDS.enabled
+## Pool is fixed at32 slots. Count edits change faded coverage, not geometry.
+@export_range(0,24,1) var cloud_count: int = CLOUDS.count
+@export_range(0.0,3.0,0.05) var cloud_speed: float = CLOUDS.speed_multiplier
+@export_range(0.0,0.85,0.05) var cloud_opacity: float = CLOUDS.opacity
+@export_range(0.5,3.0,0.1) var cloud_scale: float = CLOUDS.cloud_scale
+@export_range(2.0,16.0,0.5) var cloud_altitude: float = CLOUDS.altitude
+@export_range(12.0,36.0,1.0) var cloud_extent: float = CLOUDS.extent
+@export_range(0.0,2.0,0.05) var cloud_rain_density: float = CLOUDS.rain_density
+@export_range(0.0,1.0,0.05) var cloud_heat_density: float = CLOUDS.heat_density
+@export_range(0.0,1.0,0.05) var cloud_clear_density: float = CLOUDS.clear_density
+@export_range(0.0,1.0,0.05) var cloud_rain_darkening: float = CLOUDS.rain_darkening
 var _active = false
 var _world: Node3D
 
@@ -75,6 +89,8 @@ func _process(_delta: float):
 		_world.ground_cover.set_wind(state)
 		preload("res://features/levels/forest/nature/nature_tree.gd").set_wind(state)
 		effects.update_wind(state,_world.get_node("GridPlayer").global_position)
+	effects.clouds.preview = {"enabled":clouds_enabled,"count":cloud_count,"speed_multiplier":cloud_speed,"opacity":cloud_opacity,"cloud_scale":cloud_scale,"altitude":cloud_altitude,"extent":cloud_extent,"rain_density":cloud_rain_density,"heat_density":cloud_heat_density,"clear_density":cloud_clear_density,"rain_darkening":cloud_rain_darkening}
+	effects.clouds.weather = weather
 	_resize_wind_pool(wind_line_count)
 	effects.wind_material.set_shader_parameter("line_opacity",wind_line_opacity)
 	var heat = clampf((temperature-28.0)/16.0,0.0,1.0) if weather == "heat" else 0.0
@@ -92,6 +108,7 @@ func _process(_delta: float):
 	if preview_rainbow:
 		atmosphere.rainbow.visible = true
 		atmosphere.rainbow_material.albedo_color = Color(1,1,1,rainbow_opacity)
+		effects.clouds.material.set_shader_parameter("rainbow_clearance",1.0 if rainbow_opacity > 0.0 else 0.0)
 
 func _resize_wind_pool(count: int):
 	var mesh = _world.effects.wind_streaks.multimesh
@@ -105,6 +122,8 @@ func _resize_wind_pool(count: int):
 
 func _restore():
 	var effects = _world.effects
+	effects.clouds.preview.clear()
+	effects.clouds.weather = _world.climate.weather
 	effects.rain.visible = _world.climate.weather == "rain"
 	effects.rain_impacts.visible = effects.rain.visible
 	effects.rain.multimesh.visible_instance_count = -1

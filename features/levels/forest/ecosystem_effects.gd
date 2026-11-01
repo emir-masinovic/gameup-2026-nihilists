@@ -10,6 +10,7 @@ var wind_streaks: MultiMeshInstance3D
 var wind_material: ShaderMaterial
 var wind_streaks_enabled = false
 var atmosphere: Node3D
+var clouds: Node3D
 
 func configure(grid: RefCounted, world_seed: int, material: ShaderMaterial):
 	fire_material = material
@@ -34,9 +35,13 @@ func configure(grid: RefCounted, world_seed: int, material: ShaderMaterial):
 	atmosphere = preload("res://features/levels/forest/VisualAtmosphere.gd").new()
 	add_child(atmosphere)
 	atmosphere.configure(world_seed)
+	clouds = preload("res://features/levels/forest/VisualClouds.gd").new()
+	add_child(clouds)
+	clouds.configure(world_seed)
 
 func update_atmosphere(delta: float, biome: String, temperature: float, weather: String, sun_direction: Vector3):
 	atmosphere.update_state(delta,biome,temperature,weather,sun_direction)
+	clouds.set_weather(weather,sun_direction.y,atmosphere.rainbow)
 
 func update_state(grid: RefCounted, weather: String):
 	var count = 0
@@ -119,6 +124,8 @@ void fragment(){
 	add_child(wind_streaks)
 
 func update_wind(state: Dictionary, player_position: Vector3):
+	clouds.set_wind(state)
+	clouds.player_position = player_position
 	wind_streaks.visible = wind_streaks_enabled and state.strength > 0.55
 	if not wind_streaks_enabled: return
 	wind_material.set_shader_parameter("wind_direction",state.direction)

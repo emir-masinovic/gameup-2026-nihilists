@@ -64,6 +64,51 @@ func run():
 	check(world.effects.rain.multimesh.visible_instance_count == -1 and world.effects.impact_material.get_shader_parameter("splash_size") == vfx_defaults.splash_size,"Disabling preview restores normal rain capacity/material")
 	check(vfx_defaults.wind_line_opacity == 0.5 and vfx_defaults.splash_size == 1.7,"Live overrides do not edit the shared default resource")
 
+	var clouds = world.effects.clouds
+	check(clouds.batches.size() == 4 and clouds.batches.all(func(batch): return batch.multimesh.instance_count == 8),"Four reusable cloud types keep the pool at32 slots")
+	var cloud_pool = clouds.batches[0].multimesh.get_instance_id()
+	clouds.weather = "clear"
+	clouds._process(20.0)
+	var clear_coverage = clouds.coverage
+	clouds.weather = "rain"
+	clouds._process(20.0)
+	check(clouds.coverage > clear_coverage and clouds.darkening > 0.0,"Rain increases cloud coverage and darkening")
+	clouds.weather = "heat"
+	clouds._process(20.0)
+	check(clouds.coverage < clear_coverage,"Heat leaves fewer clouds than clear weather")
+	clouds.travel = Vector2.ZERO
+	clouds.set_wind({"direction":Vector2.DOWN,"strength":0.0})
+	clouds._process(1.0)
+	var calm_travel = clouds.travel.y
+	clouds.set_wind({"direction":Vector2.DOWN,"strength":1.0})
+	var before_travel = clouds.travel
+	clouds._process(1.0)
+	check(clouds.travel.x == 0.0 and clouds.travel.y-before_travel.y > calm_travel,"Cloud drift follows wind and accelerates with strength")
+	live.enabled = true
+	live.cloud_count = 20
+	live.cloud_opacity = 0.5
+	live.cloud_altitude = 10.0
+	live.cloud_scale = 2.0
+	live.cloud_extent = 30.0
+	live.preview_weather = "rain"
+	live.cloud_rain_density = 1.5
+	live._process(0.1)
+	clouds._process(30.0)
+	check(clouds.coverage == 30.0 and clouds.material.get_shader_parameter("cloud_opacity") == 0.5 and clouds.material.get_shader_parameter("altitude") == 10.0,"Live cloud count/density, opacity and height reach renderer")
+	check(clouds.material.get_shader_parameter("cloud_scale") == 2.0 and clouds.material.get_shader_parameter("extent") == 30.0 and clouds.batches[0].multimesh.get_instance_id() == cloud_pool,"Live cloud scale/spread/count reuse existing geometry")
+	live.clouds_enabled = false
+	live._process(0.1)
+	clouds._process(0.1)
+	check(not clouds.visible,"Live cloud visibility disables rendering")
+	live.enabled = false
+	live._process(0.1)
+	clouds._process(20.0)
+	check(clouds.visible and clouds.preview.is_empty() and world.grid.cells == original,"Cloud defaults restore without changing saved ecological state")
+	world.effects.atmosphere.rainbow.visible = true
+	world.effects.atmosphere.rainbow_material.albedo_color.a = 0.45
+	clouds.set_weather("clear",0.8,world.effects.atmosphere.rainbow)
+	check(is_equal_approx(clouds.material.get_shader_parameter("rainbow_clearance"),1.0),"Active rainbow opens a soft gap in cloud coverage")
+	world._update_lighting(0.0)
 	var tuning = load("res://features/levels/forest/ResourceClimateVFX.tres")
 	check(world.ground_cover.batches[0].renderer.material_override.get_shader_parameter("wind_deformation") == tuning.wind_deformation,"Grass reads centralized wind deformation")
 	check(world.ground_cover.batches[0].renderer.material_override.get_shader_parameter("gust_strength") == tuning.gust_strength and world.ground_cover.batches[0].renderer.material_override.get_shader_parameter("gust_speed") == tuning.gust_speed,"Grass reads centralized gust parameters")

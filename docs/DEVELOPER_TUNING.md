@@ -41,3 +41,13 @@ Deferred rather than showing nonfunctional live controls:
 ## Focused validation
 
 The existing world_presentation_test exercises live property edits, actual renderer uniforms/pool counts, restoration, shared default identity and unchanged climate/cell state. Existing Save/Continue tests cover save compatibility. Native Compatibility captures demonstrate baseline, rain/wind, heat/shafts/rainbow and restored states in one running scene. Automated edits use the same exported properties/normal node processing as Remote Inspector; manual editor interaction should follow the steps above.
+
+## Clouds (live)
+
+In Remote/ForestLevel/DeveloperTuning, enable Preview Safety/Enabled, then expand **Clouds (Live)**. Clouds Enabled, Count, Speed, Opacity, Scale, Altitude, Extent, Rain/Heat/Clear Density and Rain Darkening all apply while running. Use Preview Weather to compare clear/rain/heat appearance and Override Visual Wind to inspect direction and speed. These remain visual-only. Disable the top-level Enabled switch to restore authoritative weather/wind and cloud defaults; disable Clouds Enabled to hide clouds while retaining other previews.
+
+Count is a base population, multiplied by weather density and capped at32 shared slots. It controls smooth coverage, not a new allocation. Clear uses0.35, rain1.0, heat0.12, cool0.65. Coverage/darkness ease over a few seconds; opacity/height/scale/spread take effect on the next cloud update. Very large scales or low altitudes can obstruct terrain; a small screen-space fade protects the astronaut. Rainbow visibility softly clears nearby clouds. Wind drift wraps at the area boundary with a fade, not a visible teleport.
+
+Defaults: `res://features/levels/forest/ResourceClouds.tres`, also expandable from NihilistsTuning.tres. Enabled=true, count12, speed1, opacity0.7, scale1.5, altitude7, extent23, rain density1, heat density0.12, clear density0.35, rain darkening0.55. Save default changes and restart for consistent initialization. Four baked mesh variants (small, puff, stretched, darker rain) and the32-slot capacity require code/restart to change; none of the exposed live controls rebuilds geometry. Clouds have no shadows, collisions, particles, textures, atmospheric scattering or simulation consequences.
+
+Implementation files: `features/levels/forest/VisualClouds.gd`, `ShaderClouds.gdshader`, `ResourceClouds.gd/.tres` and script/shader UIDs; wiring in `ecosystem_effects.gd`; live exports in `features/developer/DeveloperTuning.gd`; default reference in `ResourceDeveloperTuning.gd`; focused checks in `tests/world_presentation_test.gd`.
