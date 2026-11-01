@@ -7,7 +7,10 @@ const FILES = {
 	"ui_confirm": ["confirmation_001.ogg"],
 	"ui_back": ["back_001.ogg"],
 	"discovery": ["pluck_001.ogg"],
-	"footstep": ["footstep_grass_000.ogg", "footstep_grass_001.ogg", "footstep_grass_002.ogg"],
+	"footstep": ["SoundStepGrass.mp3"],
+	"step_mud": ["SoundStepMud.mp3"],
+	"step_dry": ["SoundStepDry.mp3"],
+	"step_wet": ["SoundStepWet.mp3"],
 	"chop": ["impactWood_medium_000.ogg"],
 	"tree_fall": ["impactWood_heavy_000.ogg"],
 }
@@ -23,6 +26,9 @@ var _variation: Dictionary = {}
 var _ui_voices: Array[AudioStreamPlayer] = []
 var _world_voices: Array[AudioStreamPlayer3D] = []
 var _world_ref: WeakRef
+var ambience: Node
+var footstep_surface = "grass"
+var _step_variation = 0
 var _ui_index = 0
 var _world_index = 0
 
@@ -30,13 +36,19 @@ func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	# Headless Dummy playback retains queued Vorbis decoders at immediate exit.
 	# Keep real streams/routing testable without submitting work to a missing device.
+	ambience = preload("res://features/audio/ControllerAmbience.gd").new()
+	add_child(ambience)
 	_has_audio_output = AudioServer.get_driver_name() != "Dummy"
 	for cue in FILES:
 		var clips: Array[AudioStream] = []
 		for filename in FILES[cue]:
-			var clip = load("res://features/audio/" + filename) as AudioStream
+			var path = "res://features/audio/" + filename
+			var clip = load(path) as AudioStream if ResourceLoader.exists(path) else null
 			if clip != null:
 				clips.append(clip)
+		if cue == "footstep" and clips.is_empty():
+			for filename in ["footstep_grass_000.ogg","footstep_grass_001.ogg","footstep_grass_002.ogg"]:
+				clips.append(load("res://features/audio/"+filename))
 		_streams[cue] = clips
 	for i in UI_VOICE_LIMIT:
 		var voice = AudioStreamPlayer.new()
@@ -80,6 +92,7 @@ func attach_world(world: Node3D):
 	_detach_world()
 	if world == null or not world.has_signal("audio_cue"):
 		return
+	ambience.attach_world(world)
 	_world_ref = weakref(world)
 	world.connect("audio_cue", _on_world_cue)
 	world.tree_exiting.connect(_detach_world, CONNECT_ONE_SHOT)
@@ -95,6 +108,7 @@ func attach_world(world: Node3D):
 		_world_voices.append(voice)
 
 func _detach_world():
+	if is_instance_valid(ambience): ambience.attach_world(null)
 	if _world_ref != null:
 		var world = _world_ref.get_ref()
 		if is_instance_valid(world):
@@ -114,6 +128,10 @@ func _detach_world():
 func _on_world_cue(cue: String, at: Vector3):
 	# Forest cue coordinates are local to the emitting world.
 	var world = _world_ref.get_ref() if _world_ref != null else null
+	if cue == "footstep" and is_instance_valid(world) and world.get("grid") != null:
+		var grid = world.grid
+		var cell = grid.start+Vector2i(roundi(at.x/grid.CELL_SIZE),roundi(at.z/grid.CELL_SIZE))
+		if grid.in_bounds(cell): footstep_surface = ambience.surface(grid.cells[cell.y*grid.SIZE+cell.x])
 	play_cue(cue, world.to_global(at) if is_instance_valid(world) else at)
 
 func play_cue(cue: String, at: Vector3 = Vector3.ZERO) -> bool:
@@ -127,22 +145,29 @@ func play_cue(cue: String, at: Vector3 = Vector3.ZERO) -> bool:
 	var positional = cue in ["footstep", "chop", "tree_fall"]
 	if positional and (_world_voices.is_empty() or get_tree().paused):
 		return false
-	var variant = int(_variation.get(cue, 0)) % _streams[cue].size()
+	var stream_key = cue
+	if cue == "footstep" and footstep_surface != "grass" and not _streams.get("step_"+footstep_surface,[]).is_empty(): stream_key = "step_"+footstep_surface
+	var variant = int(_variation.get(cue, 0)) % _streams[stream_key].size()
 	_variation[cue] = variant + 1
 	if positional:
 		var voice = _world_voices[_world_index % WORLD_VOICE_LIMIT]
 		_world_index += 1
 		voice.stop()
 		voice.global_position = at
-		voice.stream = _streams[cue][variant]
+		voice.stream = _streams[stream_key][variant]
 		voice.volume_db = LEVELS[cue]
+		voice.pitch_scale = 1.0
+		if cue == "footstep":
+			_step_variation += 1
+			voice.pitch_scale = 0.97+0.015*(_step_variation%5)
+			voice.volume_db -= float(_step_variation%3)*0.5
 		if _has_audio_output:
 			voice.play()
 	else:
 		var voice = _ui_voices[_ui_index % UI_VOICE_LIMIT]
 		_ui_index += 1
 		voice.stop()
-		voice.stream = _streams[cue][variant]
+		voice.stream = _streams[stream_key][variant]
 		voice.volume_db = LEVELS[cue]
 		if _has_audio_output:
 			voice.play()

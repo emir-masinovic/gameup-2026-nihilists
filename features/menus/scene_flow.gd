@@ -46,6 +46,7 @@ func retry_game():
 	return transition(playable_scene)
 
 func main_menu():
+	if is_instance_valid(sounds): sounds.ambience.stop_world()
 	run_regions = null
 	region_arrival_from = ""
 	camera_state.clear()
