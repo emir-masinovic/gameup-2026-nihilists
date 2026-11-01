@@ -1,7 +1,14 @@
 extends Node3D
 # Visual adaptation of Onur's astronaut at 638ba20. No controller or grid logic.
 signal chop_impact(impact_position: Vector3)
-const step_duration = 0.16
+var step_duration: float:
+	get:
+		if is_instance_valid(get_parent()) and "move_duration" in get_parent():
+			return get_parent().move_duration
+		return _step_duration
+	set(value):
+		_step_duration = value
+var _step_duration: float = 0.28
 var _body: Node3D
 var _arm_left: Node3D
 var _arm_right: Node3D
@@ -65,7 +72,8 @@ func _cache_nodes():
 # or twist around this yaw, but must not restore an earlier movement direction.
 func face_direction(direction: Vector2i):
 	_target_yaw = atan2(-direction.x, -direction.y)
-	rotation.y = _target_yaw
+	if not moving:
+		rotation.y = _target_yaw
 
 func _on_step(_cell: Vector2i):
 	stop_chopping()
@@ -104,64 +112,65 @@ func _update_animation(delta: float):
 	if moving:
 		_step_elapsed += delta
 		var t = clampf(_step_elapsed / step_duration, 0.0, 1.0)
-		var foot_side = 1.0 if (_step_count % 2 == 1) else -1.0
 
-		if t < 0.72:
-			# Stride phase (push-off and aerial stride)
-			var stride_t = t / 0.72
-			var stride_curve = sin(stride_t * PI)
+		# Smooth continuous walking stride
+		var leg_l: float = 0.0
+		var leg_r: float = 0.0
 
-			# Hop arc
-			_body.position.y = stride_curve * 0.11
-			_body.scale = Vector3.ONE
-			# Leaning into the step & shifting weight
-			_body.rotation.x = -stride_curve * 0.14
-			_body.rotation.z = stride_curve * 0.06 * foot_side
-
-			# Deliberate leg strides
-			var leg_angle = stride_curve * 0.75 * foot_side
-			if _leg_left:
-				_leg_left.rotation.x = leg_angle
-			if _leg_right:
-				_leg_right.rotation.x = -leg_angle
-
-			# Natural opposing arm swings with mass
-			if _arm_left:
-				_arm_left.rotation.x = -leg_angle * 0.75
-				_arm_left.rotation.z = 0.06
-			if _arm_right:
-				_arm_right.rotation.y = 0.0
-				_arm_right.rotation.x = leg_angle * 0.75
-				_arm_right.rotation.z = -0.06
+		if _step_count <= 1:
+			# First step starting from standstill:
+			# Smoothly ease legs from neutral (0) into forward/back stride
+			var stride = sin(t * PI * 0.5)
+			leg_l = stride * 0.55
+			leg_r = -stride * 0.55
+		elif _step_count % 2 == 1:
+			# Odd steps (left foot stride):
+			# Left leg swings smoothly from rear (-0.55) through center (0) to front (+0.55)
+			var phase = t * PI
+			leg_l = -cos(phase) * 0.55
+			leg_r = cos(phase) * 0.55
 		else:
-			# Foot plant & impact cushion phase (t >= 0.72)
-			if not _step_planted:
-				_step_planted = true
-				if get_parent().has_method("emit_step_contact"): get_parent().emit_step_contact()
-				if _step_dust != null:
-					var boot_offset_x = -0.13 if (_step_count % 2 == 1) else 0.13
-					_step_dust.position = Vector3(boot_offset_x, 0.02, 0.0)
-					_step_dust.restart()
+			# Even steps (right foot stride):
+			# Right leg swings smoothly from rear (-0.55) through center (0) to front (+0.55)
+			var phase = t * PI
+			leg_l = cos(phase) * 0.55
+			leg_r = -cos(phase) * 0.55
 
-			var impact_t = (t - 0.72) / 0.28
-			var cushion = sin(impact_t * PI)
-			# Heel strike dip & rebound
-			_body.position.y = -cushion * 0.035
-			# Weight compression / squash
-			_body.scale = Vector3(1.0 + cushion * 0.05, 1.0 - cushion * 0.06, 1.0 + cushion * 0.05)
+		if _leg_left:
+			_leg_left.rotation.x = leg_l
+		if _leg_right:
+			_leg_right.rotation.x = leg_r
 
-			_body.rotation.x = lerpf(_body.rotation.x, 0.0, impact_t * 1.5)
-			_body.rotation.z = lerpf(_body.rotation.z, 0.0, impact_t * 1.5)
+		# Natural opposing arm swing with mass and slight outward clearance
+		var arm_l = -leg_l * 0.75
+		var arm_r = leg_l * 0.75
+		if _arm_left:
+			_arm_left.rotation.x = arm_l
+			_arm_left.rotation.z = 0.08
+		if _arm_right:
+			_arm_right.rotation.y = 0.0
+			_arm_right.rotation.x = arm_r
+			_arm_right.rotation.z = -0.08
 
-			# Legs plant firmly on ground
-			if _leg_left:
-				_leg_left.rotation.x = lerpf(_leg_left.rotation.x, 0.0, impact_t * 2.0)
-			if _leg_right:
-				_leg_right.rotation.x = lerpf(_leg_right.rotation.x, 0.0, impact_t * 2.0)
-			if _arm_left:
-				_arm_left.rotation.x = lerpf(_arm_left.rotation.x, 0.0, impact_t * 2.0)
-			if _arm_right:
-				_arm_right.rotation.x = lerpf(_arm_right.rotation.x, 0.0, impact_t * 2.0)
+		# Grounded simulation walk bob (rises at mid-step, lands smoothly at tile contact)
+		var bob_curve = sin(t * PI)
+		_body.position.y = bob_curve * 0.12
+		_body.scale = Vector3.ONE
+
+		# Torso dynamics: slight forward lean into movement & subtle side sway
+		_body.rotation.x = -0.06 - bob_curve * 0.02
+		var foot_side = 1.0 if (_step_count % 2 == 1) else -1.0
+		_body.rotation.z = sin(t * PI) * 0.035 * foot_side
+
+		# Smooth foot plant & audio contact near end of stride
+		if t >= 0.45 and not _step_planted:
+			_step_planted = true
+			if get_parent().has_method("emit_step_contact"):
+				get_parent().emit_step_contact()
+			if _step_dust != null:
+				var boot_offset_x = -0.13 if (_step_count % 2 == 1) else 0.13
+				_step_dust.position = Vector3(boot_offset_x, 0.02, 0.0)
+				_step_dust.restart()
 
 		_body.rotation.y = lerp_angle(_body.rotation.y, _target_yaw, delta * 20.0)
 	elif is_chopping:
@@ -369,6 +378,7 @@ func _update_animation(delta: float):
 				_arm_right.rotation.z = lerpf(-0.28, -0.42, ease_up)
 			_body.rotation.x = lerpf(-0.38, -0.18, ease_up)
 	else:
+		_step_count = 0
 		# Return limbs smoothly to relaxed stance
 		var blend = delta * 12.0
 		if _leg_left:

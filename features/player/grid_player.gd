@@ -10,6 +10,7 @@ signal water_pour_splash(impact_position: Vector3)
 const CARDINAL_DIRECTIONS = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
 const INPUT_ALIGNMENT_HYSTERESIS = 0.08
 const MAPPING_ALIGNMENT_HYSTERESIS = 0.16
+@export var move_duration: float = 0.28
 var facing = Vector2i.UP
 var cell = Vector2i.ZERO
 var grid: RefCounted
@@ -226,11 +227,29 @@ func try_move(direction: Vector2i) -> bool:
 	cell = target
 	cell_entered.emit(cell)
 	move_tween = create_tween()
-	move_tween.tween_property(self, "position", grid.world_position(cell), 0.16).set_trans(Tween.TRANS_SINE)
-	move_tween.finished.connect(func():
-		moving = false
-		emit_step_contact())
+	move_tween.tween_property(self, "position", grid.world_position(cell), move_duration).set_trans(Tween.TRANS_SINE)
+	move_tween.finished.connect(_on_move_finished)
 	return true
+
+func _on_move_finished():
+	moving = false
+	emit_step_contact()
+	_check_continuous_movement()
+
+func _check_continuous_movement():
+	if camera_controlled or moving or grid == null or require_release:
+		return
+	var direction = Vector2i.ZERO
+	if Input.is_action_pressed("move_north"):
+		direction = Vector2i.UP
+	elif Input.is_action_pressed("move_south"):
+		direction = Vector2i.DOWN
+	elif Input.is_action_pressed("move_west"):
+		direction = Vector2i.LEFT
+	elif Input.is_action_pressed("move_east"):
+		direction = Vector2i.RIGHT
+	if direction != Vector2i.ZERO:
+		try_move(screen_direction_to_grid(direction))
 
 # Grid collision occupies one tile; include the astronaut's interpolating body
 # near tile boundaries until its already committed step has visibly finished.
