@@ -127,6 +127,28 @@ func run():
 		check(props._eligible(Vector2i(site.index%world.grid.SIZE,site.index/world.grid.SIZE)),"Decoration starts clear of reserved, water and interactive cells")
 	# The headless dummy renderer returns black for color readback; native checks white.
 	check(props.batches.all(func(batch): return batch.multimesh.use_colors and (DisplayServer.get_name() == "headless" or batch.multimesh.instance_count == 0 or batch.multimesh.get_instance_color(0) == Color.WHITE)),"Compatibility instance colors preserve imported petal palettes")
+	var player = world.get_node("GridPlayer")
+	var original_player_cell = player.cell
+	for branch_prop in [false,true]:
+		var decorated = props.sites.filter(func(site): return (site.batch >= 5) == branch_prop)[0]
+		var decorated_cell = Vector2i(decorated.index%world.grid.SIZE,decorated.index/world.grid.SIZE)
+		check(world.grid.traversable(decorated_cell),"Decorative flower/branch cells remain traversable")
+		player.cell = decorated_cell
+		props.update_state()
+		check(decorated.active == 1.0,"Player entering a decorated cell does not hide it")
+		player.cell = original_player_cell
+		props.update_state()
+		check(decorated.active == 1.0,"Player leaving a decorated cell does not hide it")
+		world.decorated_cells[decorated_cell] = true
+		props.update_state()
+		check(decorated.active == 0.0,"Permanent decorative landmark occupancy still hides props")
+		world.decorated_cells.erase(decorated_cell)
+		var descriptor = {"id":"test.decoration.blocker","cell":decorated_cell}
+		world.custom_interactables.append(descriptor)
+		props.update_state()
+		check(decorated.active == 0.0,"Registered interaction occupancy still hides props")
+		world.custom_interactables.erase(descriptor)
+	props.update_state()
 	var duplicate_props = props.get_script().new()
 	world.add_child(duplicate_props)
 	duplicate_props.configure(world)
@@ -145,7 +167,7 @@ func run():
 	flower_data.moisture = 0.7;flower_data.health = 0.7
 	props.update_state()
 	check(flower.target > 0.65 and flower.from < flower.target,"Recovery interpolates instead of instantly restoring flowers")
-	for blocker in ["pending_seeds","log","tree","prepared","berry_bush"]:
+	for blocker in ["pending_seeds","log","tree","prepared","berry_bush","water","burning","burned","tilled"]:
 		flower_data[blocker] = 1 if blocker == "pending_seeds" else true
 		props.update_state()
 		check(flower.active == 0.0,"Decorations hide when interactive occupancy appears: "+blocker)

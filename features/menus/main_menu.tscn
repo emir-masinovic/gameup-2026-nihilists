@@ -1,8 +1,13 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://features/menus/main_menu.gd" id="1"]
 
 [ext_resource type="Theme" path="res://features/menus/theme_forest.tres" id="2_theme"]
+
+[ext_resource type="Shader" path="res://features/menus/ShaderNatureMenu.gdshader" id="3_background"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_background"]
+shader = ExtResource("3_background")
 
 [node name="MainMenu" type="Control"]
 layout_mode = 3
@@ -15,6 +20,8 @@ script = ExtResource("1")
 theme = ExtResource("2_theme")
 
 [node name="Backdrop" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_background")
+mouse_filter = 2
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

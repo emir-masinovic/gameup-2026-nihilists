@@ -84,7 +84,10 @@ func _add_site(groups: Array, variant: int, index: int, at: Vector3, rng: Random
 func _eligible(cell: Vector2i) -> bool:
 	var grid = _world.grid
 	if not grid.in_bounds(cell) or cell.x <= 0 or cell.y <= 0 or cell.x >= grid.SIZE-1 or cell.y >= grid.SIZE-1: return false
-	if cell.distance_to(grid.start) < 2.5 or cell.x == grid.start.x or cell.y == grid.start.y or cell == grid.objective or _world._planting_occupied(cell): return false
+	if cell.distance_to(grid.start) < 2.5 or cell.x == grid.start.x or cell.y == grid.start.y or cell == grid.objective or _world.decorated_cells.has(cell): return false
+	# Unlike planting occupancy, decorative props must ignore the player's temporary cell.
+	for descriptor in _world.custom_interactables:
+		if descriptor.cell == cell: return false
 	var data = grid.cells[cell.y*grid.SIZE+cell.x]
 	return data.terrain == "grass" and not data.get("water",false) and not data.tree and not data.get("log",false) and not data.get("berry_bush",false) and not data.get("prepared",false) and not data.get("tilled",false) and not data.get("burning",false) and not data.get("burned",false) and data.get("pending_seeds",0) == 0 and data.get("tree_state","") != "stump"
 
