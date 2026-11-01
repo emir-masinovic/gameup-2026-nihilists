@@ -24,8 +24,16 @@ func _ready():
 		add_child(label)
 		notification_labels.append(label)
 	$Modal/Rows/Close.pressed.connect(close_modal)
-	$Modal/Rows/Next.pressed.connect(func(): close_modal(); SceneFlow.retry_game())
-	$Modal/Rows/Menu.pressed.connect(func(): close_modal(); SceneFlow.main_menu())
+	$Modal/Rows/Next.pressed.connect(func():
+		close_modal()
+		var flow = get_tree().root.get_node_or_null("SceneFlow") if get_tree() and get_tree().root else null
+		if flow != null: flow.retry_game()
+	)
+	$Modal/Rows/Menu.pressed.connect(func():
+		close_modal()
+		var flow = get_tree().root.get_node_or_null("SceneFlow") if get_tree() and get_tree().root else null
+		if flow != null: flow.main_menu()
+	)
 	$Modal/Rows/QuickChop.pressed.connect(func(): _purchase("quick_chop"))
 	$Modal/Rows/FireResilience.pressed.connect(func(): _purchase("fire_resilience"))
 	$Modal/Rows/Upgrade.pressed.connect(func():
@@ -131,7 +139,12 @@ func update_status(health: float, exposure: float, temperature: float, weather: 
 		$PlayerStatus/Rows/Supplies/Seeds.text = str(seeds)
 	$WorldStatus/Rows/Climate/Value.text = "%.1f C | %s" % [temperature, weather.capitalize()]
 	$WorldStatus/Rows/Climate/Icon.set_weather(weather)
-	$WorldStatus/Rows/Trend.text = "+%.1f C warming" % trend
+	if trend < -0.05:
+		$WorldStatus/Rows/Trend.text = "-%.1f C cooling" % absf(trend)
+		$WorldStatus/Rows/Trend.modulate = Color("4ebd5f")
+	else:
+		$WorldStatus/Rows/Trend.text = "+%.1f C warming" % maxf(trend, 0.0)
+		$WorldStatus/Rows/Trend.modulate = Color(0.9, 0.72, 0.45, 1)
 	$WorldStatus/Rows/Knowledge/Value.text = "%d Knowledge" % knowledge
 	$Context.text = "Chopping..." if chopping else "Bonfire shelter - Interact to rest" if safe else ""
 	$Context.visible = not $Context.text.is_empty()
@@ -195,6 +208,18 @@ func update_interaction(target: Dictionary, progress: float, active: bool, bindi
 	var description = str(target.get("action", "Interact")) if target.get("available", true) else str(target.get("reason", "Unavailable"))
 	$Context.show()
 	$Context.text = "%s — [%s] %s%s" % [target.get("name", "Object"), binding, description, "..." if active else ""]
+
+func update_planet_health(percent: float):
+	if has_node("WorldStatus/Rows/Planet/Label"):
+		var p_val = roundi(clampf(percent, 0.0, 100.0))
+		$WorldStatus/Rows/Planet/Label.text = "Planet %d%%" % p_val
+		var color = Color("4ebd5f") if p_val >= 70 else (Color("edc647") if p_val >= 40 else Color("e05353"))
+		$WorldStatus/Rows/Planet/Label.modulate = color
+		if has_node("WorldStatus/Rows/Planet/Bar"):
+			$WorldStatus/Rows/Planet/Bar.value = p_val
+			$WorldStatus/Rows/Planet/Bar.modulate = color
+		if has_node("WorldStatus/Rows/Planet/Icon"):
+			$WorldStatus/Rows/Planet/Icon.modulate = color
 
 func update_seeds(count: int):
 	$PlayerStatus/Rows/Supplies/Seeds.text = str(count)

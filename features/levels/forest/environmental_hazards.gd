@@ -72,6 +72,11 @@ func configure(p_region_id: String, p_grid: RefCounted, p_world_seed: int) -> vo
 		add_child(h.visual)
 		hazards.append(h)
 
+func update_planet_health(p_health: float) -> void:
+	for h in hazards:
+		var slow_factor = lerpf(1.0, 2.0, clampf((p_health - 50.0) / 40.0, 0.0, 1.0))
+		h.move_interval = WANDER_INTERVAL * slow_factor
+
 func _process(delta: float) -> void:
 	if hazards.is_empty() or grid == null:
 		return

@@ -1,5 +1,5 @@
 extends Control
-@export_enum("heart", "heat", "weather", "leaf", "food", "water", "seeds", "sprout", "drop", "trash") var kind = "heart"
+@export_enum("heart", "heat", "weather", "leaf", "food", "water", "seeds", "sprout", "drop", "trash", "planet") var kind = "heart"
 var weather = "clear"
 
 func _ready():
@@ -59,3 +59,7 @@ func _draw():
 			draw_line(Vector2(5, 7), Vector2(19, 7), Color("d0dde5"), 2, true)
 			draw_line(Vector2(10, 11), Vector2(10, 18), Color("586872"), 1.5, true)
 			draw_line(Vector2(14, 11), Vector2(14, 18), Color("586872"), 1.5, true)
+		"planet":
+			draw_circle(Vector2(12, 12), 7.5, Color("3a86b7"))
+			draw_colored_polygon(PackedVector2Array([Vector2(8, 8), Vector2(13, 7), Vector2(15, 11), Vector2(11, 15), Vector2(7, 13)]), Color("5eb862"))
+			draw_arc(Vector2(12, 12), 9.5, -0.4, PI * 0.9, 16, Color("9ee3ff"), 1.5, true)

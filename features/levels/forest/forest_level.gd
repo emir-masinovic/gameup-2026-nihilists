@@ -741,6 +741,8 @@ func _refresh_visuals():
 			elif not data.get("growth_discovered", false) and not data.get("natural",false):
 				data.growth_discovered = true
 				_discover("flora.planted_growth", "A planted tree matured: new shade and habitat")
+				climate.planet_health = climate.calculate_planet_health()
+				hud.notify("Planted tree matured! Planet Health improved.")
 		if trees.has(cell) and data.tree_state in ["healthy", "dead"]:
 			if trees[cell].has_method("set_health"):
 				trees[cell].set_health(data.tree_health, data.tree_state == "dead", data.moisture, data.get("burned", false))
@@ -774,6 +776,10 @@ func _refresh_visuals():
 func _update_hud():
 	var safe = _camp_active() and $GridPlayer.cell.distance_to(grid.start) <= 2.2
 	hud.update_status(survival.health, survival.exposure, climate.temperature, climate.weather, climate.warming_pressure(), SaveManager.progression.knowledge, safe, interactions.target.x >= 0, interactions.seeds, interactions.water_ml)
+	if climate != null:
+		hud.update_planet_health(climate.planet_health)
+		if hazard_system != null and is_instance_valid(hazard_system) and hazard_system.has_method("update_planet_health"):
+			hazard_system.update_planet_health(climate.planet_health)
 	_update_wind(tick_accumulator)
 	hud.set_environment_context(climate.fire_at($GridPlayer.cell), "", false)
 	hud.set_region(regions.region_name(region_id))
@@ -1360,8 +1366,11 @@ func _tick_hazard_damage(delta: float) -> void:
 		hazard_damage_accumulator += delta
 		if hazard_damage_accumulator >= 1.0:
 			hazard_damage_accumulator -= 1.0
-			survival.damage(5.0)
-			_spawn_health_popup("-5", Color("e05353"), "damage")
+			var dmg = 5.0
+			if climate != null and climate.planet_health >= 70.0:
+				dmg = 3.0
+			survival.damage(dmg)
+			_spawn_health_popup("-%d" % roundi(dmg), Color("e05353"), "damage")
 			audio_cue.emit("damage", $GridPlayer.position)
 			hud.damage_feedback(true)
 			if survival.dead:
