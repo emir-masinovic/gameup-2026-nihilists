@@ -12,6 +12,7 @@ var _patch_noise = FastNoiseLite.new()
 var _detail_noise = FastNoiseLite.new()
 var _grass_sites: Dictionary = {}
 var baseline = OS.is_debug_build() and OS.get_cmdline_user_args().has("--grass-baseline")
+var _wind_texture: NoiseTexture2D
 var _grid: RefCounted
 var _crack_sizes: Array[float] = []
 var _crack_targets: Array[float] = []
@@ -78,6 +79,19 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	renderer.material_override.set_shader_parameter("wind_height",0.3 if shrubs else 0.5)
 	if not shrubs and not baseline:
 		renderer.material_override.set_shader_parameter("view_thickening",0.35 if OS.is_debug_build() and OS.get_cmdline_user_args().has("--grass-thickening") and not OS.get_cmdline_user_args().has("--grass-no-thickening") else 0.0)
+		if not OS.get_cmdline_user_args().has("--grass-no-perlin"):
+			_wind_texture = NoiseTexture2D.new()
+			_wind_texture.width = 128
+			_wind_texture.height = 128
+			_wind_texture.seamless = true
+			var wind_noise = FastNoiseLite.new()
+			wind_noise.noise_type = FastNoiseLite.TYPE_PERLIN
+			wind_noise.fractal_type = FastNoiseLite.FRACTAL_NONE
+			wind_noise.frequency = 0.055
+			wind_noise.seed = _appearance_seed
+			_wind_texture.noise = wind_noise
+			renderer.material_override.set_shader_parameter("wind_field",_wind_texture)
+			renderer.material_override.set_shader_parameter("spatial_wind_enabled",true)
 	renderer.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	renderer.extra_cull_margin = 0.7
 	add_child(renderer)
@@ -254,9 +268,11 @@ func _grass_tuft(segments: int = 3) -> ArrayMesh:
 	return mesh.commit()
 
 func set_wind(state: Dictionary):
+	var direction: Vector2 = state.direction
+	if direction.length_squared() < 0.000001: direction = Vector2.RIGHT
 	for batch in batches:
 		var material = batch.renderer.material_override
-		material.set_shader_parameter("wind_direction",state.direction)
+		material.set_shader_parameter("wind_direction",direction)
 		material.set_shader_parameter("wind_strength",state.strength)
 		material.set_shader_parameter("wind_time",state.time)
 

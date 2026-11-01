@@ -6,6 +6,8 @@ uniform float canopy_density = 1.0;
 varying vec3 leaf_position;
 uniform bool instance_health = false;
 uniform bool blade_grass = false;
+uniform bool spatial_wind_enabled = false;
+uniform sampler2D wind_field : repeat_enable, filter_linear;
 uniform float view_thickening : hint_range(0.0, 0.6) = 0.0;
 uniform float lod_straighten : hint_range(0.0,1.0) = 0.0;
 varying float blade_height;
@@ -40,9 +42,22 @@ void vertex() {
     // A shared travelling field, with only a small seeded local phase offset.
     float phase = instance_health ? INSTANCE_CUSTOM.g * 0.45 : 0.0;
     float along_wind = dot(world.xz, wind_direction);
-    float wave = sin(wind_time * 1.65 - along_wind * 0.44 + phase);
-    float gust = 0.75 + 0.25 * sin(wind_time * 0.43 - along_wind * 0.1);
-    vec3 direction = vec3(wind_direction.x,0.0,wind_direction.y);
+    float wave;
+    float gust;
+    vec2 field_direction = wind_direction;
+    if (blade_grass && spatial_wind_enabled) {
+        vec2 flow_uv = world.xz * 0.025 - wind_direction * wind_time * 0.012;
+        float broad = textureLod(wind_field,flow_uv,0.0).r;
+        float detail = textureLod(wind_field,world.xz*0.11-wind_direction*wind_time*0.026+vec2(0.37,0.61),0.0).r;
+        wave = clamp((broad-0.5)*2.0+(detail-0.5)*0.4,-1.0,1.0);
+        gust = 0.65+0.5*broad;
+        field_direction = normalize(wind_direction+vec2(-wind_direction.y,wind_direction.x)*(detail-0.5)*0.3);
+    }
+    else {
+        wave = sin(wind_time * 1.65 - along_wind * 0.44 + phase);
+        gust = 0.75 + 0.25 * sin(wind_time * 0.43 - along_wind * 0.1);
+    }
+    vec3 direction = vec3(field_direction.x,0.0,field_direction.y);
     vec3 local_direction = vec3(dot(normalize(MODEL_MATRIX[0].xyz), direction), 0.0,
                                 dot(normalize(MODEL_MATRIX[2].xyz), direction));
     ivec2 cell = ivec2(floor((world.xz-shelter_origin)/2.0+vec2(0.5)));
