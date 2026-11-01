@@ -17,6 +17,9 @@ uniform float sway = 0.025;
 uniform float wind_height = 1.6;
 uniform vec2 wind_direction = vec2(0.8,0.6);
 uniform float wind_strength = 0.55;
+uniform float wind_deformation = 1.0;
+uniform float gust_strength = 0.25;
+uniform float gust_speed = 1.0;
 uniform float wind_time = 0.0;
 uniform bool shelter_enabled = false;
 uniform vec4 wind_exposure[73];
@@ -53,11 +56,11 @@ void vertex() {
     float gust;
     vec2 field_direction = wind_direction;
     if (blade_grass && spatial_wind_enabled) {
-        vec2 flow_uv = world.xz * 0.025 - wind_direction * wind_time * 0.012;
+        vec2 flow_uv = world.xz * 0.025 - wind_direction * wind_time * gust_speed * 0.012;
         float broad = textureLod(wind_field,flow_uv,0.0).r;
-        float detail = textureLod(wind_field,world.xz*0.11-wind_direction*wind_time*0.026+vec2(0.37,0.61),0.0).r;
+        float detail = textureLod(wind_field,world.xz*0.11-wind_direction*wind_time*gust_speed*0.026+vec2(0.37,0.61),0.0).r;
         wave = clamp((broad-0.5)*2.0+(detail-0.5)*0.4,-1.0,1.0);
-        gust = 0.65+0.5*broad;
+        gust = clamp(1.0+(broad-0.5)*2.0*gust_strength,0.25,1.75);
         field_direction = normalize(wind_direction+vec2(-wind_direction.y,wind_direction.x)*(detail-0.5)*0.3);
     }
     else {
@@ -70,7 +73,14 @@ void vertex() {
     ivec2 cell = ivec2(floor((world.xz-shelter_origin)/2.0+vec2(0.5)));
     int index = clamp(cell.y*17+cell.x,0,288);
     float exposure = shelter_enabled ? wind_exposure[index/4][index%4] : 1.0;
-    VERTEX += local_direction * exposure * (0.6 + wave * 0.4) * gust * wind_strength * 1.8 * sway * mix(height*height,height,lod_straighten) * vigor;
+    float root_weight = mix(height*height,height,lod_straighten);
+    float bend = (0.6+wave*0.4)*gust*wind_strength*1.8*sway*root_weight*vigor;
+    if (blade_grass) {
+        // A bounded visual response; shelter applies after the cap, including debug extremes.
+        float response = pow(clamp(wind_strength,0.0,3.0),1.35);
+        bend = min((0.65+wave*0.35)*gust*response*1.8*sway*wind_deformation*root_weight*vigor,0.38*root_weight);
+    }
+    VERTEX += local_direction * exposure * bend;
     if (blade_grass && view_thickening > 0.0) {
         vec3 blade_axis = normalize(vec3(COLOR.r*2.0-1.0,0.0,COLOR.g*2.0-1.0));
         vec3 face = normalize((MODEL_MATRIX*vec4(blade_axis,0.0)).xyz);

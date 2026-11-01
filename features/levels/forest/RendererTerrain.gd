@@ -1,9 +1,12 @@
 extends Node3D
+const VFX = preload("res://features/levels/forest/ResourceClimateVFX.tres")
 # Shared climate beds, persistent authored soil and shrinking pond surfaces.
 var batches: Array[MultiMeshInstance3D] = []
 var tile_mesh: BoxMesh
+var biome = "forest"
 
-func configure(grid: RefCounted, palette: Array[ShaderMaterial], water: Material, charred: Material):
+func configure(grid: RefCounted, palette: Array[ShaderMaterial], water: Material, charred: Material, region_id: String = "forest"):
+	biome = region_id
 	tile_mesh = BoxMesh.new()
 	tile_mesh.size = Vector3(grid.CELL_SIZE, 0.3, grid.CELL_SIZE)
 	var water_mesh = PlaneMesh.new()
@@ -31,6 +34,7 @@ func configure(grid: RefCounted, palette: Array[ShaderMaterial], water: Material
 		batch.multimesh.instance_count = grid.cells.size()
 		batch.multimesh.visible_instance_count = 0
 		batch.material_override = materials[i]
+		if materials[i] is ShaderMaterial: materials[i].set_shader_parameter("heat_strength",VFX.heat_strength(biome))
 		# Coplanar ground must receive tree shadows without casting self-shadow acne.
 		batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		# Empty climate groups can become visible far from the origin later. A fixed

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/levels/forest/ResourceClimateVFX.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+wind_deformation = 2.2
+gust_strength = 0.85
+gust_speed = 1.6
+wind_line_opacity = 0.36
+splash_count = 128
+splash_size = 1.7
+splash_opacity = 0.75
+forest_heat_strength = 0.34
+wetlands_heat_strength = 0.28
+drylands_heat_strength = 0.16

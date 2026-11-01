@@ -1,4 +1,5 @@
 extends Node3D
+const VFX = preload("res://features/levels/forest/ResourceClimateVFX.tres")
 const Visuals = preload("res://features/levels/forest/nature/nature_visuals.gd")
 const GRASS_POPULATION_SCALE = 3
 const GRASS_DENSITY = {"minimum":3,"maximum":11}
@@ -134,6 +135,10 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	renderer.material_override.set_shader_parameter("blade_grass",not shrubs)
 	renderer.material_override.set_shader_parameter("sway",0.045 if shrubs else 0.24)
 	renderer.material_override.set_shader_parameter("wind_height",0.3 if shrubs else 0.5)
+	if not shrubs:
+		renderer.material_override.set_shader_parameter("wind_deformation",VFX.wind_deformation)
+		renderer.material_override.set_shader_parameter("gust_strength",VFX.gust_strength)
+		renderer.material_override.set_shader_parameter("gust_speed",VFX.gust_speed)
 	if not shrubs and not baseline:
 		renderer.material_override.set_shader_parameter("view_thickening",0.35 if OS.is_debug_build() and OS.get_cmdline_user_args().has("--grass-thickening") and not OS.get_cmdline_user_args().has("--grass-no-thickening") else 0.0)
 		if not OS.get_cmdline_user_args().has("--grass-no-perlin"):
@@ -150,7 +155,7 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 			renderer.material_override.set_shader_parameter("wind_field",_wind_texture)
 			renderer.material_override.set_shader_parameter("spatial_wind_enabled",true)
 	renderer.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	renderer.extra_cull_margin = 0.7
+	renderer.extra_cull_margin = 0.9
 	add_child(renderer)
 	var sizes: Array[float] = []
 	sizes.resize(indices.size())

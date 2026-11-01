@@ -23,13 +23,18 @@ func run():
 	root.add_child(world)
 	world.set_process(false)
 	var original = world.grid.cells.duplicate(true)
+	var tuning = load("res://features/levels/forest/ResourceClimateVFX.tres")
+	check(world.ground_cover.batches[0].renderer.material_override.get_shader_parameter("wind_deformation") == tuning.wind_deformation,"Grass reads centralized wind deformation")
+	check(world.ground_cover.batches[0].renderer.material_override.get_shader_parameter("gust_strength") == tuning.gust_strength and world.ground_cover.batches[0].renderer.material_override.get_shader_parameter("gust_speed") == tuning.gust_speed,"Grass reads centralized gust parameters")
+	check(world.effects.impact_material.get_shader_parameter("splash_size") == tuning.splash_size and world.effects.impact_material.get_shader_parameter("splash_opacity") == tuning.splash_opacity,"Rain reads centralized size and opacity")
+	check(world.palette[0].get_shader_parameter("heat_strength") == tuning.forest_heat_strength and tuning.drylands_heat_strength == 0.16,"Forest heat is tunable; Drylands retains previous strength")
 	check(not world.has_node("Bonfire") and world.flame_material != null and world.effects.flames.material_override == world.flame_material,"Wildfire has an animated material without automatic bonfire")
 	world._advance_presentation(0.1)
 	check(world.flame_material.get_shader_parameter("animation_time") > 0.0,"Wildfire animation clock remains connected")
 	world.grid.cells[0].burning = true
 	world.effects.update_state(world.grid,"rain")
 	check(world.effects.flames.multimesh.visible_instance_count == 1,"Burning cells submit actual flame geometry")
-	check(world.effects.rain.visible and world.effects.rain_impacts.visible and world.effects.rain_impacts.multimesh.instance_count <= 32,"Rain enables bounded ground impacts")
+	check(world.effects.rain.visible and world.effects.rain_impacts.visible and world.effects.rain_impacts.multimesh.instance_count == mini(world.effects.VFX.splash_count,256),"Rain enables bounded ground impacts")
 	for i in range(world.effects.rain_impacts.multimesh.instance_count):
 		check(world.effects.rain_impacts.multimesh.get_instance_transform(i).origin.y < 0.05,"Rain impacts stay at terrain surface")
 	world.grid.cells[0].burning = false
@@ -252,6 +257,7 @@ func run():
 	root.add_child(world)
 	world.set_process(false)
 	world.get_node("GridPlayer").set_process(false)
+	check(world.palette[0].get_shader_parameter("heat_strength") == tuning.wetlands_heat_strength,"Wetlands uses its own heat strength")
 	var transitions = 0
 	for label in world.find_children("*","Label3D",true,false):
 		check(label.text != "Recovering habitat","Temporary habitat label is absent")

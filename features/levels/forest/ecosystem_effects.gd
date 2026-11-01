@@ -1,4 +1,5 @@
 extends Node3D
+const VFX = preload("res://features/levels/forest/ResourceClimateVFX.tres")
 var flames: MultiMeshInstance3D
 var rain: MultiMeshInstance3D
 var rain_material: ShaderMaterial
@@ -100,6 +101,7 @@ render_mode unshaded, cull_disabled, depth_draw_never;
 uniform vec2 wind_direction=vec2(0.8,0.6);
 uniform float wind_time=0.0;
 uniform float wind_strength=0.0;
+uniform float line_opacity=0.0;
 uniform vec2 player_position=vec2(0.0);
 uniform vec2 shelter_origin=vec2(-16.0);
 uniform vec4 wind_exposure[73];
@@ -117,10 +119,11 @@ void vertex(){
 }
 void fragment(){
  ALBEDO=vec3(0.9,0.96,1.0);
- ALPHA=0.26*visibility*sin(UV.x*3.14159265);
+ ALPHA=line_opacity*visibility*sin(UV.x*3.14159265);
 }
 """
 	wind_material.shader = shader
+	wind_material.set_shader_parameter("line_opacity",VFX.wind_line_opacity)
 	wind_streaks.material_override = wind_material
 	wind_streaks.custom_aabb = AABB(Vector3(-21,0,-21),Vector3(42,5,42))
 	add_child(wind_streaks)
@@ -159,9 +162,14 @@ func _configure_impacts(grid: RefCounted, world_seed: int):
 		if cell.tree or cell.get("log",false) or cell.get("berry_bush",false): continue
 		var at = grid.world_position(Vector2i(i%grid.SIZE,i/grid.SIZE))
 		sites.append(at+Vector3(rng.randf_range(-0.65,0.65),0.028,rng.randf_range(-0.65,0.65)))
-	rain_impacts.multimesh.instance_count = mini(32,sites.size())
+	for i in range(sites.size()-1,0,-1):
+		var j = rng.randi_range(0,i)
+		var site = sites[i]
+		sites[i] = sites[j]
+		sites[j] = site
+	rain_impacts.multimesh.instance_count = mini(clampi(VFX.splash_count,0,256),sites.size())
 	for i in range(rain_impacts.multimesh.instance_count):
-		var at = sites[rng.randi_range(0,sites.size()-1)]
+		var at = sites[i]
 		rain_impacts.multimesh.set_instance_transform(i,Transform3D(Basis.IDENTITY,at))
 		rain_impacts.multimesh.set_instance_custom_data(i,Color(rng.randf(),0,0,1))
 	impact_material = ShaderMaterial.new()
@@ -169,11 +177,15 @@ func _configure_impacts(grid: RefCounted, world_seed: int):
 	shader.code = """shader_type spatial;
 render_mode unshaded,cull_disabled,depth_draw_never;
 uniform float rain_time=0.0;
-void vertex(){float phase=fract(rain_time*1.7+INSTANCE_CUSTOM.r);VERTEX.xz*=0.3+phase*1.5;VERTEX.y*=0.25;COLOR=vec4(1.0,1.0,1.0,(1.0-phase)*0.55);}
+uniform float splash_size=1.0;
+uniform float splash_opacity=0.0;
+void vertex(){float phase=fract(rain_time*1.7+INSTANCE_CUSTOM.r);VERTEX.xz*=(0.3+phase*1.5)*splash_size;VERTEX.y*=0.25;COLOR=vec4(1.0,1.0,1.0,(1.0-phase)*splash_opacity);}
 void fragment(){ALBEDO=vec3(0.7,0.82,0.85);ALPHA=COLOR.a;}
 """
 	impact_material.shader = shader
+	impact_material.set_shader_parameter("splash_size",VFX.splash_size)
+	impact_material.set_shader_parameter("splash_opacity",VFX.splash_opacity)
 	rain_impacts.material_override = impact_material
-	rain_impacts.extra_cull_margin = 0.2
+	rain_impacts.extra_cull_margin = 0.5
 	rain_impacts.visible = false
 	add_child(rain_impacts)

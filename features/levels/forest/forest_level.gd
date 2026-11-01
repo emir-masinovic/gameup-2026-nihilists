@@ -207,7 +207,7 @@ func _ready():
 	charred_material.set_shader_parameter("variation_strength", 0.08)
 	terrain_renderer = preload("res://features/levels/forest/RendererTerrain.gd").new()
 	$Terrain.add_child(terrain_renderer)
-	terrain_renderer.configure(grid, palette, water_material, charred_material)
+	terrain_renderer.configure(grid, palette, water_material, charred_material, region_id)
 	effects = preload("res://features/levels/forest/ecosystem_effects.gd").new()
 	add_child(effects)
 	_ensure_flame_material()
