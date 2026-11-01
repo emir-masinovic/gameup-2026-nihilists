@@ -145,71 +145,74 @@
     },
     {
       "name": "SoundStepMud",
-      "duration_requested": 0.75,
-      "estimated_credits": 30,
-      "status": "saved",
       "file": "SoundStepMud.mp3",
-      "bytes": 12581,
-      "sha256": "475dee8c6db2d5f6969b23bec5df4ebd632a7732ff50a1c160933a05c9d3c30a",
+      "version": 2,
+      "estimated_credits": 40,
+      "actual_billed_credits": "not returned",
+      "bytes": 17179,
+      "sha256": "4f2f4e1c1f0a349172850614ccd6c2a1e5f5d602b55c46e30d709756a10eeed5",
       "request": {
-        "text": "One single light boot step on damp mud, muted compression and gentle squelch, isolated restrained game foley, no walking sequence, voices or music.",
-        "durationSeconds": 0.75,
+        "text": "One isolated realistic boot step on soft damp muddy earth, a short low muted wet compression and gentle natural suction release, subtle soil texture, believable restrained outdoor footstep, close-up game sound effect, no water splash, no cartoon squelch, no music, no voice, no walking sequence, no extra impacts.",
+        "durationSeconds": 1,
         "loop": false,
         "promptInfluence": 0.3,
         "modelId": "eleven_text_to_sound_v2",
         "outputFormat": "mp3_44100_128"
       },
-      "decoded_seconds": 0.72000002861023,
+      "archive": "External ElevenLabs outputs/nihilists-footsteps-v2/ArchiveV1/",
+      "decoded_seconds": 1.0,
       "desktop_capture": {
-        "peak": 0.30969169735909,
+        "peak": 0.86258786916733,
         "clipped_frames": 0,
-        "rms": 0.01235337524252
+        "rms": 0.04818227020036
       }
     },
     {
       "name": "SoundStepDry",
-      "duration_requested": 0.75,
-      "estimated_credits": 30,
-      "status": "saved",
       "file": "SoundStepDry.mp3",
-      "bytes": 12581,
-      "sha256": "dd54912f952e8bc989d77807e005f1e2375bd39bb466f4a6aec46a658f8e7e74",
+      "version": 2,
+      "estimated_credits": 40,
+      "actual_billed_credits": "not returned",
+      "bytes": 17179,
+      "sha256": "adf616a4c73ae482a680d37d882fe9856a44760aa5d57a68c346fb7324a309d3",
       "request": {
-        "text": "One single light boot step on dry sandy soil, soft gritty contact, isolated restrained game foley, no walking sequence, voices or music.",
-        "durationSeconds": 0.75,
+        "text": "One isolated close-up footstep of a small sturdy boot landing on dry compact dusty earth mixed with fine sand and tiny grit, short natural contact with restrained dry crunch and subtle granular texture, realistic game sound effect, no walking sequence, no voice, no music, no reverb, no exaggerated stomp, no extra impacts.",
+        "durationSeconds": 1,
         "loop": false,
         "promptInfluence": 0.3,
         "modelId": "eleven_text_to_sound_v2",
         "outputFormat": "mp3_44100_128"
       },
-      "decoded_seconds": 0.72000002861023,
+      "archive": "External ElevenLabs outputs/nihilists-footsteps-v2/ArchiveV1/",
+      "decoded_seconds": 1.0,
       "desktop_capture": {
-        "peak": 0.49589478969574,
+        "peak": 0.78856348991394,
         "clipped_frames": 0,
-        "rms": 0.0263741811132
+        "rms": 0.03477021693081
       }
     },
     {
       "name": "SoundStepWet",
-      "duration_requested": 0.75,
-      "estimated_credits": 30,
-      "status": "saved",
       "file": "SoundStepWet.mp3",
-      "bytes": 12581,
-      "sha256": "2505c142874c58afa94b89b9cd76c1cdb25384cb68216188a849775cc4d3abbf",
+      "version": 2,
+      "estimated_credits": 40,
+      "actual_billed_credits": "not returned",
+      "bytes": 17179,
+      "sha256": "589c37e7d94819b93cc6e77b34b2610790d16b5d88a810bc364b809b2392e03e",
       "request": {
-        "text": "One single light boot step in very shallow water, tiny splash and wet contact, isolated restrained game foley, no walking sequence, voices or music.",
-        "durationSeconds": 0.75,
+        "text": "One isolated small boot step landing in a very shallow natural puddle, short delicate splash with light water droplets and a soft grounded impact, believable outdoor field-recorded sound, quiet and restrained, no deep-water sloshing, no footsteps sequence, no voice, no music, no cinematic effect.",
+        "durationSeconds": 1,
         "loop": false,
         "promptInfluence": 0.3,
         "modelId": "eleven_text_to_sound_v2",
         "outputFormat": "mp3_44100_128"
       },
-      "decoded_seconds": 0.72000002861023,
+      "archive": "External ElevenLabs outputs/nihilists-footsteps-v2/ArchiveV1/",
+      "decoded_seconds": 1.0,
       "desktop_capture": {
-        "peak": 0.09517096728086,
+        "peak": 0.04593544080853,
         "clipped_frames": 0,
-        "rms": 0.00484272928014
+        "rms": 0.00362677581759
       }
     },
     {
@@ -258,5 +261,11 @@
         "rms": 0.12508421194746
       }
     }
-  ]
+  ],
+  "replacement_batch": {
+    "estimated_credits": 120,
+    "requests": 3,
+    "ceiling": 200,
+    "actual_billed_credits": "not returned"
+  }
 }

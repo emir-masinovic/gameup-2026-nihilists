@@ -168,7 +168,8 @@ func play_cue(cue: String, at: Vector3 = Vector3.ZERO) -> bool:
 			voice.pitch_scale = 0.97+0.015*(_step_variation%5)
 			voice.volume_db -= float(_step_variation%3)*0.5
 		var slot = (_world_index-1)%WORLD_VOICE_LIMIT
-		if cue == "footstep" and footstep_surface == "mud": voice.volume_db -= 4.0
+		if cue == "footstep" and footstep_surface == "mud": voice.volume_db -= 12.0
+		if cue == "footstep" and footstep_surface == "dry": voice.volume_db -= 4.0
 		_voice_levels[slot] = voice.volume_db
 		_voice_categories[slot] = cue
 		voice.volume_db += linear_to_db(ambience.category_gain(cue))
