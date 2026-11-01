@@ -133,18 +133,18 @@ custom_minimum_size = Vector2(24, 24)
 script = ExtResource("3")
 kind = "food"
 [node name="Food" type="Label" parent="PlayerStatus/Rows/Supplies"]
-text = "100"
+text = "10/10"
 tooltip_text = "Food"
-custom_minimum_size = Vector2(34, 0)
+custom_minimum_size = Vector2(42, 0)
 theme_override_font_sizes/font_size = 16
 [node name="WaterIcon" type="Control" parent="PlayerStatus/Rows/Supplies"]
 custom_minimum_size = Vector2(24, 24)
 script = ExtResource("3")
 kind = "water"
 [node name="Water" type="Label" parent="PlayerStatus/Rows/Supplies"]
-text = "100"
+text = "10/10"
 tooltip_text = "Water"
-custom_minimum_size = Vector2(34, 0)
+custom_minimum_size = Vector2(42, 0)
 theme_override_font_sizes/font_size = 16
 [node name="SeedsIcon" type="Control" parent="PlayerStatus/Rows/Supplies"]
 custom_minimum_size = Vector2(24, 24)

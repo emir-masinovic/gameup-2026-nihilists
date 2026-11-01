@@ -174,6 +174,51 @@ func run():
 	check(not drank, "Cannot drink to heal when hunger is not yet 10")
 	check(survival.health == 80.0, "Health remains unchanged when hunger not satisfied")
 
+	# 12. Test indicator display: "X/10" formatting, red at 0/10, yellow at <= 5/10, white at > 5/10
+	var food_lbl = hud.get_node("PlayerStatus/Rows/Supplies/Food")
+	var water_lbl = hud.get_node("PlayerStatus/Rows/Supplies/Water")
+	
+	# Full reserves: 10/10 -> White
+	survival.hunger = 10.0
+	survival.thirst = 10.0
+	level._update_hud()
+	check(food_lbl.text == "10/10", "Hunger indicator displays '10/10' when full")
+	check(water_lbl.text == "10/10", "Thirst indicator displays '10/10' when full")
+	check(food_lbl.modulate == Color.WHITE, "Hunger text is white when > 5/10")
+	check(water_lbl.modulate == Color.WHITE, "Thirst text is white when > 5/10")
+	
+	# Medium reserves: 5/10 and 3/10 -> Yellow
+	survival.hunger = 5.0
+	survival.thirst = 3.0
+	level._update_hud()
+	check(food_lbl.text == "5/10", "Hunger indicator displays '5/10'")
+	check(water_lbl.text == "3/10", "Thirst indicator displays '3/10'")
+	check(food_lbl.modulate == Color("edc647"), "Hunger text is yellow when 5/10 or less")
+	check(water_lbl.modulate == Color("edc647"), "Thirst text is yellow when 5/10 or less")
+	
+	# Depleted reserves: 0/10 -> Red
+	survival.hunger = 0.0
+	survival.thirst = 0.0
+	level._update_hud()
+	check(food_lbl.text == "0/10", "Hunger indicator displays '0/10' when empty")
+	check(water_lbl.text == "0/10", "Thirst indicator displays '0/10' when empty")
+	check(food_lbl.modulate == Color("e05353"), "Hunger text is red when 0/10")
+	check(water_lbl.modulate == Color("e05353"), "Thirst text is red when 0/10")
+
+	# Mixed reserves: hunger=0 (red), thirst=7 (white)
+	survival.hunger = 0.0
+	survival.thirst = 7.0
+	level._update_hud()
+	check(food_lbl.text == "0/10" and food_lbl.modulate == Color("e05353"), "Hunger is red at 0/10 even if thirst is normal")
+	check(water_lbl.text == "7/10" and water_lbl.modulate == Color.WHITE, "Thirst is white at 7/10 while hunger is empty")
+
+	# Mixed reserves: hunger=8 (white), thirst=5 (yellow)
+	survival.hunger = 8.0
+	survival.thirst = 5.0
+	level._update_hud()
+	check(food_lbl.text == "8/10" and food_lbl.modulate == Color.WHITE, "Hunger is white at 8/10")
+	check(water_lbl.text == "5/10" and water_lbl.modulate == Color("edc647"), "Thirst is yellow at 5/10")
+
 	level.queue_free()
 	await process_frame
 	print("BERRY EATING TEST: %d checks, %d failures" % [checks, failures])
