@@ -10,6 +10,7 @@ func run():
 	var settings = root.get_node("SettingsManager")
 	settings.storage_path = "user://audio_desktop_settings.cfg"
 	var saves = root.get_node("SaveManager")
+	saves.run_path = "user://audio_desktop_test_session.save"
 	saves.storage_path = "user://audio_desktop_progression.json"
 	saves.load_progression()
 	var flow = root.get_node("SceneFlow")
@@ -119,5 +120,6 @@ func run():
 	await create_timer(3.0).timeout
 	check(controller.targets.all(func(value): return value == -80.0) and controller.voices.all(func(voice): return not voice.playing),"Main menu releases all continuous world audio")
 	if FileAccess.file_exists(saves.storage_path): DirAccess.remove_absolute(saves.storage_path)
+	if FileAccess.file_exists(saves.run_path): DirAccess.remove_absolute(saves.run_path)
 	print("AUDIO DESKTOP driver=", driver, " failures=", failures)
 	quit(0 if failures == 0 else 1)

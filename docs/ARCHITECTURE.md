@@ -12,7 +12,7 @@ Keep feature scenes, scripts, resources and media together under `features/`; se
 - `features/audio/`: SoundPalette, selected CC0 recordings and provenance.
 - `tests/`: focused model, scene, persistence, camera/input, desktop and rendering regressions.
 
-`main_menu.tscn` is startup; `application/run/playable_scene` selects the forest. SceneFlow owns scene transitions and a Pause canvas above the world HUD. Nested Options returns to Pause; Resume restores gameplay. Gameplay modals pause the world and camera. Active-run disk restoration is not implemented, so Continue is disabled.
+`main_menu.tscn` is startup; `application/run/playable_scene` selects the forest. SceneFlow owns scene transitions and a Pause canvas above the world HUD. Nested Options returns to Pause; Resume restores gameplay. Gameplay modals pause the world and camera. Continue restores a validated versioned session saved before returning to Main Menu.
 
 ## Camera, input and settings
 
@@ -143,3 +143,13 @@ A small terrain-domain warp reusing the existing fine noise was tested and remov
 Facing-based Interact and Chop/Gather dispatch through one execution path. Contextual previews use the same selector as execution; registered objects and berry harvesting remain supported. StatePlanting owns seed and bottle inventory (9 seeds, 1000 ml), planting eligibility, seed consumption and watering; ForestInteractions delegates to it. Eligible native trees leave collectible seeds, partial collection preserves the remainder, and planted/dead trees cannot renew seeds. Juvenile removal gives no seed refund.
 
 Watering updates the existing cell moisture. Climate-driven hydration permits rain-fed germination in suitable moisture and temperature, then maturation requires 120 accumulated favorable seconds. Seed and sapling visuals, drought mortality and regional state restoration share this authoritative lifecycle.
+
+## Session save, notification feed and celestial presentation
+
+SaveManager writes `user://session.save` through a staged `.tmp` and atomic rename. StateRunSave captures existing RunRegions cells/models, climate counters and RNG states, inventory/survival, progression, player cell/facing, camera parameters and the presentation clock. Object-free Variant encoding preserves vector-keyed dictionaries and 64-bit RNG state; size, schema, field types, bounds and required features are validated before restoration. Invalid saves disable Continue. Failed menu saves leave gameplay open with an error dialog. New Game resets progression and run state; the old slot remains until the new game is saved on menu return. Ending/death does not overwrite the last living checkpoint. Settings are independent. Visuals regenerate; temporary actions and audio are not serialized. Free Camera mode/angles/zoom restore through the existing camera API, but its free-roaming world position is not included by that API.
+
+Future code-owned systems can call `SaveManager.register_run_extension(id, capture, restore)` before menu initialization. Capture receives the world and returns object-free data; restore receives the reconstructed run and data and must return true. Missing required providers disable restoration. Save files never name scripts or executable objects. Browser restart persistence is not yet manually accepted.
+
+The HUD notification feed shows three messages, queues at most 24, coalesces duplicates and prioritizes pending discoveries/Knowledge. Important/normal/low durations are 9/5/3 seconds. It pauses, fades and is recreated with each world scene. Existing discovery audio throttling is retained.
+
+The existing presentation clock now survives region changes and session saves. The exported day_night_duration defaults to 900 seconds; debug-only `--day-night-demo` accelerates presentation 30 times without changing climate/survival rates. One shadow-casting directional light follows the same vector used by bounded sun/moon meshes. At the horizon its energy reaches zero before switching source, avoiding brightness spikes. Rain attenuates sunlight. Close camera framing often excludes celestial meshes, so a small E/W sky compass depicts the same source trajectory. Grass geometry/shaders and density are unchanged. No FPS benchmark or browser-runtime acceptance is claimed.

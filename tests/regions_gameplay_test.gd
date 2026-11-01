@@ -134,6 +134,7 @@ func run() -> void:
 	var original_time_scale = Engine.time_scale
 	Engine.time_scale = 8.0
 	var saves = root.get_node("SaveManager")
+	saves.run_path = "user://regions_gameplay_test_session.save"
 	saves.storage_path = TEST_PATH
 	clean_test_files()
 	saves.load_progression()
@@ -248,6 +249,7 @@ func finish(original_time_scale: float) -> void:
 	Input.action_release("move_north")
 	Engine.time_scale = original_time_scale
 	paused = false
+	if FileAccess.file_exists(root.get_node("SaveManager").run_path): DirAccess.remove_absolute(root.get_node("SaveManager").run_path)
 	clean_test_files()
 	print("REGIONS_GAMEPLAY: ", checks, " checks, ", failures, " failures")
 	quit(0 if failures == 0 else 1)

@@ -184,9 +184,9 @@ func run():
 	check(world.grid.cells == original, "Presentation leaves logical world generation and climate unchanged")
 	world.presentation_elapsed = (1.0 - world.starting_day_phase) * world.day_night_duration - 0.001
 	world._update_lighting()
-	direction = sun.global_basis.z
+	var energy_at_horizon = sun.light_energy
 	world._advance_presentation(0.002)
-	check(direction.distance_to(sun.global_basis.z) < 0.001, "Light direction is continuous across a complete cycle")
+	check(absf(energy_at_horizon-sun.light_energy) < 0.001 and sun.light_energy < 0.001, "Sun/moon handoff occurs with zero directional energy at the horizon")
 	world.presentation_elapsed = (0.75 - world.starting_day_phase) * world.day_night_duration
 	world._update_lighting()
 	check(sun.light_energy < 0.3, "Night has reduced directional energy")

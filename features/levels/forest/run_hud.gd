@@ -5,9 +5,24 @@ var modal_kind = ""
 var field_notes = "Survey the forest."
 var refuge_ready = false
 var current_fire_hazard = 0.0
+var notification_queue: Array[Dictionary] = []
+var notification_active: Array[Dictionary] = []
+var notification_labels: Array[Label] = []
+var notification_delay = 0.0
 
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	$Toast.hide()
+	$Toast/Timer.stop()
+	for i in range(3):
+		var label = Label.new()
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label.add_theme_font_size_override("font_size",17)
+		label.add_theme_color_override("font_outline_color",Color(0.02,0.03,0.02,0.95))
+		label.add_theme_constant_override("outline_size",5)
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		add_child(label)
+		notification_labels.append(label)
 	$Modal/Rows/Close.pressed.connect(close_modal)
 	$Modal/Rows/Next.pressed.connect(func(): close_modal(); SceneFlow.retry_game())
 	$Modal/Rows/Menu.pressed.connect(func(): close_modal(); SceneFlow.main_menu())
@@ -24,9 +39,42 @@ func _input(event):
 			close_modal()
 		get_viewport().set_input_as_handled()
 
-func notify(message: String):
-	$Toast.text = message
-	$Toast/Timer.start()
+func notify(message: String, category: String = "normal"):
+	if message.is_empty(): return
+	if message.begins_with("Discovery:") or "Knowledge" in message: category = "important"
+	for item in notification_queue+notification_active:
+		if item.text == message: return
+	if notification_queue.size() >= 24:
+		var discard = -1
+		for i in range(notification_queue.size()):
+			if notification_queue[i].category != "important": discard = i; break
+		if discard < 0: return
+		notification_queue.remove_at(discard)
+	var item = {"text":message,"category":category,"age":0.0,"duration":9.0 if category == "important" else (3.0 if category == "low" else 5.0)}
+	if category == "important":
+		var slot = 0
+		while slot < notification_queue.size() and notification_queue[slot].category == "important": slot += 1
+		notification_queue.insert(slot,item)
+	else: notification_queue.append(item)
+
+func _process(delta):
+	if get_tree().paused: return
+	for i in range(notification_active.size()-1,-1,-1):
+		notification_active[i].age += delta
+		if notification_active[i].age >= notification_active[i].duration: notification_active.remove_at(i)
+	notification_delay -= delta
+	if notification_active.size() < 3 and not notification_queue.is_empty() and notification_delay <= 0:
+		notification_active.append(notification_queue.pop_front())
+		notification_delay = 0.65
+	for i in range(3):
+		var label = notification_labels[i]
+		label.visible = i < notification_active.size()
+		if not label.visible: continue
+		var item = notification_active[i]
+		label.text = item.text
+		label.position = Vector2(22,size.y-240+i*50)
+		label.size = Vector2(minf(470,size.x-44),48)
+		label.modulate.a = minf(clampf(item.age/0.25,0,1),clampf((item.duration-item.age)/1.2,0,1))*(1.0 if i == notification_active.size()-1 else 0.78)
 
 func show_modal(kind: String):
 	modal_kind = kind

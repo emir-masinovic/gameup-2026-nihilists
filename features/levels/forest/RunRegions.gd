@@ -15,6 +15,7 @@ var survival = Survival.new()
 var objectives = Objectives.new()
 var planting = preload("res://features/levels/forest/StatePlanting.gd").new()
 var elapsed = 0.0
+var presentation_time = 0.0
 var _run_seed = 2026
 
 func configure(run_seed: int) -> void:
@@ -25,6 +26,7 @@ func configure(run_seed: int) -> void:
 	objectives = Objectives.new()
 	planting = preload("res://features/levels/forest/StatePlanting.gd").new()
 	elapsed = 0.0
+	presentation_time = 0.0
 
 func seed_for(id: String) -> int:
 	if id == "forest":

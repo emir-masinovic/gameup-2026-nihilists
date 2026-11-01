@@ -20,6 +20,7 @@ func run() -> void:
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(path)
 	var saves = SAVE_SCRIPT.new()
+	saves.run_path = "user://progression_test_session.save"
 	saves.storage_path = TEST_PATH
 	check(not saves.load_progression() and saves.progression.knowledge == 0, "Missing file loads zero Knowledge")
 	check(not saves.has_resumable_run(), "Progression does not create a resumable run")
@@ -136,5 +137,6 @@ func check_fresh_game_flow():
 	await process_frame
 	for path in [save.storage_path,save.storage_path+".tmp"]:
 		if FileAccess.file_exists(path): DirAccess.remove_absolute(path)
+	if FileAccess.file_exists(save.run_path): DirAccess.remove_absolute(save.run_path)
 	save.storage_path = previous_path
 	save.progression = previous_progression

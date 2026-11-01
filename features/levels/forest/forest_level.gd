@@ -11,7 +11,7 @@ signal audio_cue(cue: String, at: Vector3)
 @export var world_seed: int = 2026
 @export_range(0.1, 10.0) var simulation_time_scale = 1.0
 @export_group("World presentation")
-@export_range(30.0, 1200.0, 1.0) var day_night_duration = 240.0
+@export_range(30.0, 1200.0, 1.0) var day_night_duration = 900.0
 @export_range(0.0, 1.0) var starting_day_phase = 0.18
 @export_range(0.3, 1.0) var night_ambient_energy = 0.56
 @export_range(0.0, 0.25) var terrain_variation_strength = 0.14
@@ -84,7 +84,7 @@ func _ready():
 	survival = regions.survival
 	objectives = regions.objectives
 	objectives.regional_mode = true
-	presentation_elapsed = regions.elapsed
+	presentation_elapsed = regions.presentation_time
 
 	interactions.configure(grid,planting)
 	hud = preload("res://features/levels/forest/run_hud.tscn").instantiate()
@@ -168,6 +168,25 @@ func _ready():
 		$GridPlayer.cell = regions.entry(region_id, SceneFlow.region_arrival_from)
 		$GridPlayer.position = grid.world_position($GridPlayer.cell)
 		$GridPlayer.require_release = true
+	if not SceneFlow.pending_restore.is_empty():
+		var saved = SceneFlow.pending_restore
+		var destination: Vector2i = saved.player.cell
+		if not grid.traversable(destination):
+			var queue: Array[Vector2i] = [destination if grid.in_bounds(destination) else grid.start]
+			var seen = {}
+			while not queue.is_empty():
+				var candidate = queue.pop_front()
+				if seen.has(candidate): continue
+				seen[candidate] = true
+				if grid.traversable(candidate): destination = candidate; break
+				for direction in [Vector2i.UP,Vector2i.DOWN,Vector2i.LEFT,Vector2i.RIGHT]:
+					if grid.in_bounds(candidate+direction): queue.append(candidate+direction)
+		$GridPlayer.cell = destination
+		$GridPlayer.position = grid.world_position(destination)
+		$GridPlayer.facing = saved.player.facing
+		$GridPlayer.get_node("Body").face_direction($GridPlayer.facing)
+		presentation_elapsed = saved.clock
+		SceneFlow.pending_restore.clear()
 	SceneFlow.region_arrival_from = ""
 	SceneFlow.region_transitioning = false
 
@@ -303,24 +322,24 @@ func _try_interact(action_group: String):
 		var target_pos = grid.world_position(interactions.target)
 		var msg = ""
 		if interactions.action_kind == "fill_water":
-			msg = "Şişeye su dolduruluyor... hareket etmek iptal eder"
+			msg = "Filling bottle... moving cancels."
 			$GridPlayer.start_filling_water(target_pos)
 		elif interactions.action_kind == "water_soil":
-			msg = "Sulanıyor... hareket etmek iptal eder"
+			msg = "Watering... moving cancels."
 			$GridPlayer.start_watering(target_pos)
 		elif interactions.action_kind == "till_soil":
-			msg = "Toprak çapalanıyor... hareket etmek iptal eder"
+			msg = "Preparing soil... moving cancels."
 			$GridPlayer.start_tilling(target_pos)
 		elif interactions.action_kind == "plant_sapling":
-			msg = "Tohum ekiliyor... hareket etmek iptal eder"
+			msg = "Planting... moving cancels."
 		elif interactions.action_kind == "harvest_crop":
-			msg = "Fidan/tohum çapalanıyor... hareket etmek iptal eder"
+			msg = "Removing crop... moving cancels."
 			$GridPlayer.start_tilling(target_pos)
 		elif interactions.action_kind in ["tree_cut","log_cleared"]:
-			msg = "Ağaç kesiliyor... hareket etmek iptal eder"
+			msg = "Chopping... moving cancels."
 			$GridPlayer.start_chopping(target_pos)
 		elif interactions.action_kind == "collect_seeds":
-			msg = "Tohum toplanıyor... hareket etmek iptal eder"
+			msg = "Gathering seeds... moving cancels."
 			$GridPlayer.start_gathering(target_pos)
 		elif interactions.action_kind == "stump_removed":
 			msg = "Removing stump... moving cancels the action"
@@ -328,7 +347,7 @@ func _try_interact(action_group: String):
 		hud.notify(msg)
 	else:
 		if action_group == "chop_gather":
-			hud.notify("Ağaç kesmek için ağaca dönün, tohum toplamak için kalıntının üzerine gelin (%s)" % _binding_label("chop_gather"))
+			hud.notify("Face a tree or seed pickup and press [%s]." % _binding_label("chop_gather"))
 		else:
 			if _camp_active() and $GridPlayer.cell.distance_to(grid.start) <= 1.5:
 				hud.show_modal("bonfire")
@@ -345,13 +364,13 @@ func _try_interact(action_group: String):
 					_update_hud()
 					return
 			if interactions.last_error == "no_seeds":
-				hud.notify("Yeterli tohumunuz yok! Ağaç kalıntısından tohum toplayabilirsiniz.")
+				hud.notify("No seeds. Gather seeds from tree remains.")
 			elif interactions.last_error == "no_water":
-				hud.notify("Yeterli suyunuz yok! (%d ml gerekli) Gölden su doldurabilirsiniz." % interactions.WATER_PER_POUR)
+				hud.notify("Need %d ml of water. Refill at a pond." % interactions.WATER_PER_POUR)
 			elif interactions.last_error == "water_full":
-				hud.notify("Su şişeniz zaten tamamen dolu! (%d ml)" % interactions.MAX_WATER_ML)
+				hud.notify("Bottle full (%d ml)." % interactions.MAX_WATER_ML)
 			else:
-				hud.notify("Bulunduğunuz yeri çapalamak/ekmek/sulamak ya da gölden su almak için (%s)" % _binding_label("interact"))
+				hud.notify("Use [%s] to prepare soil, plant, water or refill." % _binding_label("interact"))
 
 func _on_cell_entered(cell: Vector2i):
 	if transitioning:
@@ -406,7 +425,7 @@ func _finish_interaction(event: Dictionary):
 	if event.kind == "fill_water":
 		survival.drink()
 		_discover("interaction.fill_water", "Water filled: bottle replenished from lake")
-		hud.notify("Şişeye su dolduruldu (+%d ml)! Mevcut su: %d ml" % [event.get("amount", 500), interactions.water_ml])
+		hud.notify("Bottle refilled (+%d ml). Now %d ml." % [event.get("amount",500),interactions.water_ml])
 		if water_splash != null:
 			water_splash.position = grid.world_position(cell) + Vector3(0, 0.05, 0)
 			water_splash.restart()
@@ -447,7 +466,7 @@ func _finish_interaction(event: Dictionary):
 		return
 	elif event.kind == "till_soil":
 		_discover("interaction.till_soil", "Soil tilled: prepared for planting")
-		hud.notify("Toprak çapalandı! Tohum ekmeye hazır.")
+		hud.notify("Soil prepared for planting.")
 		if not tilled_meshes.has(cell):
 			var tilled_patch = MeshInstance3D.new()
 			var patch_mesh = BoxMesh.new()
@@ -465,7 +484,7 @@ func _finish_interaction(event: Dictionary):
 			dirt_puff.restart()
 	elif event.kind == "water_soil":
 		_discover("interaction.water_soil", "Soil revitalized: moisture and nutrients restored")
-		hud.notify("Su verildi (-%d ml)! Kalan su: %d ml" % [interactions.WATER_PER_POUR, interactions.water_ml])
+		hud.notify("Watered (-%d ml). Bottle: %d ml." % [interactions.WATER_PER_POUR, interactions.water_ml])
 		if water_splash != null:
 			water_splash.position = grid.world_position(cell) + Vector3(0, 0.15, 0)
 			water_splash.restart()
@@ -473,7 +492,7 @@ func _finish_interaction(event: Dictionary):
 			planting.water_ml = interactions.water_ml
 	elif event.kind == "plant_sapling":
 		_discover("interaction.first_planting", "Seed planted: will grow into a sapling")
-		hud.notify("Tohum ekildi (-1 Tohum)! Büyümesi için su gerekiyor.")
+		hud.notify("Seed planted. Moisture supports germination.")
 		var seed_node = FOREST_SEED.instantiate()
 		seed_node.position = grid.world_position(cell)
 		$Vegetation.add_child(seed_node)
@@ -693,7 +712,8 @@ func _advance_presentation(delta: float):
 	if not is_finite(delta) or delta <= 0.0:
 		return
 	_update_wind(tick_accumulator + delta * simulation_time_scale)
-	presentation_elapsed += delta
+	presentation_elapsed += delta * (30.0 if OS.is_debug_build() and OS.get_cmdline_user_args().has("--day-night-demo") else 1.0)
+	regions.presentation_time = presentation_elapsed
 	if has_node("Bonfire/Warmth"):
 		$Bonfire/Warmth.light_energy = (0.45 + sin(presentation_elapsed * 6.0) * 0.06) * region_state.get("bonfire_intensity", 1.0)
 	if flame_material != null:
@@ -703,17 +723,47 @@ func _advance_presentation(delta: float):
 		effects.update_clock(presentation_elapsed)
 
 func _update_lighting(delta: float = 0.0):
-	var phase = starting_day_phase + presentation_elapsed / maxf(day_night_duration, 1.0)
-	var elevation = sin(phase * TAU)
-	var daylight = smoothstep(-0.2, 0.3, elevation)
-	$Sun.rotation = Vector3(deg_to_rad(-10.0 - 52.0 * absf(elevation)), phase * TAU - 1.7, 0.0)
-	$Sun.light_energy = lerpf(0.2, 1.15, daylight)
-	var weather_color = Color(1, 0.78, 0.58) if climate.weather == "heat" else Color(0.78, 0.88, 1.0) if climate.weather == "rain" else Color(1, 0.91, 0.74)
-	var target_color = Color("93b3e0").lerp(weather_color, daylight)
-	$Sun.light_color = $Sun.light_color.lerp(target_color, 1.0 - exp(-delta * 2.0)) if delta > 0.0 else target_color
+	var angle = (starting_day_phase+presentation_elapsed/maxf(day_night_duration,1.0))*TAU
+	var direction = Vector3(cos(angle),sin(angle),0.3).normalized()
+	var elevation = direction.y
+	var daylight = smoothstep(-0.12,0.24,elevation)
+	var source = direction if elevation >= 0 else -direction
+	$Sun.look_at($Sun.global_position-source,Vector3.UP)
+	var horizon = smoothstep(0.0,0.18,absf(elevation))
+	$Sun.light_energy = lerpf(0.16,1.15,daylight)*horizon*(0.72 if climate.weather == "rain" else 1.0)
+	var warmth = 1.0-smoothstep(0.05,0.65,maxf(0,elevation))
+	$Sun.light_color = Color("a4bde8") if elevation < 0 else Color("fff3d9").lerp(Color("ffad72"),warmth*0.7)
 	var environment: Environment = $Environment.environment
-	environment.ambient_light_energy = lerpf(night_ambient_energy, 0.7, daylight)
-	environment.ambient_light_color = Color("a2bbd6").lerp(Color(0.8, 0.89, 0.9), daylight)
+	environment.ambient_light_energy = lerpf(night_ambient_energy,0.7,daylight)
+	environment.ambient_light_color = Color("a2bbd6").lerp(Color(0.8,0.89,0.9),daylight)
+	if not hud.has_node("SkyCompass"):
+		var indicator = preload("res://features/levels/forest/ScreenSkyCompass.gd").new()
+		indicator.name = "SkyCompass"
+		hud.add_child(indicator)
+	var compass = hud.get_node("SkyCompass")
+	compass.position = Vector2(hud.size.x*0.5-75,4)
+	compass.size = Vector2(150,80)
+	compass.set_source(source,elevation < 0)
+	# Bounded world meshes share the exact light direction. They may be offscreen
+	# in close orthographic framing; the sky compass remains available there.
+	for id in ["SunDisc","MoonDisc"]:
+		if not has_node(NodePath(id)):
+			var disc = MeshInstance3D.new()
+			disc.name = id
+			var sphere = SphereMesh.new()
+			sphere.radius = 1.2 if id == "SunDisc" else 0.8
+			sphere.height = sphere.radius*2
+			var material = StandardMaterial3D.new()
+			material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			material.albedo_color = Color("ffe4a3") if id == "SunDisc" else Color("c5d9ef")
+			sphere.material = material
+			disc.mesh = sphere
+			disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			add_child(disc)
+		var disc = get_node(NodePath(id))
+		var ray = direction if id == "SunDisc" else -direction
+		disc.position = grid.world_position(grid.start)+ray*42.0
+		disc.visible = ray.y > 0
 
 func _create_kenney_props():
 	var models = [preload("res://features/levels/forest/props/rock_small_a.glb"), preload("res://features/levels/forest/props/rock_small_b.glb")]

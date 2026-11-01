@@ -3,7 +3,12 @@ var options: Control
 
 func _ready():
 	$Panel/Rows/NewGame.pressed.connect(SceneFlow.new_game)
+	$Panel/Rows/NewGame.tooltip_text = "Starts fresh. Replaces the Continue save when returning to Main Menu."
 	$Panel/Rows/Continue.disabled = not SaveManager.has_resumable_run()
+	$Panel/Rows/Continue.pressed.connect(func():
+		if SceneFlow.continue_game() != OK:
+			$Panel/Rows/Continue.disabled = true
+			$Panel/Rows/Continue.tooltip_text = "Save unavailable or could not be restored.")
 	$Panel/Rows/Options.pressed.connect(open_options)
 	$Panel/Rows/Exit.pressed.connect(func(): get_tree().quit())
 	$Panel/Rows/Exit.visible = not OS.has_feature("web")

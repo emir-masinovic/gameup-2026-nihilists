@@ -165,7 +165,7 @@ func run():
 	world._unhandled_input(key_event)
 	
 	var toast = world.hud.get_node("Toast")
-	check(toast.text.contains("Yeterli tohumunuz yok"), "HUD alerts player when trying to plant without seeds")
+	check(world.hud.notification_queue.any(func(item): return item.text.contains("No seeds")) or world.hud.notification_active.any(func(item): return item.text.contains("No seeds")), "HUD alerts player when trying to plant without seeds")
 	
 	var authoritative = world.planting.seed_count
 	world.interactions.seeds = 99
