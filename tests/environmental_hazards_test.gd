@@ -57,6 +57,11 @@ func run() -> void:
 		check(h.visual.has_node("DustGlow"), "Hazard %d has DustGlow light node" % i)
 		var vortex = h.visual.get_node("SandVortex")
 		check(vortex is CPUParticles3D, "SandVortex is CPUParticles3D")
+		check(h.visual.has_node("TornadoFunnel"), "Hazard %d has TornadoFunnel node" % i)
+		var funnel = h.visual.get_node("TornadoFunnel")
+		check(funnel.has_node("OuterFunnel"), "Hazard %d TornadoFunnel has OuterFunnel" % i)
+		check(funnel.has_node("InnerFunnel"), "Hazard %d TornadoFunnel has InnerFunnel" % i)
+		check(funnel.has_node("SpiralRings"), "Hazard %d TornadoFunnel has SpiralRings" % i)
 
 	# 3. Wetlands region: Random cold air mass hazards
 	print("\n[3] Testing Wetlands region (Cold air masses)...")
@@ -100,6 +105,21 @@ func run() -> void:
 	check(dry_hazards.is_pos_in_hazard(world_pos), "is_pos_in_hazard returns true for active hazard world position")
 	check(not dry_hazards.is_cell_in_hazard(Vector2i(-50, -50)), "is_cell_in_hazard returns false for out-of-bounds cell")
 	check(not dry_hazards.is_pos_in_hazard(Vector3(999, 0, 999)), "is_pos_in_hazard returns false for far away position")
+
+	# Verify multi-cell coverage for Sandstorm
+	var adj_cell = active_cell + Vector2i.RIGHT
+	if dry_grid.in_bounds(adj_cell):
+		check(dry_hazards.is_cell_in_hazard(adj_cell), "Sandstorm tornado affects adjacent cell %s (multi-cell)" % adj_cell)
+	check(dry_hazards.get_hazard_cells().size() > dry_hazards.hazards.size(), "Sandstorm covers multiple cells (covered cells: %d, hazards: %d)" % [dry_hazards.get_hazard_cells().size(), dry_hazards.hazards.size()])
+
+	# Verify cold air (winter storm) remains single-cell (unchanged)
+	check(wet_hazards.get_hazard_cells().size() == wet_hazards.hazards.size(), "Wetlands cold air hazard remains single-cell (cells: %d, hazards: %d)" % [wet_hazards.get_hazard_cells().size(), wet_hazards.hazards.size()])
+
+	# Verify tornado dynamic rotation animation
+	var outer = dry_hazards.hazards[0].visual.get_node("TornadoFunnel/OuterFunnel")
+	var prev_rot = outer.rotation.y
+	dry_hazards._process(0.2)
+	check(outer.rotation.y != prev_rot, "Tornado outer funnel rotates during _process")
 
 	# 6. Damage & Health popup indicators with full ForestLevel scene
 	print("\n[6] Testing Damage & Health popups in ForestLevel...")
