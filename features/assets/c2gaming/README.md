@@ -30,4 +30,4 @@ Mapping: SmallWhite=Cloud_03, Puff=Cloud_02, WindStretched=Cloud_01, RainCloud=r
 
 This increases cloud vertex cost relative to the procedural spheres: at most34688 submitted cloud triangles before visibility/fragment rejection, while draw batches remain four. Native Compatibility sanity captures were approximately6.3ms at normal view and3.2ms at Board Center on the local940MX; these are short QA samples, not controlled performance claims. Web runtime was not revalidated.
 
-Only cloud models are referenced by gameplay. Trees, dead trees, flowers, grass, logs and rocks are gallery-only; existing biome generation, Kenney vegetation, climate, survival and saves are untouched.
+Clouds plus decorative Flower01–05 and Log04–08 are referenced by gameplay. Other trees, dead trees, grass, logs and rocks remain gallery-only. The flowers and flattened branch props have no collision, collection or interaction; existing biome generation, Kenney vegetation, climate, survival and saves are untouched. See docs/ECOSYSTEM_DECORATION.md for derived ecological presentation.

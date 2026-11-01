@@ -74,7 +74,7 @@ func _process(delta: float):
 	var density = float(value("rain_density")) if weather == "rain" else float(value("heat_density")) if weather == "heat" else 0.65 if weather == "cool" else float(value("clear_density"))
 	coverage = move_toward(coverage,clampf(float(value("count"))*density,0,CAPACITY),delta*2.0)
 	darkening = move_toward(darkening,float(value("rain_darkening")) if weather == "rain" else 0.0,delta*0.2)
-	for key in ["extent","altitude","cloud_scale"]: material.set_shader_parameter(key,float(value(key)))
+	for key in ["extent","altitude","cloud_scale","min_scale_variation","max_scale_variation"]: material.set_shader_parameter(key,float(value(key)))
 	material.set_shader_parameter("cloud_opacity",float(value("opacity")))
 	material.set_shader_parameter("travel",travel)
 	material.set_shader_parameter("coverage",coverage)

@@ -111,6 +111,46 @@ func run():
 	clouds.set_weather("clear",0.8,world.effects.atmosphere.rainbow)
 	check(is_equal_approx(clouds.material.get_shader_parameter("rainbow_clearance"),1.0),"Active rainbow opens a soft gap in cloud coverage")
 	world._update_lighting(0.0)
+	check(clouds.material.get_shader_parameter("min_scale_variation") == 0.7 and clouds.material.get_shader_parameter("max_scale_variation") == 1.5,"Cloud size range uses centralized defaults")
+	live.enabled = true
+	live.cloud_min_scale = 0.8
+	live.cloud_max_scale = 1.4
+	live._process(0.1)
+	clouds._process(0.1)
+	check(clouds.material.get_shader_parameter("min_scale_variation") == 0.8 and clouds.material.get_shader_parameter("max_scale_variation") == 1.4,"Cloud scale bounds update live without mesh rebuild")
+	live.enabled = false
+	live._process(0.1)
+	var props = world.ecology_props
+	check(props.batches.size() == 10 and props.sites.size() <= 144,"Decorative flowers and branches use bounded shared batches")
+	check(props.sites.any(func(site): return site.batch < 5) and props.sites.any(func(site): return site.batch >= 5),"Forest exercises both flowers and decorative branches")
+	for site in props.sites:
+		check(props._eligible(Vector2i(site.index%world.grid.SIZE,site.index/world.grid.SIZE)),"Decoration starts clear of reserved, water and interactive cells")
+	# The headless dummy renderer returns black for color readback; native checks white.
+	check(props.batches.all(func(batch): return batch.multimesh.use_colors and (DisplayServer.get_name() == "headless" or batch.multimesh.instance_count == 0 or batch.multimesh.get_instance_color(0) == Color.WHITE)),"Compatibility instance colors preserve imported petal palettes")
+	var duplicate_props = props.get_script().new()
+	world.add_child(duplicate_props)
+	duplicate_props.configure(world)
+	check(duplicate_props.sites.map(func(site): return [site.index,site.transform,site.batch]) == props.sites.map(func(site): return [site.index,site.transform,site.batch]),"Decoration placement is deterministic and does not consume climate RNG")
+	duplicate_props.free()
+	var flower = props.sites.filter(func(site): return site.batch < 5)[0]
+	var flower_data = world.grid.cells[flower.index]
+	var flower_saved = flower_data.duplicate(true)
+	flower_data.moisture = 0.8;flower_data.health = 1.0
+	props.update_state()
+	check(flower.target > 0.99,"Moist healthy cells support colorful full flowers")
+	flower_data.moisture = 0.05;flower_data.health = 0.15
+	props.update_state()
+	check(flower.target < 0.05,"Severe drought targets a faded wilted/hidden flower")
+	props._process(3.0)
+	flower_data.moisture = 0.7;flower_data.health = 0.7
+	props.update_state()
+	check(flower.target > 0.65 and flower.from < flower.target,"Recovery interpolates instead of instantly restoring flowers")
+	for blocker in ["pending_seeds","log","tree","prepared","berry_bush"]:
+		flower_data[blocker] = 1 if blocker == "pending_seeds" else true
+		props.update_state()
+		check(flower.active == 0.0,"Decorations hide when interactive occupancy appears: "+blocker)
+		flower_data.clear();flower_data.merge(flower_saved)
+	props.update_state()
 	var tuning = load("res://features/levels/forest/ResourceClimateVFX.tres")
 	check(world.ground_cover.batches[0].renderer.material_override.get_shader_parameter("wind_deformation") == tuning.wind_deformation,"Grass reads centralized wind deformation")
 	check(world.ground_cover.batches[0].renderer.material_override.get_shader_parameter("gust_strength") == tuning.gust_strength and world.ground_cover.batches[0].renderer.material_override.get_shader_parameter("gust_speed") == tuning.gust_speed,"Grass reads centralized gust parameters")

@@ -36,6 +36,7 @@ var water_material: StandardMaterial3D
 var charred_material: ShaderMaterial
 var last_weather = ""
 var ground_cover: Node3D
+var ecology_props: Node3D
 var warned_fire = false
 var regions: RefCounted
 var region_id = "forest"
@@ -215,6 +216,9 @@ func _ready():
 	ground_cover = preload("res://features/levels/forest/nature/ground_cover.gd").new()
 	add_child(ground_cover)
 	ground_cover.configure(grid,decorated_cells)
+	ecology_props = preload("res://features/levels/forest/VisualEcologyProps.gd").new()
+	add_child(ecology_props)
+	ecology_props.configure(self)
 	forage_visuals = preload("res://features/levels/forest/VisualForaging.gd").new()
 	add_child(forage_visuals)
 	forage_visuals.configure(grid)
@@ -636,6 +640,7 @@ func _refresh_visuals():
 		ground_cover.set_shelter(exposure,origin)
 		effects.set_wind_shelter(exposure,origin)
 		preload("res://features/levels/forest/nature/nature_tree.gd").set_shelter(exposure,origin)
+	if ecology_props != null: ecology_props.update_state()
 	if forage_visuals != null:
 		forage_visuals.update_state(grid)
 

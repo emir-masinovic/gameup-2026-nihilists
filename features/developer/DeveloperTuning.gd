@@ -47,6 +47,8 @@ const VFX = preload("res://features/levels/forest/ResourceClimateVFX.tres")
 @export_range(0.0,3.0,0.05) var cloud_speed: float = CLOUDS.speed_multiplier
 @export_range(0.0,0.85,0.05) var cloud_opacity: float = CLOUDS.opacity
 @export_range(0.5,3.0,0.1) var cloud_scale: float = CLOUDS.cloud_scale
+@export_range(0.5,2.0,0.05) var cloud_min_scale: float = CLOUDS.min_scale_variation
+@export_range(0.5,2.0,0.05) var cloud_max_scale: float = CLOUDS.max_scale_variation
 @export_range(2.0,16.0,0.5) var cloud_altitude: float = CLOUDS.altitude
 @export_range(12.0,36.0,1.0) var cloud_extent: float = CLOUDS.extent
 @export_range(0.0,2.0,0.05) var cloud_rain_density: float = CLOUDS.rain_density
@@ -89,7 +91,7 @@ func _process(_delta: float):
 		_world.ground_cover.set_wind(state)
 		preload("res://features/levels/forest/nature/nature_tree.gd").set_wind(state)
 		effects.update_wind(state,_world.get_node("GridPlayer").global_position)
-	effects.clouds.preview = {"enabled":clouds_enabled,"count":cloud_count,"speed_multiplier":cloud_speed,"opacity":cloud_opacity,"cloud_scale":cloud_scale,"altitude":cloud_altitude,"extent":cloud_extent,"rain_density":cloud_rain_density,"heat_density":cloud_heat_density,"clear_density":cloud_clear_density,"rain_darkening":cloud_rain_darkening}
+	effects.clouds.preview = {"enabled":clouds_enabled,"count":cloud_count,"speed_multiplier":cloud_speed,"opacity":cloud_opacity,"cloud_scale":cloud_scale,"min_scale_variation":cloud_min_scale,"max_scale_variation":cloud_max_scale,"altitude":cloud_altitude,"extent":cloud_extent,"rain_density":cloud_rain_density,"heat_density":cloud_heat_density,"clear_density":cloud_clear_density,"rain_darkening":cloud_rain_darkening}
 	effects.clouds.weather = weather
 	_resize_wind_pool(wind_line_count)
 	effects.wind_material.set_shader_parameter("line_opacity",wind_line_opacity)
