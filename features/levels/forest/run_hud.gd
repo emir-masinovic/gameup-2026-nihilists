@@ -56,6 +56,8 @@ func notify(message: String, category: String = "normal"):
 		while slot < notification_queue.size() and notification_queue[slot].category == "important": slot += 1
 		notification_queue.insert(slot,item)
 	else: notification_queue.append(item)
+	if has_node("Toast"):
+		$Toast.text = message
 
 func _process(delta):
 	if get_tree().paused: return

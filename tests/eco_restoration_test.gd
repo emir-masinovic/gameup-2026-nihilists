@@ -24,7 +24,7 @@ func run():
 	interactions.configure(grid)
 	
 	# Select an open traversable cell adjacent to spawn
-	var target = grid.start + Vector2i.RIGHT
+	var target = Vector2i(4, 5)
 	while grid.cells[target.y * grid.SIZE + target.x].tree:
 		target += Vector2i.RIGHT
 	

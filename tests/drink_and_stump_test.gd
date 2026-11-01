@@ -29,6 +29,7 @@ func run():
 	var stand_cell = Vector2i(8, 8)
 	grid.cells[tree_cell.y * grid.SIZE + tree_cell.x].tree = true
 	grid.cells[tree_cell.y * grid.SIZE + tree_cell.x].tree_state = "healthy"
+	grid.cells[tree_cell.y * grid.SIZE + tree_cell.x].tree_health = 1.0
 	grid.cells[tree_cell.y * grid.SIZE + tree_cell.x].log = false
 	grid.cells[tree_cell.y * grid.SIZE + tree_cell.x].water = false
 	grid.cells[tree_cell.y * grid.SIZE + tree_cell.x].terrain = "grass"
@@ -49,6 +50,7 @@ func run():
 	
 	# Player steps onto stump cell
 	var moved = player.try_move(Vector2i.DOWN)
+	player.moving = false
 	check(moved, "Player can walk onto the cut tree remains cell")
 	check(player.cell == tree_cell, "Player cell is now the stump cell")
 	
@@ -73,6 +75,7 @@ func run():
 	grid.cells[water_cell.y * grid.SIZE + water_cell.x].water_level = 1.0
 	grid.cells[water_cell.y * grid.SIZE + water_cell.x].terrain = "water"
 	grid.cells[water_cell.y * grid.SIZE + water_cell.x].tree = false
+	grid.cells[water_cell.y * grid.SIZE + water_cell.x].berry_bush = false
 	
 	# Player is at (8, 9), facing DOWN toward water at (8, 10)
 	player.facing = Vector2i.DOWN

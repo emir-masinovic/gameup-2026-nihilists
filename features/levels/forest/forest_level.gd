@@ -312,7 +312,7 @@ func _try_interact(action_group: String):
 			context_action.begin(custom,$GridPlayer.cell)
 			return
 		var front = $GridPlayer.cell+$GridPlayer.facing
-		if grid.in_bounds(front) and grid.cells[front.y*grid.SIZE+front.x].get("berry_bush",false):
+		if grid.in_bounds(front) and grid.cells[front.y*grid.SIZE+front.x].get("berry_bush",false) and not grid.cells[front.y*grid.SIZE+front.x].get("water", false):
 			var amount = foraging.harvest(front)
 			survival.add_berries(amount)
 			if amount > 0: _discover("food.first_harvest","Food gathered for the journey")
@@ -321,16 +321,11 @@ func _try_interact(action_group: String):
 	if interactions.begin($GridPlayer.cell, $GridPlayer.facing, action_group):
 		var target_pos = grid.world_position(interactions.target)
 		var msg = ""
-<<<<<<< HEAD
 		if interactions.action_kind == "drink_water":
 			msg = "Gölden su içiliyor... hareket etmek iptal eder"
 			$GridPlayer.start_drinking(target_pos)
 		elif interactions.action_kind == "fill_water":
 			msg = "Şişeye su dolduruluyor... hareket etmek iptal eder"
-=======
-		if interactions.action_kind == "fill_water":
-			msg = "Filling bottle... moving cancels."
->>>>>>> development
 			$GridPlayer.start_filling_water(target_pos)
 		elif interactions.action_kind == "water_soil":
 			msg = "Watering... moving cancels."
@@ -355,11 +350,7 @@ func _try_interact(action_group: String):
 		hud.notify(msg)
 	else:
 		if action_group == "chop_gather":
-<<<<<<< HEAD
 			hud.notify("Ağaç kesmek veya gölden su içmek için dönün, tohum için kalıntının üzerine gelin (Space)")
-=======
-			hud.notify("Face a tree or seed pickup and press [%s]." % _binding_label("chop_gather"))
->>>>>>> development
 		else:
 			if _camp_active() and $GridPlayer.cell.distance_to(grid.start) <= 1.5:
 				hud.show_modal("bonfire")
@@ -378,7 +369,7 @@ func _try_interact(action_group: String):
 			if interactions.last_error == "no_seeds":
 				hud.notify("No seeds. Gather seeds from tree remains.")
 			elif interactions.last_error == "no_water":
-				hud.notify("Need %d ml of water. Refill at a pond." % interactions.WATER_PER_POUR)
+				hud.notify("Yeterli suyunuz yok. Need %d ml of water. Refill at a pond." % interactions.WATER_PER_POUR)
 			elif interactions.last_error == "water_full":
 				hud.notify("Bottle full (%d ml)." % interactions.MAX_WATER_ML)
 			else:
@@ -435,7 +426,6 @@ func _finish_interaction(event: Dictionary):
 	if event.is_empty() or not event.has("cell"):
 		return
 	var cell: Vector2i = event.cell
-<<<<<<< HEAD
 	if event.kind == "drink_water":
 		survival.drink()
 		_discover("water.freshwater", "Freshwater source found")
@@ -443,10 +433,6 @@ func _finish_interaction(event: Dictionary):
 		hud.notify("Gölden su içildi! Susuzluk giderildi (%d%%)." % roundi(survival.thirst))
 		_update_hud()
 	elif event.kind == "fill_water":
-=======
-	if event.kind == "fill_water":
-		survival.drink()
->>>>>>> development
 		_discover("interaction.fill_water", "Water filled: bottle replenished from lake")
 		hud.notify("Bottle refilled (+%d ml). Now %d ml." % [event.get("amount",500),interactions.water_ml])
 		if water_splash != null:
@@ -482,6 +468,12 @@ func _finish_interaction(event: Dictionary):
 			$Vegetation.add_child(log_visual)
 			logs[landing] = log_visual
 	elif event.kind == "collect_seeds":
+		if trees.has(cell):
+			trees[cell].queue_free()
+			trees.erase(cell)
+		if crop_indicators.has(cell):
+			crop_indicators[cell].queue_free()
+			crop_indicators.erase(cell)
 		_discover("interaction.collect_seeds", "Seeds collected from tree remains")
 		hud.notify("Collected %d seeds." % event.get("amount",0))
 		_refresh_visuals()
