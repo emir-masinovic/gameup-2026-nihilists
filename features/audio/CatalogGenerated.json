@@ -1,0 +1,262 @@
+{
+  "provider": "ElevenLabs",
+  "model": "eleven_text_to_sound_v2",
+  "estimated_credits": 880,
+  "actual_billed_credits": "not returned; estimated only",
+  "reserved_allowance": 120,
+  "assets": [
+    {
+      "name": "AmbienceForest",
+      "duration_requested": 3.5,
+      "estimated_credits": 140,
+      "status": "saved",
+      "file": "AmbienceForest.mp3",
+      "bytes": 56885,
+      "sha256": "484331bf4ca691b7be8b4994cae91b54c0d0f4f5f005c130d28df3b13c3888a8",
+      "request": {
+        "text": "Seamlessly looping peaceful temperate forest, soft leafy rustling, faint distant songbirds and subtle insects, restrained organic field recording, no music, voices, thunder or sudden loud events.",
+        "durationSeconds": 3.5,
+        "loop": true,
+        "promptInfluence": 0.3,
+        "modelId": "eleven_text_to_sound_v2",
+        "outputFormat": "mp3_44100_128"
+      },
+      "decoded_seconds": 3.48000001907349,
+      "desktop_capture": {
+        "peak": 0.18963335454464,
+        "clipped_frames": 0,
+        "rms": 0.01314012464607
+      }
+    },
+    {
+      "name": "AmbienceWetlands",
+      "duration_requested": 3.5,
+      "estimated_credits": 140,
+      "status": "saved",
+      "file": "AmbienceWetlands.mp3",
+      "bytes": 56885,
+      "sha256": "701d79105e962bb14c96d50e7ff03fd0b1c68f59fb3c878d54a29f2f8c77b011",
+      "request": {
+        "text": "Seamlessly looping freshwater wetlands, distant frogs, soft insect chorus and quiet water among reeds, peaceful natural field recording, no music, speech, thunder or loud events.",
+        "durationSeconds": 3.5,
+        "loop": true,
+        "promptInfluence": 0.3,
+        "modelId": "eleven_text_to_sound_v2",
+        "outputFormat": "mp3_44100_128"
+      },
+      "decoded_seconds": 3.48000001907349,
+      "desktop_capture": {
+        "peak": 0.11769416183233,
+        "clipped_frames": 0,
+        "rms": 0.02239543663377
+      }
+    },
+    {
+      "name": "AmbienceDrylands",
+      "duration_requested": 3.5,
+      "estimated_credits": 140,
+      "status": "saved",
+      "file": "AmbienceDrylands.mp3",
+      "bytes": 56885,
+      "sha256": "3c0ad3bb700f51a37a53fc0174973b5a3e52ec7904bb8fddad506f0744a34f45",
+      "request": {
+        "text": "Seamlessly looping semi-arid grassland, faint dry scrub rustling and sparse distant insects, quiet open natural atmosphere, no music, speech or dramatic storm.",
+        "durationSeconds": 3.5,
+        "loop": true,
+        "promptInfluence": 0.3,
+        "modelId": "eleven_text_to_sound_v2",
+        "outputFormat": "mp3_44100_128"
+      },
+      "decoded_seconds": 3.48000001907349,
+      "desktop_capture": {
+        "peak": 0.52157646417618,
+        "clipped_frames": 0,
+        "rms": 0.09730190960432
+      }
+    },
+    {
+      "name": "AmbienceWind",
+      "duration_requested": 3.5,
+      "estimated_credits": 140,
+      "status": "saved",
+      "file": "AmbienceWind.mp3",
+      "bytes": 56885,
+      "sha256": "d3675c4654db8b1e1700b3a1787f0a0802232ff31959c424f58084910080228f",
+      "request": {
+        "text": "Seamlessly looping soft outdoor wind with gentle gusts and airy natural texture, quiet meadow breeze, no birds, music, speech, thunder or microphone distortion.",
+        "durationSeconds": 3.5,
+        "loop": true,
+        "promptInfluence": 0.3,
+        "modelId": "eleven_text_to_sound_v2",
+        "outputFormat": "mp3_44100_128"
+      },
+      "decoded_seconds": 3.48000001907349,
+      "desktop_capture": {
+        "peak": 0.39258861541748,
+        "clipped_frames": 0,
+        "rms": 0.07036589218185
+      }
+    },
+    {
+      "name": "AmbienceRain",
+      "duration_requested": 3.5,
+      "estimated_credits": 140,
+      "status": "saved",
+      "file": "AmbienceRain.mp3",
+      "bytes": 56885,
+      "sha256": "1092ba5bf46140323bb7ae4380bf8dcdc2e085b385749a25bb0bcdf4fdd51b4d",
+      "request": {
+        "text": "Seamlessly looping steady moderate outdoor rainfall, soft patter and droplets on leaves and soil, natural continuous texture, no thunder, music, voices or artificial rhythm.",
+        "durationSeconds": 3.5,
+        "loop": true,
+        "promptInfluence": 0.3,
+        "modelId": "eleven_text_to_sound_v2",
+        "outputFormat": "mp3_44100_128"
+      },
+      "decoded_seconds": 3.48000001907349,
+      "desktop_capture": {
+        "peak": 0.33487689495087,
+        "clipped_frames": 0,
+        "rms": 0.03153371897061
+      }
+    },
+    {
+      "name": "SoundStepGrass",
+      "duration_requested": 0.75,
+      "estimated_credits": 30,
+      "status": "saved",
+      "file": "SoundStepGrass.mp3",
+      "bytes": 12581,
+      "sha256": "ffd660accbcbdf396047a57412febce1b40bb0d2b2524d440af70ed558bf77a9",
+      "request": {
+        "text": "One single light astronaut boot step on soft grass, compressed vegetation and gentle contact, dry isolated game foley, no walking sequence, voices or music.",
+        "durationSeconds": 0.75,
+        "loop": false,
+        "promptInfluence": 0.3,
+        "modelId": "eleven_text_to_sound_v2",
+        "outputFormat": "mp3_44100_128"
+      },
+      "decoded_seconds": 0.72000002861023,
+      "desktop_capture": {
+        "peak": 0.13019081950188,
+        "clipped_frames": 0,
+        "rms": 0.0108344520503
+      }
+    },
+    {
+      "name": "SoundStepMud",
+      "duration_requested": 0.75,
+      "estimated_credits": 30,
+      "status": "saved",
+      "file": "SoundStepMud.mp3",
+      "bytes": 12581,
+      "sha256": "475dee8c6db2d5f6969b23bec5df4ebd632a7732ff50a1c160933a05c9d3c30a",
+      "request": {
+        "text": "One single light boot step on damp mud, muted compression and gentle squelch, isolated restrained game foley, no walking sequence, voices or music.",
+        "durationSeconds": 0.75,
+        "loop": false,
+        "promptInfluence": 0.3,
+        "modelId": "eleven_text_to_sound_v2",
+        "outputFormat": "mp3_44100_128"
+      },
+      "decoded_seconds": 0.72000002861023,
+      "desktop_capture": {
+        "peak": 0.30969169735909,
+        "clipped_frames": 0,
+        "rms": 0.01235337524252
+      }
+    },
+    {
+      "name": "SoundStepDry",
+      "duration_requested": 0.75,
+      "estimated_credits": 30,
+      "status": "saved",
+      "file": "SoundStepDry.mp3",
+      "bytes": 12581,
+      "sha256": "dd54912f952e8bc989d77807e005f1e2375bd39bb466f4a6aec46a658f8e7e74",
+      "request": {
+        "text": "One single light boot step on dry sandy soil, soft gritty contact, isolated restrained game foley, no walking sequence, voices or music.",
+        "durationSeconds": 0.75,
+        "loop": false,
+        "promptInfluence": 0.3,
+        "modelId": "eleven_text_to_sound_v2",
+        "outputFormat": "mp3_44100_128"
+      },
+      "decoded_seconds": 0.72000002861023,
+      "desktop_capture": {
+        "peak": 0.49589478969574,
+        "clipped_frames": 0,
+        "rms": 0.0263741811132
+      }
+    },
+    {
+      "name": "SoundStepWet",
+      "duration_requested": 0.75,
+      "estimated_credits": 30,
+      "status": "saved",
+      "file": "SoundStepWet.mp3",
+      "bytes": 12581,
+      "sha256": "2505c142874c58afa94b89b9cd76c1cdb25384cb68216188a849775cc4d3abbf",
+      "request": {
+        "text": "One single light boot step in very shallow water, tiny splash and wet contact, isolated restrained game foley, no walking sequence, voices or music.",
+        "durationSeconds": 0.75,
+        "loop": false,
+        "promptInfluence": 0.3,
+        "modelId": "eleven_text_to_sound_v2",
+        "outputFormat": "mp3_44100_128"
+      },
+      "decoded_seconds": 0.72000002861023,
+      "desktop_capture": {
+        "peak": 0.09517096728086,
+        "clipped_frames": 0,
+        "rms": 0.00484272928014
+      }
+    },
+    {
+      "name": "SoundRaindrop",
+      "duration_requested": 0.5,
+      "estimated_credits": 20,
+      "status": "saved",
+      "file": "SoundRaindrop.mp3",
+      "bytes": 8820,
+      "sha256": "97b42d7b45aefd37d556982793906e7ce1cd7602273813feaac58a7fb46e51ab",
+      "request": {
+        "text": "One subtle isolated raindrop hitting a small puddle, quiet tiny natural splash, no music or voices.",
+        "durationSeconds": 0.5,
+        "loop": false,
+        "promptInfluence": 0.3,
+        "modelId": "eleven_text_to_sound_v2",
+        "outputFormat": "mp3_44100_128"
+      },
+      "decoded_seconds": 0.47999998927116,
+      "desktop_capture": {
+        "peak": 0.05365809425712,
+        "clipped_frames": 0,
+        "rms": 0.00136052860182
+      }
+    },
+    {
+      "name": "SoundFrog",
+      "duration_requested": 1,
+      "estimated_credits": 40,
+      "status": "saved",
+      "file": "SoundFrog.mp3",
+      "bytes": 17179,
+      "sha256": "58035571a27201ed49ed4679f9344db34c5eb80da309e4a6840f2b765951119a",
+      "request": {
+        "text": "One restrained natural frog croak, distant freshwater marsh frog, isolated outdoor sound, no cartoon sound, music or voices.",
+        "durationSeconds": 1,
+        "loop": false,
+        "promptInfluence": 0.3,
+        "modelId": "eleven_text_to_sound_v2",
+        "outputFormat": "mp3_44100_128"
+      },
+      "decoded_seconds": 1.0,
+      "desktop_capture": {
+        "peak": 0.97550338506699,
+        "clipped_frames": 0,
+        "rms": 0.12508421194746
+      }
+    }
+  ]
+}
