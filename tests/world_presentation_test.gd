@@ -23,6 +23,47 @@ func run():
 	root.add_child(world)
 	world.set_process(false)
 	var original = world.grid.cells.duplicate(true)
+	var live = world.get_node("DeveloperTuning")
+	var vfx_defaults = load("res://features/levels/forest/ResourceClimateVFX.tres")
+	check(not live.enabled and live.DEFAULTS.climate_vfx == vfx_defaults,"Debug node starts inactive and central defaults reference existing VFX")
+	var climate_before = [world.climate.temperature,world.climate.weather,world.climate.elapsed]
+	live.enabled = true
+	live.preview_weather = "rain"
+	live.rain_intensity = 0.5
+	live.impact_size = 2.3
+	live.override_visual_wind = true
+	live.wind_intensity = 0.95
+	live.wind_direction_degrees = 90.0
+	live.grass_deformation = 2.8
+	live.grass_gust_strength = 0.4
+	live.wind_line_opacity = 0.8
+	live.wind_line_count = 20
+	live._process(0.1)
+	check(world.effects.rain.visible and world.effects.rain.multimesh.visible_instance_count == 80 and world.effects.rain_impacts.multimesh.visible_instance_count == 80,"Live rain intensity changes both submitted pools")
+	check(world.effects.impact_material.get_shader_parameter("splash_size") == 2.3,"Live impact size reaches material")
+	var grass_material = world.ground_cover.batches[0].renderer.material_override
+	check(grass_material.get_shader_parameter("wind_deformation") == 2.8 and grass_material.get_shader_parameter("gust_strength") == 0.4,"Live grass deformation and gusts reach GPU uniforms")
+	check(grass_material.get_shader_parameter("wind_direction").distance_to(Vector2.DOWN) < 0.001 and world.effects.wind_material.get_shader_parameter("wind_strength") == 0.95,"Live wind override reaches existing grass and stroke consumers")
+	check(world.effects.wind_streaks.multimesh.instance_count == 20 and world.effects.wind_material.get_shader_parameter("line_opacity") == 0.8,"Wind count rebuild and opacity update reach the actual renderer")
+	live.preview_weather = "heat"
+	live.override_visual_temperature = true
+	live.visual_temperature = 44.0
+	live.heat_overlay_multiplier = 1.5
+	live.preview_sun_rays = true
+	live.sun_ray_opacity = 0.4
+	live.preview_rainbow = true
+	live.rainbow_opacity = 0.5
+	live._process(0.1)
+	check(world.palette[0].get_shader_parameter("heat_tint") == 1.0 and is_equal_approx(world.palette[0].get_shader_parameter("heat_strength"),vfx_defaults.forest_heat_strength*1.5),"Live visual temperature and heat intensity reach terrain")
+	check(world.effects.atmosphere.rays.visible and world.effects.atmosphere.ray_material.get_shader_parameter("ray_opacity") == 0.4,"Live ray opacity reaches active shafts")
+	check(world.effects.atmosphere.rainbow.visible and world.effects.atmosphere.rainbow_material.albedo_color.a == 0.5,"Live rainbow demo reaches visible mesh")
+	check([world.climate.temperature,world.climate.weather,world.climate.elapsed] == climate_before and world.grid.cells == original,"Live previews never mutate authoritative climate or saved ecological cells")
+	live.enabled = false
+	live._process(0.1)
+	check(world.effects.wind_streaks.multimesh.instance_count == vfx_defaults.wind_line_count and grass_material.get_shader_parameter("wind_deformation") == vfx_defaults.wind_deformation,"Disabling preview restores pool size and grass defaults")
+	check(world.effects.rain.multimesh.visible_instance_count == -1 and world.effects.impact_material.get_shader_parameter("splash_size") == vfx_defaults.splash_size,"Disabling preview restores normal rain capacity/material")
+	check(vfx_defaults.wind_line_opacity == 0.5 and vfx_defaults.splash_size == 1.7,"Live overrides do not edit the shared default resource")
+
 	var tuning = load("res://features/levels/forest/ResourceClimateVFX.tres")
 	check(world.ground_cover.batches[0].renderer.material_override.get_shader_parameter("wind_deformation") == tuning.wind_deformation,"Grass reads centralized wind deformation")
 	check(world.ground_cover.batches[0].renderer.material_override.get_shader_parameter("gust_strength") == tuning.gust_strength and world.ground_cover.batches[0].renderer.material_override.get_shader_parameter("gust_speed") == tuning.gust_speed,"Grass reads centralized gust parameters")

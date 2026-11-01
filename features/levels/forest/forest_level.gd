@@ -229,6 +229,10 @@ func _ready():
 	_update_lighting()
 	_refresh_visuals()
 	_update_hud()
+	if OS.is_debug_build():
+		var tuning = preload("res://features/developer/DeveloperTuning.gd").new()
+		tuning.name = "DeveloperTuning"
+		add_child(tuning)
 
 func _apply_shadow_quality():
 	$Sun.shadow_enabled = SettingsManager.shadow_quality > 0
