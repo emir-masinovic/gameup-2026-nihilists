@@ -155,6 +155,11 @@ func scene_checks():
 	var pond = soil(world.grid,pond_cell)
 	pond.terrain = "water"
 	pond.water_level = 1.0
+	# Tilling is now allowed on the spawn column. Use already prepared shore
+	# so this case isolates filling; route planting remains legitimately excluded.
+	var shore = soil(world.grid,Vector2i(8,4))
+	shore.tilled = true
+	shore.prepared = true
 	player.cell = Vector2i(8,4)
 	player.position = world.grid.world_position(player.cell)
 	player.facing = Vector2i.LEFT

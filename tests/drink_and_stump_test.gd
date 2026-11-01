@@ -103,6 +103,7 @@ func run():
 	data.prepared = false
 	check(actions.begin(stand,Vector2i.DOWN,"interact") and actions.action_kind == "till_soil","Valid underfoot soil preparation wins over filling")
 	actions.cancel()
+	await verify_till_input(level)
 	var settings = root.get_node("SettingsManager")
 	var old = settings.bindings.duplicate(true)
 	settings.bindings.interact = [KEY_K,0]
@@ -117,3 +118,57 @@ func run():
 	await process_frame
 	print("DRINK AND STUMP: ",checks," checks, ",failures," failures")
 	quit(failures)
+
+# Normal keyboard dispatch -> preview -> timed action -> authoritative soil mutation.
+# Only time advancement is controlled; never call begin/prepare/till directly here.
+func verify_till_input(level: Node3D):
+	var settings = root.get_node("SettingsManager")
+	var bindings = settings.bindings.duplicate(true)
+	settings.bindings.interact = [KEY_E,0]
+	settings.apply_settings()
+	var player = level.get_node("GridPlayer")
+	var original_cell = player.cell
+	var original_facing = player.facing
+	var original_position = player.position
+	var grid = level.grid
+	var clean = {"tree":false,"tree_state":"removed","log":false,"berry_bush":false,"water":false,"water_depth":0.0,"water_level":0.0,"tilled":false,"prepared":false,"burning":false,"burned":false,"pending_seeds":0}
+	for cell in [Vector2i(10,8),Vector2i(8,10),Vector2i(6,6)]:
+		for terrain in ["grass","soil"]:
+			var data = grid.cells[cell.y*grid.SIZE+cell.x]
+			data.merge(clean,true);data.terrain = terrain
+			grid.cells[cell.y*grid.SIZE+cell.x+1].merge(clean,true)
+			player.cell = cell;player.position = grid.world_position(cell);player.facing = Vector2i.RIGHT
+			level.interactions.cancel()
+			level._update_interaction_marker()
+			var label = terrain+" "+str(cell)
+			check(level.hud.get_node("Context").text.contains("Till Soil"),"Till preview on "+label)
+			var key = InputEventKey.new()
+			key.keycode = KEY_E;key.physical_keycode = KEY_E;key.pressed = true
+			root.push_input(key)
+			await process_frame
+			check(level.interactions.action_kind == "till_soil" and level.interactions.target == cell,"E dispatch starts underfoot tilling on "+label)
+			check(player.is_tilling,"Normal E dispatch equips hoe on "+label)
+			key = key.duplicate();key.pressed = false;root.push_input(key)
+			level._tick_context_action(0.81)
+			check(data.tilled and data.prepared and data.terrain == "soil","Completion prepares "+label)
+			check(level.interactions.target.x < 0 and not player.is_tilling,"Till completion clears action/tool on "+label)
+			if grid._protected_route(cell):
+				check(not level.planting.availability(grid,cell).available,"Planting still protects the spawn route on "+label)
+	# Spawn/objective and genuine occupied cells must still refuse tilling.
+	for cell in [grid.start,grid.objective,Vector2i(6,6)]:
+		var data = grid.cells[cell.y*grid.SIZE+cell.x]
+		data.merge(clean,true);data.terrain = "grass"
+		grid.cells[cell.y*grid.SIZE+cell.x+1].merge(clean,true)
+		player.cell = cell;player.facing = Vector2i.RIGHT
+		var blockers = ["spawn"] if cell == grid.start else ["objective"] if cell == grid.objective else ["tree","log","berry_bush","water","burning"]
+		for blocker in blockers:
+			data.merge(clean,true)
+			if blocker not in ["spawn","objective"]: data[blocker] = true
+			if blocker == "water": data.water_depth = 1.0
+			var key = InputEventKey.new();key.keycode = KEY_E;key.physical_keycode = KEY_E;key.pressed = true
+			root.push_input(key);await process_frame
+			check(level.interactions.action_kind != "till_soil","E preserves tilling exclusion: "+blocker)
+			key = key.duplicate();key.pressed = false;root.push_input(key)
+			level.interactions.cancel()
+	player.cell = original_cell;player.facing = original_facing;player.position = original_position
+	settings.bindings = bindings;settings.apply_settings()

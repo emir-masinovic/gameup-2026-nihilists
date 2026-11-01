@@ -142,7 +142,7 @@ func _begin_interact(player: Vector2i, front: Vector2i, current_cell: Dictionary
 
 	# Priority 3: Prepare eligible untilled soil underfoot before filling.
 	# Requirement: "Sadece bulunduğun hücrenin üzerindeki toprak çapalanabilir, ağaç kesme işlemi gibi bir sonraki hücredeki toprak değil."
-	if not current_cell.get("tree",false) and not current_cell.get("log",false) and not current_cell.get("berry_bush",false) and not current_cell.get("burning",false) and not _is_water_cell(current_cell) and not current_cell.get("tilled",false) and not grid._protected_route(player) and player != grid.objective:
+	if not current_cell.get("tree",false) and not current_cell.get("log",false) and not current_cell.get("berry_bush",false) and not current_cell.get("burning",false) and not _is_water_cell(current_cell) and not current_cell.get("tilled",false) and player != grid.start and player != grid.objective:
 		target = player
 		origin = player
 		progress = 0.0
