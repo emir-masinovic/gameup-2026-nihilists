@@ -58,7 +58,7 @@ func label(text: String):
 
 func persist():
 	SettingsManager.apply_settings()
-	status.text = "Saved." if SettingsManager.save_settings() == OK else "Could not save settings."
+	status.text = ("Saved." if SettingsManager.display_message.is_empty() else SettingsManager.display_message) if SettingsManager.save_settings() == OK else "Could not save settings."
 
 # All settings share one label column and one expanding control column.
 func setting_row(title: String, control: Control, control_name: String) -> HBoxContainer:
@@ -161,8 +161,8 @@ func show_category(title: String):
 		"Video":
 			var supported = SettingsManager.desktop_display_supported()
 			var full = compact_checkbox()
-			full.button_pressed = SettingsManager.fullscreen
-			full.disabled = not supported
+			full.button_pressed = SettingsManager.actual_fullscreen()
+			full.disabled = not SettingsManager.window_controls_supported()
 			full.toggled.connect(func(value): SettingsManager.fullscreen = value; persist(); show_category("Video"))
 			setting_row("Fullscreen", full, "Fullscreen")
 			var sync = compact_checkbox()
@@ -178,10 +178,10 @@ func show_category(title: String):
 			if selected_size < 0 and supported:
 				selected_size = sizes.find(DisplayServer.window_get_size())
 			resolution_choice.select(selected_size)
-			resolution_choice.disabled = not supported or SettingsManager.fullscreen
+			resolution_choice.disabled = not SettingsManager.window_controls_supported() or SettingsManager.actual_fullscreen()
 			resolution_choice.item_selected.connect(func(index): SettingsManager.resolution = sizes[index]; persist())
 			setting_row("Window resolution", resolution_choice, "Resolution")
-			if SettingsManager.fullscreen:
+			if SettingsManager.actual_fullscreen():
 				label("Resolution applies in windowed mode; fullscreen uses the desktop resolution.")
 			setting_row("3D anti-aliasing", segmented_control(["Off", "2x", "4x"], SettingsManager.msaa_3d, func(index): SettingsManager.msaa_3d = index; persist()), "MSAA")
 			setting_row("Shadows", segmented_control(["Off", "Low", "Medium", "High"], SettingsManager.shadow_quality, func(index): SettingsManager.shadow_quality = index; persist()), "Shadows")
@@ -192,6 +192,8 @@ func show_category(title: String):
 			fps.text_submitted.connect(func(_text): commit_fps(fps))
 			fps.focus_exited.connect(func(): commit_fps(fps))
 			setting_row("FPS limit", fps, "FPSLimit")
+			if supported and not SettingsManager.window_controls_supported():
+				label(SettingsManager.display_message)
 			if not supported:
 				label("Window mode and VSync are controlled by the browser or display backend.")
 		"Audio":

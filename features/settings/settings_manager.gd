@@ -30,6 +30,9 @@ var msaa_3d = Viewport.MSAA_2X
 var shadow_quality = 2
 var _applied_resolution = Vector2i.ZERO
 var _applied_shadow = -1
+# Preferences remain separate from native state (an editor host may reject them).
+var display_message = ""
+var display_applied = false
 
 
 func _ready():
@@ -107,21 +110,13 @@ func apply_settings():
 	for bus in volumes:
 		AudioServer.set_bus_volume_linear(AudioServer.get_bus_index(bus), volumes[bus])
 	Engine.max_fps = fps_limit
-	if not OS.has_feature("web") and DisplayServer.get_name() != "headless":
-		var desired_mode = DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen else DisplayServer.WINDOW_MODE_WINDOWED
-		var mode_changed = DisplayServer.window_get_mode() != desired_mode
-		if mode_changed:
-			DisplayServer.window_set_mode(desired_mode)
-		if not fullscreen:
-			var usable = DisplayServer.screen_get_usable_rect()
-			var size_value = resolution.min(usable.size)
-			# A native/editor resize can invalidate the cached requested size.
-			# Use Window so Godot's size property and the native window agree.
-			var window = get_tree().root
-			if mode_changed or _applied_resolution != resolution or window.size != size_value or DisplayServer.window_get_size() != size_value:
-				window.size = size_value
-				window.position = usable.position + (usable.size - size_value) / 2
-				_applied_resolution = resolution
+	display_message = ""
+	display_applied = false
+	if desktop_display_supported():
+		if window_controls_supported():
+			_apply_window_settings()
+		else:
+			display_message = "Editor controls window mode and size; saved preferences are retained."
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED)
 	get_tree().root.msaa_3d = msaa_3d
 	if _applied_shadow != shadow_quality:
@@ -143,6 +138,35 @@ func apply_settings():
 				event = InputEventKey.new()
 				event.physical_keycode = code
 			InputMap.action_add_event(action, event)
+
+func window_controls_supported() -> bool:
+	return desktop_display_supported() and not Engine.is_embedded_in_editor()
+
+func actual_fullscreen() -> bool:
+	return desktop_display_supported() and get_tree().root.mode in [Window.MODE_FULLSCREEN, Window.MODE_EXCLUSIVE_FULLSCREEN]
+
+func _apply_window_settings():
+	var window = get_tree().root
+	var desired_mode = Window.MODE_FULLSCREEN if fullscreen else Window.MODE_WINDOWED
+	# Use Window for both mode and size, keeping its native state synchronized.
+	if window.mode != desired_mode:
+		window.mode = desired_mode
+	if window.mode != desired_mode:
+		display_message = "Display mode was not accepted by the window system."
+		return
+	if fullscreen:
+		display_applied = window.size == DisplayServer.window_get_size() and window.size.x > 0 and window.size.y > 0
+	else:
+		var usable = DisplayServer.screen_get_usable_rect(window.current_screen)
+		var size_value = resolution.min(usable.size)
+		if window.size != size_value or DisplayServer.window_get_size() != size_value:
+			window.size = size_value
+		window.position = usable.position + (usable.size - size_value) / 2
+		display_applied = window.size == size_value and DisplayServer.window_get_size() == size_value
+		if display_applied:
+			_applied_resolution = resolution
+	if not display_applied:
+		display_message = "Requested window dimensions were not accepted by the window system."
 
 func save_settings() -> Error:
 	var config = ConfigFile.new()
