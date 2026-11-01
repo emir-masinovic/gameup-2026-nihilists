@@ -10,6 +10,9 @@ func run():
 	var flow = root.get_node("SceneFlow")
 	flow.next_seed = 2026
 	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--density=") and argument.get_slice("=",1) in root.get_node("SettingsManager").GRASS_DENSITIES:
+			root.get_node("SettingsManager").grass_density = argument.get_slice("=",1)
+	for argument in OS.get_cmdline_user_args():
 		if argument.begins_with("--grass-biome="):
 			flow.run_regions = load("res://features/levels/forest/RunRegions.gd").new()
 			flow.run_regions.configure(2026)
@@ -31,7 +34,6 @@ func run():
 		cover._process(10.0 if OS.get_cmdline_user_args().has("--grass-wind-only") else 1.0/60.0)
 		await process_frame
 	if OS.get_cmdline_user_args().has("--grass-hide"): cover.batches[0].renderer.visible = false
-	if OS.get_cmdline_user_args().has("--grass-chunks"): make_chunks(cover)
 	var camera = world.get_node("CameraRig")
 	camera.set_process(false)
 	RenderingServer.viewport_set_measure_render_time(root.get_viewport_rid(),true)
@@ -65,7 +67,7 @@ func run():
 			var visible = 0
 			for value in grass.sizes:
 				if value > 0.001: visible += 1
-			var record = {"projection":projection,"zoom":zoom,"biome":world.region_id,"allocated_tufts":grass.indices.size(),"nonzero_tufts":visible,"vertices_per_tuft":arrays[Mesh.ARRAY_VERTEX].size(),"triangles_per_tuft":(arrays[Mesh.ARRAY_INDEX].size() if arrays[Mesh.ARRAY_INDEX]!=null and arrays[Mesh.ARRAY_INDEX].size()>0 else arrays[Mesh.ARRAY_VERTEX].size())/3,"frame_median_ms":samples[60],"frame_p95_ms":samples[114],"render_cpu_ms":cpu.reduce(func(a,b): return a+b,0.0)/cpu.size(),"render_gpu_ms":gpu.reduce(func(a,b): return a+b,0.0)/gpu.size(),"draw_calls":Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),"total_primitives":Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME),"world_generation_ms":generation_ms,"instance_buffer_bytes":grass.renderer.multimesh.buffer.size()*4,"wind_texture_bytes":cover.get("_wind_texture").get_image().get_data().size() if cover.get("_wind_texture") != null and cover.get("_wind_texture").get_image()!=null else 0,"cover_generation_ms":cover.get("generation_ms"),"cover_update_ms":cover.get("update_ms"),"lod_height_pixels":cover.get("lod_controller").projected_height if cover.get("lod_controller") != null else -1.0,"lod_width_pixels":cover.get("lod_controller").projected_width if cover.get("lod_controller") != null else -1.0}
+			var record = {"projection":projection,"zoom":zoom,"biome":world.region_id,"allocated_tufts":grass.indices.size(),"density":root.get_node("SettingsManager").grass_density,"rendered_tufts":grass.indices.size() if grass.renderer.visible else 0,"nonzero_tufts":visible,"vertices_per_tuft":arrays[Mesh.ARRAY_VERTEX].size(),"triangles_per_tuft":(arrays[Mesh.ARRAY_INDEX].size() if arrays[Mesh.ARRAY_INDEX]!=null and arrays[Mesh.ARRAY_INDEX].size()>0 else arrays[Mesh.ARRAY_VERTEX].size())/3,"frame_median_ms":samples[60],"frame_p95_ms":samples[114],"render_cpu_ms":cpu.reduce(func(a,b): return a+b,0.0)/cpu.size(),"render_gpu_ms":gpu.reduce(func(a,b): return a+b,0.0)/gpu.size(),"draw_calls":Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),"total_primitives":Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME),"world_generation_ms":generation_ms,"instance_buffer_bytes":grass.renderer.multimesh.buffer.size()*4,"wind_texture_bytes":cover.get("_wind_texture").get_image().get_data().size() if cover.get("_wind_texture") != null and cover.get("_wind_texture").get_image()!=null else 0,"cover_generation_ms":cover.get("generation_ms"),"cover_update_ms":cover.get("update_ms"),"lod_height_pixels":cover.get("lod_controller").projected_height if cover.get("lod_controller") != null else -1.0,"lod_width_pixels":cover.get("lod_controller").projected_width if cover.get("lod_controller") != null else -1.0}
 			output.append(record)
 			print("GRASS BENCH ",JSON.stringify(record))
 			if OS.has_environment("GRASS_BENCH_OUT"):
@@ -100,31 +102,3 @@ func run():
 		var file = FileAccess.open(OS.get_environment("GRASS_BENCH_OUT")+".json",FileAccess.WRITE)
 		file.store_string(JSON.stringify(output,"  "))
 	quit()
-
-# Diagnostic snapshot only: world simulation is intentionally frozen in this
-# harness. Never used by gameplay; measures culling/draw overhead without a rewrite.
-func make_chunks(cover):
-	if cover.get("lod_controller") != null: cover.get("lod_controller").set_process(false)
-	var batch = cover.batches[0]
-	var groups = {}
-	for i in range(batch.indices.size()):
-		var point: Vector3 = batch.origins[i]
-		var key = Vector2i(floori((point.x+17)/8),floori((point.z+17)/8))
-		if not groups.has(key): groups[key] = []
-		groups[key].append(i)
-	for key in groups:
-		var chunk = MultiMeshInstance3D.new()
-		chunk.multimesh = MultiMesh.new()
-		chunk.multimesh.transform_format = MultiMesh.TRANSFORM_3D
-		chunk.multimesh.use_custom_data = true
-		chunk.multimesh.mesh = batch.renderer.multimesh.mesh
-		chunk.multimesh.instance_count = groups[key].size()
-		for j in range(groups[key].size()):
-			var i: int = groups[key][j]
-			chunk.multimesh.set_instance_transform(j,batch.renderer.multimesh.get_instance_transform(i))
-			chunk.multimesh.set_instance_custom_data(j,batch.renderer.multimesh.get_instance_custom_data(i))
-		chunk.material_override = batch.renderer.material_override
-		chunk.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		chunk.extra_cull_margin = 0.7
-		cover.add_child(chunk)
-	batch.renderer.visible = false

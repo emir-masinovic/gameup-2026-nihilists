@@ -22,6 +22,8 @@ const DEFAULT_BINDINGS = {
 var storage_path = "user://settings.cfg"
 var volumes = {"Master": 0.8, "Music": 0.8, "SFX": 0.8}
 var bindings: Dictionary = DEFAULT_BINDINGS.duplicate(true)
+const GRASS_DENSITIES = ["Off", "Low", "Medium", "High"]
+var grass_density = "Off"
 var fullscreen = false
 var vsync = true
 var fps_limit = 60
@@ -52,6 +54,8 @@ func load_settings():
 		var value = config.get_value("audio", bus, 0.8)
 		if (value is float or value is int) and is_finite(float(value)):
 			volumes[bus] = clampf(float(value), 0.0, 1.0)
+	var grass = config.get_value("video", "grass_density", "Medium")
+	grass_density = grass if grass is String and grass in GRASS_DENSITIES else "Off"
 	var full = config.get_value("video", "fullscreen", false)
 	fullscreen = full if full is bool else false
 	var sync = config.get_value("video", "vsync", true)
@@ -172,6 +176,7 @@ func save_settings() -> Error:
 	var config = ConfigFile.new()
 	for bus in volumes:
 		config.set_value("audio", bus, volumes[bus])
+	config.set_value("video", "grass_density", grass_density)
 	config.set_value("video", "fullscreen", fullscreen)
 	config.set_value("video", "vsync", vsync)
 	config.set_value("video", "fps_limit", fps_limit)
@@ -213,6 +218,7 @@ func _reset_category(category: String):
 			mouse_sensitivity = DEFAULT_MOUSE_SENSITIVITY
 			bindings = DEFAULT_BINDINGS.duplicate(true)
 		"Video":
+			grass_density = "Off"
 			fullscreen = false
 			vsync = true
 			fps_limit = 60

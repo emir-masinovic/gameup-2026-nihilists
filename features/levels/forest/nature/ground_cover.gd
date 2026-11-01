@@ -17,9 +17,53 @@ var baseline = OS.is_debug_build() and OS.get_cmdline_user_args().has("--grass-b
 var lod_controller: Node
 var _wind_texture: NoiseTexture2D
 var grass_wind_multiplier = _debug_wind_multiplier()
+var _quality = "Medium"
+var _capacity_quality = "Medium"
+var reconfigure_ms = 0.0
 var _grid: RefCounted
 var _crack_sizes: Array[float] = []
 var _crack_targets: Array[float] = []
+
+func _ready():
+	var settings = get_node_or_null("/root/SettingsManager")
+	if settings != null:
+		_quality = settings.grass_density
+		if _quality != "Off": _capacity_quality = _quality
+		settings.graphics_changed.connect(_apply_density)
+
+func _apply_density():
+	var quality = get_node("/root/SettingsManager").grass_density
+	if quality == _quality: return
+	_quality = quality
+	if _grid == null or batches.is_empty(): return
+	var begin = Time.get_ticks_usec()
+	if quality != "Off" and quality != _capacity_quality:
+		var previous_material = batches[0].renderer.material_override
+		var wind = {"direction":previous_material.get_shader_parameter("wind_direction"),"strength":previous_material.get_shader_parameter("wind_strength")/maxf(grass_wind_multiplier,0.001),"time":previous_material.get_shader_parameter("wind_time")}
+		var exposure = previous_material.get_shader_parameter("wind_exposure")
+		var origin = previous_material.get_shader_parameter("shelter_origin")
+		if lod_controller != null:
+			lod_controller.free()
+			lod_controller = null
+		batches.pop_front().renderer.free()
+		_capacity_quality = quality
+		_grass_sites.clear()
+		_build(_grid,Visuals.instantiate_grass(),false)
+		batches.push_front(batches.pop_back())
+		update_state(_grid)
+		_process(1.0)
+		set_wind(wind)
+		set_shelter(exposure,Vector3(origin.x,0,origin.y))
+		_create_lod()
+	batches[0].renderer.visible = quality != "Off"
+	if lod_controller != null: lod_controller.set_process(quality != "Off")
+	reconfigure_ms = (Time.get_ticks_usec()-begin)/1000.0
+
+func _create_lod():
+	if not baseline and not (OS.is_debug_build() and OS.get_cmdline_user_args().has("--grass-no-lod")):
+		lod_controller = preload("res://features/levels/forest/nature/ControllerGrassLOD.gd").new()
+		add_child(lod_controller)
+		lod_controller.configure(self)
 
 func configure(grid: RefCounted, occupied: Dictionary = {}):
 	var begin = Time.get_ticks_usec()
@@ -40,10 +84,9 @@ func configure(grid: RefCounted, occupied: Dictionary = {}):
 	update_state(grid)
 	_process(1.0)
 	generation_ms = (Time.get_ticks_usec()-begin)/1000.0
-	if not baseline and not (OS.is_debug_build() and OS.get_cmdline_user_args().has("--grass-no-lod")):
-		lod_controller = preload("res://features/levels/forest/nature/ControllerGrassLOD.gd").new()
-		add_child(lod_controller)
-		lod_controller.configure(self)
+	_create_lod()
+	batches[0].renderer.visible = _quality != "Off"
+	if lod_controller != null: lod_controller.set_process(_quality != "Off")
 
 func _find_mesh(node: Node, parent_transform: Transform3D) -> Dictionary:
 	var transform = parent_transform * node.transform if node is Node3D else parent_transform
@@ -72,7 +115,7 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	var placement: Array[Dictionary] = []
 	if not shrubs:
 		# Retain the old total capacity, not its per-tile layout.
-		var budget = indices.size()*GRASS_POPULATION_SCALE
+		var budget = roundi(indices.size()*GRASS_POPULATION_SCALE * {"Low":3000.0/5298.0,"Medium":1.0,"High":8000.0/5298.0}[_capacity_quality])
 		if OS.is_debug_build():
 			for argument in OS.get_cmdline_user_args():
 				if argument.begins_with("--grass-count="): budget = clampi(int(argument.get_slice("=",1)),1,20000)

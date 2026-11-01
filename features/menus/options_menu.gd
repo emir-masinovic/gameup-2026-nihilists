@@ -184,6 +184,7 @@ func show_category(title: String):
 			if SettingsManager.actual_fullscreen():
 				label("Resolution applies in windowed mode; fullscreen uses the desktop resolution.")
 			setting_row("3D anti-aliasing", segmented_control(["Off", "2x", "4x"], SettingsManager.msaa_3d, func(index): SettingsManager.msaa_3d = index; persist()), "MSAA")
+			setting_row("Grass Density", segmented_control(SettingsManager.GRASS_DENSITIES, SettingsManager.GRASS_DENSITIES.find(SettingsManager.grass_density), func(index): SettingsManager.grass_density = SettingsManager.GRASS_DENSITIES[index]; persist()), "GrassDensity")
 			setting_row("Shadows", segmented_control(["Off", "Low", "Medium", "High"], SettingsManager.shadow_quality, func(index): SettingsManager.shadow_quality = index; persist()), "Shadows")
 			var fps = LineEdit.new()
 			fps.text = str(SettingsManager.fps_limit)
