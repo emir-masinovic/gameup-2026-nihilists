@@ -9,5 +9,8 @@
 .DS_Store
 Thumbs.db
 .env.local
-
+node_modules/
+index.js
+package-lock.json
+package.json
 # Keep Godot .uid files and source asset .import metadata tracked.
