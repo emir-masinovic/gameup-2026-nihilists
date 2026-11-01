@@ -342,7 +342,12 @@ func _try_eat():
 			hud.notify("Could not eat berry.")
 
 func _try_interact(action_group: String):
-	if interactions.target.x >= 0 or not context_action.active.is_empty(): return
+	if interactions.target.x >= 0:
+		if interactions.target != $GridPlayer.cell and interactions.target != $GridPlayer.cell + $GridPlayer.facing:
+			interactions.cancel()
+		else:
+			return
+	if not context_action.active.is_empty(): return
 	if action_group == "interact":
 		var custom = _custom_preview()
 		if not custom.is_empty():
@@ -393,7 +398,7 @@ func _try_interact(action_group: String):
 				hud.notify("Face the recycle bin to dump trash.")
 				return
 		var harvest_target = Vector2i(-1, -1)
-		if grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berry_bush",false) and not grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("water", false):
+		if grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berry_bush",false) and int(grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berries", 0)) > 0 and not grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("water", false):
 			harvest_target = underfoot
 		if harvest_target.x >= 0 and foraging != null:
 			var amount = foraging.harvest(harvest_target)
@@ -457,7 +462,7 @@ func _try_interact(action_group: String):
 				return
 			var underfoot = $GridPlayer.cell
 			var harvest_target = Vector2i(-1, -1)
-			if grid.in_bounds(underfoot) and grid.cells[underfoot.y * grid.SIZE + underfoot.x].get("berry_bush", false) and foraging != null:
+			if grid.in_bounds(underfoot) and grid.cells[underfoot.y * grid.SIZE + underfoot.x].get("berry_bush", false) and int(grid.cells[underfoot.y * grid.SIZE + underfoot.x].get("berries", 0)) > 0 and foraging != null:
 				harvest_target = underfoot
 			if harvest_target.x >= 0:
 				var amount: int = foraging.harvest(harvest_target)
@@ -492,6 +497,8 @@ func _try_interact(action_group: String):
 				hud.notify("Use [%s] to prepare soil, plant, water or refill." % _binding_label("interact"))
 
 func _on_cell_entered(cell: Vector2i):
+	if interactions.target.x >= 0 and interactions.target != cell and interactions.target != cell + $GridPlayer.facing:
+		interactions.cancel()
 	if transitioning:
 		return
 	var destination: String = regions.exit_destination(region_id, cell)
@@ -599,12 +606,6 @@ func _finish_interaction(event: Dictionary):
 			$Vegetation.add_child(log_visual)
 			logs[landing] = log_visual
 	elif event.kind == "collect_seeds":
-		if trees.has(cell):
-			trees[cell].queue_free()
-			trees.erase(cell)
-		if crop_indicators.has(cell):
-			crop_indicators[cell].queue_free()
-			crop_indicators.erase(cell)
 		_discover("interaction.collect_seeds", "Seeds collected from tree remains")
 		hud.notify("Collected %d seeds." % event.get("amount",0))
 		_refresh_visuals()
@@ -1092,7 +1093,7 @@ func _action_preview(group: String) -> Dictionary:
 			var bin = _descriptor(grid.recycle_bin_cell, "recycle_bin", "Recycle Bin", "Dump Trash", 0.0)
 			bin.input_action = group
 			return bin
-		if grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berry_bush",false):
+		if grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berry_bush",false) and int(grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berries", 0)) > 0:
 			var berry = _descriptor(underfoot,"berries","Berry Bush","Harvest",0.0)
 			berry.input_action = group
 			return berry

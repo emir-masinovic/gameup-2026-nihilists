@@ -19,9 +19,11 @@ func soil_availability(grid: RefCounted, cell: Vector2i, occupied: bool = false)
 			reason = "Cell is occupied"
 		elif data.get("trash", false):
 			reason = "Clear trash first"
-		elif data.terrain != "soil":
+		elif data.terrain != "soil" and not data.get("tilled", false):
 			reason = "Plant on bare soil"
-		elif cell.distance_to(grid.start) < 2.5 or cell.x == grid.start.x or cell.y == grid.start.y or cell == grid.objective or grid.SPACESHIP_CELLS.has(cell):
+		elif cell == grid.start or grid.SPACESHIP_CELLS.has(cell):
+			reason = "Keep camp and trails clear"
+		elif not data.get("tilled", false) and (cell.distance_to(grid.start) < 2.5 or cell.x == grid.start.x or cell.y == grid.start.y or cell == grid.objective):
 			reason = "Keep camp and trails clear"
 		elif data.get("burning", false):
 			reason = "Soil is burning"
