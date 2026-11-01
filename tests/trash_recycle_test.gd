@@ -160,6 +160,24 @@ func run() -> void:
 	var far_cell = bin_pos + Vector2i(5, 5)
 	check(not level._near_recycle_bin(far_cell), "Far cell %s is not detected as adjacent" % far_cell)
 
+	# Verify facing detection for dumping
+	var to_bin = bin_pos - adj_cell
+	check(level._facing_recycle_bin(adj_cell, to_bin), "Player facing recycle bin from adjacent cell is detected")
+	var away_from_bin = -to_bin
+	check(not level._facing_recycle_bin(adj_cell, away_from_bin), "Player facing away from recycle bin is NOT facing it")
+
+	# Test interaction while facing away: trash must NOT be dumped
+	level.get_node("GridPlayer").cell = adj_cell
+	level.get_node("GridPlayer").facing = away_from_bin
+	level.survival.trash_count = 2
+	level._try_interact("interact")
+	check(level.survival.trash_count == 2, "Trash is NOT dumped when facing away from recycle bin")
+
+	# Test interaction while facing the bin: trash MUST be dumped
+	level.get_node("GridPlayer").facing = to_bin
+	level._try_interact("interact")
+	check(level.survival.trash_count == 0, "Trash IS dumped when facing the recycle bin")
+
 	level.free()
 
 	print("\n==========================================")

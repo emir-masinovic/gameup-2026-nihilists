@@ -366,7 +366,7 @@ func _try_interact(action_group: String):
 					)
 				_update_hud()
 				return
-		if _near_recycle_bin(underfoot):
+		if _facing_recycle_bin(underfoot, $GridPlayer.facing):
 			if survival.trash_count > 0:
 				var dumped = survival.dump_trash()
 				$GridPlayer.start_gathering(grid.world_position(grid.recycle_bin_cell))
@@ -382,6 +382,10 @@ func _try_interact(action_group: String):
 				return
 			else:
 				hud.notify("No trash to dump.")
+				return
+		elif _near_recycle_bin(underfoot):
+			if survival.trash_count > 0:
+				hud.notify("Face the recycle bin to dump trash.")
 				return
 		var harvest_target = Vector2i(-1, -1)
 		if grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berry_bush",false) and not grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("water", false):
@@ -902,6 +906,11 @@ func _create_spaceship():
 	ship.add_to_group("forest_props")
 	add_child(ship)
 
+func _facing_recycle_bin(cell: Vector2i, facing: Vector2i) -> bool:
+	if not grid.in_bounds(grid.recycle_bin_cell):
+		return false
+	return (cell + facing) == grid.recycle_bin_cell
+
 func _near_recycle_bin(cell: Vector2i) -> bool:
 	if not grid.in_bounds(grid.recycle_bin_cell):
 		return false
@@ -1047,6 +1056,14 @@ func _action_preview(group: String) -> Dictionary:
 	var front = $GridPlayer.cell+$GridPlayer.facing
 	var underfoot = $GridPlayer.cell
 	if group == "interact":
+		if grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("trash", false):
+			var trash = _descriptor(underfoot, "trash", "Trash", "Pick Trash", 0.0)
+			trash.input_action = group
+			return trash
+		if _facing_recycle_bin(underfoot, $GridPlayer.facing):
+			var bin = _descriptor(grid.recycle_bin_cell, "recycle_bin", "Recycle Bin", "Dump Trash", 0.0)
+			bin.input_action = group
+			return bin
 		if grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berry_bush",false):
 			var berry = _descriptor(underfoot,"berries","Berry Bush","Harvest",0.0)
 			berry.input_action = group
