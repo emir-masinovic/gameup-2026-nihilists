@@ -61,6 +61,10 @@ var dirt_puff: CPUParticles3D
 var seed_visuals = {}
 var decorated_cells = {}
 var wet_indicator: MeshInstance3D
+var hazard_system: Node3D = null
+var hazard_damage_accumulator: float = 0.0
+var _damage_icon_tex: ImageTexture = null
+var _heal_icon_tex: ImageTexture = null
 
 
 
@@ -207,6 +211,7 @@ func _ready():
 	_create_recycle_bin()
 	_create_trash_visuals()
 	_create_kenney_props()
+	_create_environmental_hazards()
 	water_material = StandardMaterial3D.new()
 	water_material.albedo_color = Color("477c88")
 	water_material.roughness = 0.5
@@ -250,6 +255,7 @@ func _process(delta):
 	_advance_presentation(delta)
 	_tick_context_action(delta)
 	_update_interaction_marker()
+	_tick_hazard_damage(delta)
 	if get_tree().paused: return
 	tick_accumulator += delta * simulation_time_scale
 	if tick_accumulator >= 1.0:
@@ -321,6 +327,7 @@ func _try_eat():
 		$GridPlayer.start_eating()
 		if survival.health > health_before:
 			hud.notify("Berry eaten! Health restored (%d/100)." % roundi(survival.health))
+			_spawn_health_popup("+5", Color("4ebd5f"), "heal")
 		else:
 			hud.notify("Berry eaten! Hunger restored (%d/10)." % roundi(survival.hunger))
 		_update_hud()
@@ -529,6 +536,7 @@ func _finish_interaction(event: Dictionary):
 		if drank:
 			if survival.health > health_before:
 				hud.notify("Drank pond water! Health restored (%d/100)." % roundi(survival.health))
+				_spawn_health_popup("+5", Color("4ebd5f"), "heal")
 			else:
 				hud.notify("Drank pond water! Thirst restored (%d/10)." % roundi(survival.thirst))
 		else:
@@ -1322,3 +1330,116 @@ func _update_wind(fractional_seconds: float):
 	preload("res://features/levels/forest/nature/nature_tree.gd").set_wind(state)
 	if hud != null: hud.set_wind(state)
 	if effects != null: effects.update_wind(state,$GridPlayer.global_position)
+
+
+func _tick_hazard_damage(delta: float) -> void:
+	if hazard_system == null or not is_instance_valid(hazard_system):
+		return
+	if not is_instance_valid($GridPlayer):
+		return
+	var in_hazard = hazard_system.is_cell_in_hazard($GridPlayer.cell) or hazard_system.is_pos_in_hazard($GridPlayer.global_position)
+	if in_hazard:
+		hazard_damage_accumulator += delta
+		if hazard_damage_accumulator >= 1.0:
+			hazard_damage_accumulator -= 1.0
+			survival.damage(5.0)
+			_spawn_health_popup("-5", Color("e05353"), "damage")
+			audio_cue.emit("damage", $GridPlayer.position)
+			hud.damage_feedback(true)
+			if survival.dead:
+				_end_run("death")
+			_update_hud()
+	else:
+		hazard_damage_accumulator = 0.0
+
+func _create_environmental_hazards() -> void:
+	if hazard_system != null and is_instance_valid(hazard_system):
+		hazard_system.queue_free()
+		hazard_system = null
+	var HazardClass = preload("res://features/levels/forest/environmental_hazards.gd")
+	hazard_system = HazardClass.new()
+	hazard_system.name = "EnvironmentalHazards"
+	add_child(hazard_system)
+	hazard_system.configure(region_id, grid, world_seed)
+
+func _spawn_health_popup(text_val: String, color_val: Color, icon_type: String = "damage") -> Node3D:
+	if not is_instance_valid($GridPlayer):
+		return null
+	var popup = Node3D.new()
+	popup.name = "HealthPopup_%d" % Time.get_ticks_msec()
+	popup.position = $GridPlayer.global_position + Vector3(0, 2.1, 0)
+
+	var icon_tex = _get_health_icon_texture(icon_type)
+	var sprite = Sprite3D.new()
+	sprite.name = "Icon"
+	sprite.texture = icon_tex
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.no_depth_test = true
+	sprite.pixel_size = 0.012
+	sprite.position = Vector3(-0.25, 0, 0)
+	popup.add_child(sprite)
+
+	var label = Label3D.new()
+	label.name = "Amount"
+	label.text = text_val
+	label.modulate = color_val
+	label.outline_modulate = Color(0.1, 0.1, 0.1, 0.9)
+	label.outline_size = 6
+	label.font_size = 42
+	label.pixel_size = 0.007
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.position = Vector3(0.15, 0, 0)
+	popup.add_child(label)
+
+	add_child(popup)
+
+	if is_inside_tree():
+		var tween = popup.create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(popup, "position:y", popup.position.y + 0.9, 1.1).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tween.tween_property(sprite, "modulate:a", 0.0, 1.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tween.tween_property(label, "modulate:a", 0.0, 1.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tween.chain().tween_callback(popup.queue_free)
+
+	return popup
+
+func _get_health_icon_texture(icon_type: String) -> Texture2D:
+	if icon_type == "damage":
+		if _damage_icon_tex == null:
+			_damage_icon_tex = _generate_heart_texture(Color(0.92, 0.22, 0.22))
+		return _damage_icon_tex
+	else:
+		if _heal_icon_tex == null:
+			_heal_icon_tex = _generate_plus_texture(Color(0.25, 0.85, 0.35))
+		return _heal_icon_tex
+
+func _generate_heart_texture(color_val: Color) -> ImageTexture:
+	var img = Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	for y in range(32):
+		for x in range(32):
+			var nx = (x - 15.5) / 11.0
+			var ny = -(y - 14.5) / 11.0
+			var val = pow(nx * nx + ny * ny - 1.0, 3) - (nx * nx) * pow(ny, 3)
+			if val <= 0.0:
+				img.set_pixel(x, y, color_val)
+			elif val <= 0.35:
+				img.set_pixel(x, y, Color(color_val.r * 0.4, color_val.g * 0.4, color_val.b * 0.4, 0.8))
+	return ImageTexture.create_from_image(img)
+
+func _generate_plus_texture(color_val: Color) -> ImageTexture:
+	var img = Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	for y in range(32):
+		for x in range(32):
+			var in_vert = (x >= 12 and x <= 19 and y >= 6 and y <= 25)
+			var in_horiz = (y >= 12 and y <= 19 and x >= 6 and x <= 25)
+			if in_vert or in_horiz:
+				img.set_pixel(x, y, color_val)
+			else:
+				var border_v = (x >= 10 and x <= 21 and y >= 4 and y <= 27)
+				var border_h = (y >= 10 and y <= 21 and x >= 4 and x <= 27)
+				if border_v or border_h:
+					img.set_pixel(x, y, Color(color_val.r * 0.3, color_val.g * 0.3, color_val.b * 0.3, 0.7))
+	return ImageTexture.create_from_image(img)
