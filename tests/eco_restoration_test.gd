@@ -23,20 +23,19 @@ func run():
 	var interactions = load("res://features/levels/forest/forest_interactions.gd").new()
 	interactions.configure(grid)
 	
-	# Select an open traversable cell adjacent to spawn
-	var target = grid.start + Vector2i.RIGHT
-	while grid.cells[target.y * grid.SIZE + target.x].tree:
-		target += Vector2i.RIGHT
-	
+	# Use eligible ground away from protected spawn routes.
+	var target = Vector2i(5,5)
+
 	var player = target
 	var data = grid.cells[target.y * grid.SIZE + target.x]
 	
+	data.merge({"tree":false,"tree_state":"removed","terrain":"grass","log":false,"berry_bush":false,"burning":false,"burned":false,"water":false,"water_depth":0.0,"water_level":0.0},true)
 	# 1. Test that untilled ground is tilled (cannot be watered directly per rule)
 	data.moisture = 0.2
 	data.health = 0.5
 	data.trampled = 0.3
 	data.tilled = false
-	check(interactions.begin(player, Vector2i.RIGHT), "Begin interaction on untilled ground")
+	check(interactions.begin(player, Vector2i.RIGHT, "interact"), "Begin interaction on untilled ground")
 	check(interactions.action_kind == "till_soil", "Untilled ground is tilled with hoe, NOT watered")
 	var event = interactions.tick(1.0, player)
 	check(event.kind == "till_soil", "Till event completed")
@@ -44,14 +43,14 @@ func run():
 	
 	# 2. Player steps onto tilled ground to plant seed on the cell they stand on
 	var on_target = target
-	check(interactions.begin(on_target, Vector2i.RIGHT), "Begin planting on tilled cell where player stands")
+	check(interactions.begin(on_target, Vector2i.RIGHT, "interact"), "Begin planting on tilled cell where player stands")
 	check(interactions.action_kind == "plant_sapling", "Action identified as plant_sapling")
 	event = interactions.tick(1.5, on_target)
 	check(event.kind == "plant_sapling", "Seed planted event completed")
 	check(data.tree and data.tree_state == "seed", "Seed established on cell")
 	
 	# 3. Player waters the growing seed while standing on its grid cell
-	check(interactions.begin(on_target, Vector2i.RIGHT), "Begin watering seed while standing on it")
+	check(interactions.begin(on_target, Vector2i.RIGHT, "interact"), "Begin watering seed while standing on it")
 	check(interactions.action_kind == "water_soil", "Action identified as water_soil")
 	event = interactions.tick(1.0, on_target)
 	check(event.kind == "water_soil", "Water event completed")
@@ -60,7 +59,7 @@ func run():
 	data.water_needed = 0.0
 	data.tree_state = "sapling"
 	data.tree_health = 0.92
-	data.growth_age = 230.0
+	data.growth_age = preload("res://features/levels/forest/StatePlanting.gd").GROWTH_SECONDS - 1.0
 	
 	var initial_shade = climate.shade_at(target)
 	check(initial_shade > 0.0, "Sapling provides initial partial shade")

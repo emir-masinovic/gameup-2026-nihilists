@@ -153,3 +153,7 @@ Future code-owned systems can call `SaveManager.register_run_extension(id, captu
 The HUD notification feed shows three messages, queues at most 24, coalesces duplicates and prioritizes pending discoveries/Knowledge. Important/normal/low durations are 9/5/3 seconds. It pauses, fades and is recreated with each world scene. Existing discovery audio throttling is retained.
 
 The existing presentation clock now survives region changes and session saves. The exported day_night_duration defaults to 900 seconds; debug-only `--day-night-demo` accelerates presentation 30 times without changing climate/survival rates. One shadow-casting directional light follows the same vector used by bounded sun/moon meshes. At the horizon its energy reaches zero before switching source, avoiding brightness spikes. Rain attenuates sunlight. Close camera framing often excludes celestial meshes, so a small E/W sky compass depicts the same source trajectory. Grass geometry/shaders and density are unchanged. No FPS benchmark or browser-runtime acceptance is claimed.
+
+## Decorative grass quality
+
+Video Grass Density persists Off/Low/Medium/High. Fresh settings and Video defaults use Off; legacy settings missing this key retain historical Medium. Off hides the grass MultiMesh; other capacity changes rebuild just grass once. Climate, planting, resources and saves remain independent. Indexed blades, projected-size morphing LOD and spatial Perlin wind remain active. See [preset measurements](ReportGrassDensity.md).

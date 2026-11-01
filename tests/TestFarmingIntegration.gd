@@ -165,7 +165,7 @@ func scene_checks():
 	check(world.interactions.target == pond_cell,"Pond execution uses preview target")
 	check(world.interactions.action_kind == "fill_water" and player.get_node("Body/ArmRight/Bottle").visible, "Valid pond contextual action animates filling without a new input")
 	world._tick_context_action(3.0)
-	check(world.planting.water_ml == 750 and world.survival.thirst == 100.0 and pond.water_level == 1.0, "One pond action fills bottle and preserves survival drinking without draining pond")
+	check(world.planting.water_ml == 750 and world.survival.thirst == 55.0 and pond.water_level == 1.0, "Bottle fill preserves body hydration and does not drain pond")
 	player.cell = Vector2i(8,5)
 	player.position = world.grid.world_position(player.cell)
 	var native_cell = Vector2i(9,5)
