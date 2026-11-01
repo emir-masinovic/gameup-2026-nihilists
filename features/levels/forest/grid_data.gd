@@ -66,7 +66,7 @@ func generate(world_seed: int):
 			break
 		pond_cells.append(frontier[rng.randi_range(0, frontier.size() - 1)])
 
-	# Requirement: "Hiçbir ağaç, gölün veya su birikintisinin içinde oluşmamalı"
+	# Requirement: "No tree should spawn inside a lake or pond"
 	for cell in pond_cells:
 		var data: Dictionary = cells[cell.y * SIZE + cell.x]
 		data.terrain = "water"

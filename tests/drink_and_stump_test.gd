@@ -46,7 +46,7 @@ func run():
 	level._finish_interaction(cut_evt)
 	
 	check(grid.cells[tree_cell.y * grid.SIZE + tree_cell.x].tree_state == "stump", "Tree becomes stump")
-	check(grid.traversable(tree_cell), "Ağaç kalıntısının olduğu hücreye gidilebilmeli (Stump is traversable)")
+	check(grid.traversable(tree_cell), "Tree stump cell is traversable")
 	
 	# Player steps onto stump cell
 	var moved = player.try_move(Vector2i.DOWN)

@@ -68,7 +68,7 @@ func begin(player: Vector2i, facing: Vector2i, action_group: String = "") -> boo
 	# 2. Stand on tilled soil -> plant seed
 	# 3. Face water -> fill water bottle
 	# 4. Face crop -> harvest/clear crop with hoe
-	# 5. Stand on untilled soil -> till soil under feet (Bulunduğun hücre)
+	# 5. Stand on untilled soil -> till soil under feet (Standing cell)
 	if action_group == "interact":
 		return _begin_interact(player, front, current_cell, front_cell)
 
@@ -124,7 +124,7 @@ func _is_water_cell(cell: Dictionary) -> bool:
 
 func _begin_chop_gather(player: Vector2i, front: Vector2i, current_cell: Dictionary, front_cell) -> bool:
 	# Priority 1: Standing on cut tree remains / stump (Collect seeds)
-	# Requirement: "ağaç kesildikten sonra ağaç hücresinin kalıntısının üzerine gidilebilmeli ve space tuşu ile tohum toplandıktan sonra ağaç kalıntısı yerden kaybolmalı."
+	# Requirement: "Stumps are traversable, player stands on stump and presses Space to collect seeds."
 	if current_cell.get("tree", false) and current_cell.get("tree_state") == "stump":
 		target = player
 		origin = player
@@ -137,7 +137,7 @@ func _begin_chop_gather(player: Vector2i, front: Vector2i, current_cell: Diction
 		return _start_action(player, player, "collect_seeds")
 
 	# Priority 2: Facing water source (Lake / Puddle) -> Directly drink water (Space key)
-	# Requirement: "Gölün veya su birikintisinin yanına gidildiğinde space tuşu ile su içmeli karakter"
+	# Requirement: "Facing pond or puddle -> Space key drinks water directly."
 	if front_cell != null and _is_water_cell(front_cell):
 		target = front
 		origin = player
@@ -173,7 +173,7 @@ func _begin_interact(player: Vector2i, front: Vector2i, current_cell: Dictionary
 	if front_cell != null and front_cell.get("tree",false) and front_cell.get("tree_state") == "stump" and not front_cell.get("burning",false):
 		return _start_action(player,front,"stump_removed")
 	# Priority 1: Standing on a growing seed or sapling (Watering)
-	# Requirement: "Su, yalnızca büyümekte olan tohum ya da fidanın grid hücresinin üzerine gelindiğinde sulanabilmeli."
+	# Requirement: "Water can only be poured when standing on the seed or sapling cell."
 	if current_cell.get("tree", false) and current_cell.get("tree_state") in ["seed", "sapling"] and not current_cell.get("burning",false):
 		if water_ml < WATER_PER_POUR:
 			last_error = "no_water"
@@ -188,7 +188,7 @@ func _begin_interact(player: Vector2i, front: Vector2i, current_cell: Dictionary
 		return true
 
 	# Priority 2: Standing on tilled ground without a tree (Planting seed)
-	# Requirement: "Tohum, yalnızca çapalanan toprağa ekilebilmeli ve karakter hangi grid hücresinin üzerindeyse oraya ekilebilmeli."
+	# Requirement: "Seeds can only be planted on tilled soil while standing on that cell."
 	if not current_cell.get("tree", false) and current_cell.get("tilled", false) and not current_cell.get("burning",false) and not current_cell.get("burned",false):
 		if not inventory.availability(grid,player).available:
 			last_error = "no_seeds"
@@ -226,8 +226,8 @@ func _begin_interact(player: Vector2i, front: Vector2i, current_cell: Dictionary
 		duration = 0.8
 		return true
 
-	# Priority 5: Tilling untilled soil with hoe ONLY ON CURRENT CELL (Bulunduğun hücre)
-	# Requirement: "Sadece bulunduğun hücrenin üzerindeki toprak çapalanabilir, ağaç kesme işlemi gibi bir sonraki hücredeki toprak değil."
+	# Priority 5: Tilling untilled soil with hoe ONLY ON CURRENT CELL (Standing cell)
+	# Requirement: "Only the soil on the current player cell can be tilled, not an adjacent cell."
 	if not current_cell.get("tree",false) and not current_cell.get("log",false) and not current_cell.get("berry_bush",false) and not current_cell.get("burning",false) and not _is_water_cell(current_cell) and not current_cell.get("tilled",false) and not grid._protected_route(player) and player != grid.objective:
 		target = player
 		origin = player

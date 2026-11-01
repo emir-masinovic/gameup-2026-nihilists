@@ -309,26 +309,26 @@ func _try_eat():
 		return
 	var cell_data = grid.cells[player_cell.y * grid.SIZE + player_cell.x]
 	if not cell_data.get("berry_bush", false):
-		hud.notify("Böğürtlenler sadece böğürtlen çalısının olduğu hücrede yenebilir")
+		hud.notify("Berries can only be eaten on a berry bush cell.")
 		return
 	if survival.berry_count <= 0:
-		hud.notify("No berries to eat")
+		hud.notify("No berries to eat.")
 		return
 	var health_before = survival.health
 	if survival.eat_berry():
 		$GridPlayer.start_eating()
 		if survival.health > health_before:
-			hud.notify("Böğürtlen yendi! Can yenilendi (%d/100)." % roundi(survival.health))
+			hud.notify("Berry eaten! Health restored (%d/100)." % roundi(survival.health))
 		else:
-			hud.notify("Böğürtlen yendi! Açlık giderildi (%d/10)." % roundi(survival.hunger))
+			hud.notify("Berry eaten! Hunger restored (%d/10)." % roundi(survival.hunger))
 		_update_hud()
 	else:
 		if survival.hunger >= 9.99 and survival.thirst < 9.99:
-			hud.notify("Can kazanmak için önce susuzluğunu gidermelisin (Susuzluk: %d/10)" % roundi(survival.thirst))
+			hud.notify("Must satisfy thirst before restoring health (Thirst: %d/10)." % roundi(survival.thirst))
 		elif survival.hunger >= 9.99 and survival.health >= 100.0:
-			hud.notify("Açlık ve can zaten dolu")
+			hud.notify("Hunger and health are already full.")
 		else:
-			hud.notify("Böğürtlen yenemedi")
+			hud.notify("Could not eat berry.")
 
 func _try_interact(action_group: String):
 	if interactions.target.x >= 0 or not context_action.active.is_empty(): return
@@ -337,27 +337,33 @@ func _try_interact(action_group: String):
 		if not custom.is_empty():
 			context_action.begin(custom,$GridPlayer.cell)
 			return
-		var front = $GridPlayer.cell+$GridPlayer.facing
 		var underfoot = $GridPlayer.cell
 		var harvest_target = Vector2i(-1, -1)
-		if grid.in_bounds(front) and grid.cells[front.y*grid.SIZE+front.x].get("berry_bush",false) and not grid.cells[front.y*grid.SIZE+front.x].get("water", false):
-			harvest_target = front
-		elif grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berry_bush",false) and not grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("water", false):
+		if grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berry_bush",false) and not grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("water", false):
 			harvest_target = underfoot
-		if harvest_target.x >= 0:
+		if harvest_target.x >= 0 and foraging != null:
 			var amount = foraging.harvest(harvest_target)
-			survival.add_berries(amount)
-			if amount > 0: _discover("food.first_harvest","Food gathered for the journey")
-			_update_hud()
-			return
+			if amount > 0:
+				survival.add_berries(amount)
+				_discover("food.berry_bush", "Berry bushes supply food")
+				_discover("food.first_harvest", "Food gathered for the journey")
+				hud.notify("Harvested %d berries" % amount)
+				audio_cue.emit("discovery", grid.world_position(harvest_target))
+				_update_hud()
+				return
+			else:
+				var avail = foraging.availability(harvest_target)
+				if not avail.available and not avail.reason.is_empty():
+					hud.notify(avail.reason)
+				return
 	if interactions.begin($GridPlayer.cell, $GridPlayer.facing, action_group):
 		var target_pos = grid.world_position(interactions.target)
 		var msg = ""
 		if interactions.action_kind == "drink_water":
-			msg = "Gölden su içiliyor... hareket etmek iptal eder"
+			msg = "Drinking pond water... moving cancels."
 			$GridPlayer.start_drinking(target_pos)
 		elif interactions.action_kind == "fill_water":
-			msg = "Şişeye su dolduruluyor... hareket etmek iptal eder"
+			msg = "Filling water bottle... moving cancels."
 			$GridPlayer.start_filling_water(target_pos)
 		elif interactions.action_kind == "water_soil":
 			msg = "Watering... moving cancels."
@@ -382,17 +388,14 @@ func _try_interact(action_group: String):
 		hud.notify(msg)
 	else:
 		if action_group == "chop_gather":
-			hud.notify("Ağaç kesmek veya gölden su içmek için dönün, tohum için kalıntının üzerine gelin (Space)")
+			hud.notify("Face tree to chop or water to drink, stand on remains for seeds (Space).")
 		else:
 			if _camp_active() and $GridPlayer.cell.distance_to(grid.start) <= 1.5:
 				hud.show_modal("bonfire")
 				return
-			var front = $GridPlayer.cell + $GridPlayer.facing
 			var underfoot = $GridPlayer.cell
 			var harvest_target = Vector2i(-1, -1)
-			if grid.in_bounds(front) and grid.cells[front.y * grid.SIZE + front.x].get("berry_bush", false) and foraging != null:
-				harvest_target = front
-			elif grid.in_bounds(underfoot) and grid.cells[underfoot.y * grid.SIZE + underfoot.x].get("berry_bush", false) and foraging != null:
+			if grid.in_bounds(underfoot) and grid.cells[underfoot.y * grid.SIZE + underfoot.x].get("berry_bush", false) and foraging != null:
 				harvest_target = underfoot
 			if harvest_target.x >= 0:
 				var amount: int = foraging.harvest(harvest_target)
@@ -404,10 +407,15 @@ func _try_interact(action_group: String):
 					audio_cue.emit("discovery", grid.world_position(harvest_target))
 					_update_hud()
 					return
+				else:
+					var avail = foraging.availability(harvest_target)
+					if not avail.available and not avail.reason.is_empty():
+						hud.notify(avail.reason)
+					return
 			if interactions.last_error == "no_seeds":
 				hud.notify("No seeds. Gather seeds from tree remains.")
 			elif interactions.last_error == "no_water":
-				hud.notify("Yeterli suyunuz yok. Need %d ml of water. Refill at a pond." % interactions.WATER_PER_POUR)
+				hud.notify("Not enough water. Need %d ml of water. Refill at a pond." % interactions.WATER_PER_POUR)
 			elif interactions.last_error == "water_full":
 				hud.notify("Bottle full (%d ml)." % interactions.MAX_WATER_ML)
 			else:
@@ -471,14 +479,14 @@ func _finish_interaction(event: Dictionary):
 		audio_cue.emit("discovery", grid.world_position(cell))
 		if drank:
 			if survival.health > health_before:
-				hud.notify("Gölden su içildi! Can yenilendi (%d/100)." % roundi(survival.health))
+				hud.notify("Drank pond water! Health restored (%d/100)." % roundi(survival.health))
 			else:
-				hud.notify("Gölden su içildi! Susuzluk giderildi (%d/10)." % roundi(survival.thirst))
+				hud.notify("Drank pond water! Thirst restored (%d/10)." % roundi(survival.thirst))
 		else:
 			if survival.thirst >= 9.99 and survival.hunger < 9.99:
-				hud.notify("Can kazanmak için önce açlığını gidermelisin (Açlık: %d/10)" % roundi(survival.hunger))
+				hud.notify("Must satisfy hunger before restoring health (Hunger: %d/10)." % roundi(survival.hunger))
 			elif survival.thirst >= 9.99 and survival.health >= 100.0:
-				hud.notify("Susuzluk ve can zaten dolu (%d/10)." % roundi(survival.thirst))
+				hud.notify("Thirst and health are already full (%d/10)." % roundi(survival.thirst))
 		_update_hud()
 	elif event.kind == "fill_water":
 		_discover("interaction.fill_water", "Water filled: bottle replenished from lake")
@@ -932,11 +940,7 @@ func _action_preview(group: String) -> Dictionary:
 	var front = $GridPlayer.cell+$GridPlayer.facing
 	var underfoot = $GridPlayer.cell
 	if group == "interact":
-		if grid.in_bounds(front) and grid.cells[front.y*grid.SIZE+front.x].get("berry_bush",false):
-			var berry = _descriptor(front,"berries","Berry Bush","Harvest",0.0)
-			berry.input_action = group
-			return berry
-		elif grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berry_bush",false):
+		if grid.in_bounds(underfoot) and grid.cells[underfoot.y*grid.SIZE+underfoot.x].get("berry_bush",false):
 			var berry = _descriptor(underfoot,"berries","Berry Bush","Harvest",0.0)
 			berry.input_action = group
 			return berry

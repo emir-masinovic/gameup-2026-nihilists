@@ -41,7 +41,42 @@ func run():
 	survival.thirst = 5.0
 	survival.health = 80.0
 
-	# 3. Test eating on a NON-BERRY cell
+	# 3. Test berry harvesting restriction: CANNOT harvest from adjacent cell, ONLY underfoot
+	var berry_cell = Vector2i(6, 8)
+	grid.cells[berry_cell.y * grid.SIZE + berry_cell.x].berry_bush = true
+	grid.cells[berry_cell.y * grid.SIZE + berry_cell.x].berries = 2
+	
+	# Place player at adjacent cell (5, 8) facing berry bush at (6, 8)
+	var adjacent_cell = Vector2i(5, 8)
+	grid.cells[adjacent_cell.y * grid.SIZE + adjacent_cell.x].berry_bush = false
+	player.cell = adjacent_cell
+	player.facing = Vector2i.RIGHT
+	player.position = grid.world_position(adjacent_cell)
+	
+	var preview = level._action_preview("interact")
+	check(preview.get("object_kind", "") != "berries", "Action preview does NOT select berry bush from adjacent cell")
+	
+	var interact_action = InputEventAction.new()
+	interact_action.action = "interact"
+	interact_action.pressed = true
+	var berry_count_before = survival.berry_count
+	level._unhandled_input(interact_action)
+	check(survival.berry_count == berry_count_before, "Cannot harvest berries from adjacent cell (count remains unchanged)")
+	check(grid.cells[berry_cell.y * grid.SIZE + berry_cell.x].berries == 2, "Adjacent berry bush remains unharvested (2 berries)")
+	
+	# Step ONTO the berry bush cell (6, 8)
+	player.cell = berry_cell
+	player.position = grid.world_position(berry_cell)
+	preview = level._action_preview("interact")
+	check(preview.get("object_kind", "") == "berries" and preview.get("cell") == berry_cell, "Action preview selects berry bush when standing on it")
+	
+	level._unhandled_input(interact_action)
+	check(survival.berry_count == berry_count_before + 2, "Harvesting while standing on berry bush adds 2 berries")
+	check(grid.cells[berry_cell.y * grid.SIZE + berry_cell.x].berries == 0, "Berry bush cell is now depleted")
+	var toast = hud.get_node("Toast")
+	check(toast.text.contains("Harvested 2 berries"), "English toast displayed on berry harvest")
+
+	# 4. Test eating on a NON-BERRY cell
 	var non_berry_cell = Vector2i(8, 8)
 	grid.cells[non_berry_cell.y * grid.SIZE + non_berry_cell.x].berry_bush = false
 	player.cell = non_berry_cell
@@ -52,13 +87,12 @@ func run():
 	eat_action.pressed = true
 
 	level._unhandled_input(eat_action)
-	check(survival.berry_count == 5, "Cannot eat berries on a non-berry cell (count stays 5)")
+	check(survival.berry_count == 7, "Cannot eat berries on a non-berry cell (count stays 7)")
 	check(not player.is_eating, "Player does not start eating animation on non-berry cell")
 	check(not berry_node.visible, "Berry does not appear on non-berry cell")
+	check(toast.text.contains("Berries can only be eaten on a berry bush cell"), "English toast displayed when trying to eat off-bush")
 
-	# 4. Move to a BERRY cell and eat (+3 hunger)
-	var berry_cell = Vector2i(6, 8)
-	grid.cells[berry_cell.y * grid.SIZE + berry_cell.x].berry_bush = true
+	# 5. Move to a BERRY cell and eat (+3 hunger)
 	player.cell = berry_cell
 	player.position = grid.world_position(berry_cell)
 
@@ -69,10 +103,11 @@ func run():
 	)
 
 	level._unhandled_input(eat_action)
-	check(survival.berry_count == 4, "Eating on berry cell consumes 1 berry (5 -> 4)")
+	check(survival.berry_count == 6, "Eating on berry cell consumes 1 berry (7 -> 6)")
 	check(is_equal_approx(survival.hunger, 7.0), "Hunger restored by exactly 3 units (4.0 -> 7.0)")
 	check(survival.health == 80.0, "Health not increased when hunger and thirst not full (thirst=5.0)")
 	check(player.is_eating, "Player enters eating state")
+	check(toast.text.contains("Berry eaten! Hunger restored"), "English toast displayed on eating berry")
 	check(berry_node.visible, "Berry appears in right hand at start of eating")
 
 	# 5. Advance animation - check hand raising towards visor
