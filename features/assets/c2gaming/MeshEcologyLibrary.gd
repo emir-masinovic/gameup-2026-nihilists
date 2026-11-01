@@ -1,6 +1,8 @@
 extends RefCounted
 # Ten shared meshes retain imported material colors as vertex colors for one draw each.
 const FILES = ["Flower01","Flower02","Flower03","Flower04","Flower05","Log04","Log05","Log06","Log07","Log08"]
+# Baseline flower size only; seeded instance variation and branches remain unchanged.
+const FLOWER_SCALE_MULTIPLIER = 0.58
 static var _meshes: Array[ArrayMesh] = []
 
 static func mesh_for(variant: int) -> ArrayMesh:
@@ -12,7 +14,7 @@ static func mesh_for(variant: int) -> ArrayMesh:
 			_append(scene,Transform3D.IDENTITY,surface)
 			var raw = surface.commit()
 			var box = raw.get_aabb()
-			var size = Vector3.ONE*(0.72/box.size.y) if i < 5 else Vector3(1.25/maxf(box.size.x,box.size.z),0.14/box.size.y,1.25/maxf(box.size.x,box.size.z))
+			var size = Vector3.ONE*(0.72*FLOWER_SCALE_MULTIPLIER/box.size.y) if i < 5 else Vector3(1.25/maxf(box.size.x,box.size.z),0.14/box.size.y,1.25/maxf(box.size.x,box.size.z))
 			var mesh = SurfaceTool.new()
 			mesh.begin(Mesh.PRIMITIVE_TRIANGLES)
 			mesh.append_from(raw,0,Transform3D(Basis.IDENTITY.scaled(size),-Vector3(box.get_center().x,box.position.y,box.get_center().z)*size))
