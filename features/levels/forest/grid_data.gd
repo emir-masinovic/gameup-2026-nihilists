@@ -3,6 +3,10 @@ extends RefCounted
 const SIZE = 17
 const CELL_SIZE = 2.0
 const GENERATION_VERSION = 2
+const SPACESHIP_CELLS: Array[Vector2i] = [
+	Vector2i(9, 0), Vector2i(10, 0),
+	Vector2i(9, 1), Vector2i(10, 1)
+]
 var start = Vector2i(8, 8)
 var cells: Array[Dictionary] = []
 var objective = Vector2i(8, 0)
@@ -78,8 +82,26 @@ func generate(world_seed: int):
 		data.tree_health = 0.0
 		data.fuel = 0.0
 
+	# Spaceship footprint at northern clearing edge (stands upright, 2x2 cells, free of trees/water/berries)
+	for cell in SPACESHIP_CELLS:
+		var data: Dictionary = cells[cell.y * SIZE + cell.x]
+		data.terrain = "grass"
+		data.water = false
+		data.water_level = 0.0
+		data.water_depth = 0.0
+		data.tree = false
+		data.tree_state = "removed"
+		data.tree_health = 0.0
+		data.log = false
+		data.fuel = 0.0
+		data.burning = false
+		data.burned = false
+		data.tilled = false
+		data.prepared = false
+		data.spaceship = true
+
 func _protected_route(cell: Vector2i) -> bool:
-	return cell.distance_to(start) < 2.5 or cell.x == start.x or cell.y == start.y
+	return cell.distance_to(start) < 2.5 or cell.x == start.x or cell.y == start.y or SPACESHIP_CELLS.has(cell)
 
 func in_bounds(cell: Vector2i) -> bool:
 	return cell.x >= 0 and cell.y >= 0 and cell.x < SIZE and cell.y < SIZE
@@ -88,6 +110,8 @@ func traversable(cell: Vector2i) -> bool:
 	if not in_bounds(cell):
 		return false
 	var data: Dictionary = cells[cell.y * SIZE + cell.x]
+	if data.get("spaceship", false):
+		return false
 	if data.get("tree", false):
 		var state = data.get("tree_state", "healthy")
 		# Stumps, seeds, and saplings are traversable so player can stand on them to collect seeds or water.

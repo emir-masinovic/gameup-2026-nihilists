@@ -12,6 +12,11 @@ func configure(data: RefCounted, world_seed: int, region_id: String) -> void:
 		cell_data.berry_bush = false
 		cell_data.berries = 0
 		cell_data.berry_regrowth = 0.0
+	for sc in grid.SPACESHIP_CELLS:
+		if grid.in_bounds(sc):
+			var cd: Dictionary = grid.cells[sc.y * grid.SIZE + sc.x]
+			cd.berry_bush = false
+			cd.berries = 0
 	var count: int = {"forest": 4, "wetlands": 3, "drylands": 1}.get(region_id, 1)
 	var candidates: Array[Vector2i] = []
 	for z in range(2, grid.SIZE - 2):

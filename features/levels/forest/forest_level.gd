@@ -200,6 +200,8 @@ func _ready():
 	_apply_shadow_quality()
 	if region_state.get("camp_enabled",false): _create_landmarks()
 	_update_bonfire_visuals()
+	if region_id == "forest":
+		_create_spaceship()
 	_create_kenney_props()
 	water_material = StandardMaterial3D.new()
 	water_material.albedo_color = Color("477c88")
@@ -836,12 +838,29 @@ func _update_lighting(delta: float = 0.0):
 		disc.position = grid.world_position(grid.start)+ray*42.0
 		disc.visible = ray.y > 0
 
+func _create_spaceship():
+	var ship_scene = preload("res://features/levels/forest/props/spaceship.glb")
+	var ship = ship_scene.instantiate()
+	ship.name = "Spaceship"
+	var sum_pos := Vector3.ZERO
+	for cell in grid.SPACESHIP_CELLS:
+		decorated_cells[cell] = true
+		sum_pos += grid.world_position(cell)
+	var count := float(grid.SPACESHIP_CELLS.size())
+	ship.position = sum_pos / count
+	ship.scale = Vector3.ONE * 2.0
+	# rocket_classic.glb stands upright along Y axis from Y=0 to Y=6.75 on landing fins.
+	# Facing 0.0 keeps porthole oriented towards the arriving player.
+	ship.rotation.y = 0.0
+	ship.add_to_group("forest_props")
+	add_child(ship)
+
 func _create_kenney_props():
 	var models = [preload("res://features/levels/forest/props/rock_small_a.glb"), preload("res://features/levels/forest/props/rock_small_b.glb")]
 	for i in range(grid.cells.size()):
 		var data = grid.cells[i]
 		var cell = Vector2i(i % grid.SIZE, floori(float(i) / grid.SIZE))
-		if data.tree or data.get("terrain", "grass") == "water" or cell.distance_to(grid.start) < 2.5 or cell == grid.objective or data.shade < 0.32 or data.shade > 0.36:
+		if data.tree or data.get("terrain", "grass") == "water" or cell.distance_to(grid.start) < 2.5 or cell == grid.objective or data.shade < 0.32 or data.shade > 0.36 or data.get("spaceship", false) or grid.SPACESHIP_CELLS.has(cell):
 			continue
 		var prop = models[i % 2].instantiate()
 		decorated_cells[cell] = true

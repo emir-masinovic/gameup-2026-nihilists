@@ -15,11 +15,11 @@ func soil_availability(grid: RefCounted, cell: Vector2i, occupied: bool = false)
 		reason = "Outside the forest"
 	else:
 		var data: Dictionary = grid.cells[cell.y * grid.SIZE + cell.x]
-		if occupied or data.tree or data.get("log", false) or data.get("berry_bush", false):
+		if occupied or data.tree or data.get("log", false) or data.get("berry_bush", false) or data.get("spaceship", false):
 			reason = "Cell is occupied"
 		elif data.terrain != "soil":
 			reason = "Plant on bare soil"
-		elif cell.distance_to(grid.start) < 2.5 or cell.x == grid.start.x or cell.y == grid.start.y or cell == grid.objective:
+		elif cell.distance_to(grid.start) < 2.5 or cell.x == grid.start.x or cell.y == grid.start.y or cell == grid.objective or grid.SPACESHIP_CELLS.has(cell):
 			reason = "Keep camp and trails clear"
 		elif data.get("burning", false):
 			reason = "Soil is burning"
