@@ -8,7 +8,7 @@ const FILES = {
 	"ui_back": ["back_001.ogg"],
 	"discovery": ["pluck_001.ogg"],
 	"footstep": ["SoundStepGrass.mp3"],
-	"step_mud": ["SoundStepMud.mp3"],
+	"step_mud": ["footstep_grass_000.ogg"],
 	"step_dry": ["SoundStepDry.mp3"],
 	"step_wet": ["SoundStepWet.mp3"],
 	"chop": ["impactWood_medium_000.ogg"],

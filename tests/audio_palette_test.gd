@@ -33,6 +33,8 @@ func run():
 	var palette = load("res://features/audio/SoundPalette.gd").new()
 	root.add_child(palette)
 	check(palette.ambience.voices.size() == 4,"Fixed four voices for three layers including biome crossfade")
+	check(palette._streams.step_mud[0].resource_path.ends_with("footstep_grass_000.ogg"),"Mud and cultivated soil reuse the approved existing OGG")
+	check(palette._streams.footstep[0].resource_path.ends_with("SoundStepGrass.mp3") and palette._streams.step_dry[0].resource_path.ends_with("SoundStepDry.mp3") and palette._streams.step_wet[0].resource_path.ends_with("SoundStepWet.mp3"),"Grass Dry Wet samples unchanged")
 	var controller = palette.ambience
 	controller.camera_presence = adaptive.presence(7)
 	var close = controller.category_gain("footstep")
