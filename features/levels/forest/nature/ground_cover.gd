@@ -11,6 +11,7 @@ var _appearance_seed = 0
 var _patch_noise = FastNoiseLite.new()
 var _detail_noise = FastNoiseLite.new()
 var _grass_sites: Dictionary = {}
+var baseline = OS.is_debug_build() and OS.get_cmdline_user_args().has("--grass-baseline")
 var _grid: RefCounted
 var _crack_sizes: Array[float] = []
 var _crack_targets: Array[float] = []
@@ -75,7 +76,10 @@ func _build(grid: RefCounted, model: Node3D, shrubs: bool):
 	renderer.material_override.set_shader_parameter("blade_grass",not shrubs)
 	renderer.material_override.set_shader_parameter("sway",0.045 if shrubs else 0.24)
 	renderer.material_override.set_shader_parameter("wind_height",0.3 if shrubs else 0.5)
+	if not shrubs and not baseline:
+		renderer.material_override.set_shader_parameter("view_thickening",0.35 if OS.is_debug_build() and OS.get_cmdline_user_args().has("--grass-thickening") and not OS.get_cmdline_user_args().has("--grass-no-thickening") else 0.0)
 	renderer.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	renderer.extra_cull_margin = 0.7
 	add_child(renderer)
 	var sizes: Array[float] = []
 	sizes.resize(indices.size())
@@ -221,7 +225,7 @@ func _build_cracks(grid: RefCounted):
 	_crack_targets.fill(0.0)
 
 # Three tapered, segmented blades: shared by the existing clustered MultiMesh.
-func _grass_tuft() -> ArrayMesh:
+func _grass_tuft(segments: int = 3) -> ArrayMesh:
 	var mesh = SurfaceTool.new()
 	mesh.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for blade in range(3):
@@ -231,11 +235,12 @@ func _grass_tuft() -> ArrayMesh:
 		mesh.set_color(Color(direction.x*0.5+0.5,direction.z*0.5+0.5,float(blade)/2.0,1))
 		var bend = [0.24,0.18,0.29][blade]
 		var width = [0.045,0.04,0.05][blade]
-		for segment in range(3):
-			var t0 = float(segment)/3.0
-			var t1 = float(segment+1)/3.0
+		mesh.set_uv2(Vector2(width,bend))
+		for segment in range(segments):
+			var t0 = float(segment)/segments
+			var t1 = float(segment+1)/segments
 			var vertices = [Vector2(t0,-1),Vector2(t0,1),Vector2(t1,1)]
-			if segment < 2: vertices.append_array([Vector2(t0,-1),Vector2(t1,1),Vector2(t1,-1)])
+			if segment < segments-1: vertices.append_array([Vector2(t0,-1),Vector2(t1,1),Vector2(t1,-1)])
 			for vertex in vertices:
 				var t: float = vertex.x
 				var center = Vector3.UP*t*0.5+direction*(0.03*t+bend*t*t)
@@ -245,6 +250,7 @@ func _grass_tuft() -> ArrayMesh:
 				mesh.set_normal((face*0.45+Vector3.UP*0.7+side*vertex.y*0.35).normalized())
 				mesh.set_uv(Vector2((vertex.y+1.0)*0.5,t))
 				mesh.add_vertex(center+side*vertex.y*pow(1.0-t,0.9)*width)
+	if not baseline: mesh.index()
 	return mesh.commit()
 
 func set_wind(state: Dictionary):

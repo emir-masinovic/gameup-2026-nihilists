@@ -6,6 +6,8 @@ uniform float canopy_density = 1.0;
 varying vec3 leaf_position;
 uniform bool instance_health = false;
 uniform bool blade_grass = false;
+uniform float view_thickening : hint_range(0.0, 0.6) = 0.0;
+uniform float lod_straighten : hint_range(0.0,1.0) = 0.0;
 varying float blade_height;
 varying vec3 blade_tint;
 varying float vitality;
@@ -47,6 +49,15 @@ void vertex() {
     int index = clamp(cell.y*17+cell.x,0,288);
     float exposure = shelter_enabled ? wind_exposure[index/4][index%4] : 1.0;
     VERTEX += local_direction * exposure * (0.6 + wave * 0.4) * gust * wind_strength * 1.8 * sway * height * height * vigor;
+    if (blade_grass && view_thickening > 0.0) {
+        vec3 blade_axis = normalize(vec3(COLOR.r*2.0-1.0,0.0,COLOR.g*2.0-1.0));
+        vec3 face = normalize((MODEL_MATRIX*vec4(blade_axis,0.0)).xyz);
+        vec3 view = PROJECTION_MATRIX[3][3] > 0.5 ? INV_VIEW_MATRIX[2].xyz : normalize(CAMERA_POSITION_WORLD-world);
+        float facing = abs(dot(face,view));
+        float edge = (1.0-facing)*smoothstep(0.02,0.25,facing);
+        vec3 right_local = normalize(vec3(MODELVIEW_MATRIX[0].x,MODELVIEW_MATRIX[1].x,MODELVIEW_MATRIX[2].x));
+        VERTEX += right_local * (UV.x*2.0-1.0) * 0.05 * view_thickening * edge * sin(UV.y*3.14159265) * (1.0-lod_straighten);
+    }
 }
 void fragment() {
     if (bare) { discard; }
