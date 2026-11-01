@@ -58,6 +58,9 @@ var rates: Dictionary = {
 	"berry_water": 0.0,
 	"drink_water": 3.0,
 	"heal_amount": 10.0,
+	"regen_rate_8": 2.0,
+	"regen_rate_9": 4.0,
+	"regen_rate_10": 5.0,
 }
 
 func tick(seconds: float, temperature: float, shade: float, safe: bool, heat_resistance: bool, context: Dictionary = {}) -> void:
@@ -117,6 +120,9 @@ func tick(seconds: float, temperature: float, shade: float, safe: bool, heat_res
 			damage((float(rates.temperature_damage) + severity * float(rates.temperature_severity)) * step)
 		if safe and not dead:
 			health = minf(100.0, health + float(rates.camp_healing) * step)
+		var regen = get_health_regen_rate()
+		if regen > 0.0 and not dead and health < 100.0:
+			health = minf(100.0, health + regen * step)
 		# Depleted reserves cause gradual damage; camp does not refill food/water.
 		var critical = float(rates.critical_reserve)
 		var hunger_penalty = clampf((critical - hunger) / critical, 0.0, 1.0) * float(rates.hunger_damage)
@@ -180,3 +186,17 @@ func _context_fraction(context: Dictionary, key: String, fallback: float) -> flo
 	if (value is float or value is int) and is_finite(float(value)):
 		return clampf(float(value), 0.0, 1.0)
 	return fallback
+
+func get_health_regen_rate() -> float:
+	if dead:
+		return 0.0
+	var h = roundi(hunger)
+	var t = roundi(thirst)
+	var min_val = mini(h, t)
+	if min_val >= 10:
+		return float(rates.get("regen_rate_10", 5.0))
+	elif min_val == 9:
+		return float(rates.get("regen_rate_9", 4.0))
+	elif min_val == 8:
+		return float(rates.get("regen_rate_8", 2.0))
+	return 0.0

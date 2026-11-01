@@ -277,6 +277,8 @@ func _process(delta):
 			if not warned_fire:
 				hud.notify("Fire nearby: retreat to wet ground or a cleared route")
 				warned_fire = true
+		if survival.health > health_before:
+			_spawn_health_popup("+5", Color("4ebd5f"), "heal")
 		if climate.weather != last_weather:
 			last_weather = climate.weather
 			audio_cue.emit("weather_" + last_weather, $GridPlayer.position)
