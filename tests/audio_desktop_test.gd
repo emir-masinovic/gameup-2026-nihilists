@@ -89,6 +89,25 @@ func run():
 	current_scene.climate.tick(1)
 	controller._sample(current_scene)
 	check(controller.targets[3] == -80,"Clear weather silences rain target")
+	var scene_camera = root.get_camera_3d()
+	var old_mode = scene_camera.get_parent().mode
+	scene_camera.get_parent().mode = "Follow Player"
+	var old_projection = scene_camera.projection
+	var old_size = scene_camera.size
+	var sfx_volume = AudioServer.get_bus_volume_db(bus)
+	scene_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+	scene_camera.size = 56
+	for frame in range(90): controller._process(1.0/60.0)
+	var far_presence = controller.camera_presence
+	scene_camera.size = 5
+	controller._process(1.0/60.0)
+	check(controller.camera_presence > far_presence and controller.camera_presence < 0.5,"Zoom changes gain gradually instead of jumping")
+	for frame in range(90): controller._process(1.0/60.0)
+	check(controller.camera_presence > 0.95,"Close camera approaches intimate mix")
+	check(AudioServer.get_bus_volume_db(bus) == sfx_volume,"User SFX bus volume remains authoritative")
+	scene_camera.get_parent().mode = old_mode
+	scene_camera.projection = old_projection
+	scene_camera.size = old_size
 	paused = true
 	controller._process(0.1)
 	check(controller.voices[2].stream_paused,"Pause suspends environment playback")

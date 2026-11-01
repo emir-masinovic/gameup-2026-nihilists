@@ -105,6 +105,21 @@ func run():
 		grid.cells[faced.y*grid.SIZE+faced.x].tree_state = "sapling"
 		check(interactions.begin(player.cell,player.facing,"interact") and interactions.target == faced and interactions.action_kind == "harvest_crop","Interact uses the same facing for juvenile removal")
 		interactions.cancel()
+	var contacts = {"count":0}
+	player.step_contact.connect(func(_cell): contacts.count += 1)
+	grid.cells[(player.cell.y+player.facing.y)*grid.SIZE+player.cell.x+player.facing.x].tree_state = "healthy"
+	check(not player.try_move(player.facing) and contacts.count == 0,"Blocked input never produces contact")
+	var landing = player.cell+Vector2i.RIGHT
+	grid.cells[landing.y*grid.SIZE+landing.x].merge({"tree":false,"terrain":"soil","water":false,"log":false,"tilled":true},true)
+	check(player.try_move(Vector2i.RIGHT) and contacts.count == 0,"Successful movement waits for landing audio")
+	player._update_animation(0.13)
+	check(contacts.count == 1,"Animation foot plant emits one contact on farmland")
+	player.emit_step_contact()
+	check(contacts.count == 1,"Tween completion fallback cannot duplicate animation contact")
+	player.move_tween.kill()
+	player.moving = false
+	player._update_animation(0.2)
+	check(contacts.count == 1,"Idle never retriggers contact")
 	player.free()
 	
 	print("TREE CHOP FACING TEST: ", checks, " checks, ", failures, " failures")

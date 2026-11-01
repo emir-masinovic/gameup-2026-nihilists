@@ -1,5 +1,7 @@
 extends Node3D
 signal cell_entered(cell: Vector2i)
+signal step_contact(cell: Vector2i)
+var _step_contact_pending = false
 signal chop_impact(impact_position: Vector3)
 signal till_impact(impact_position: Vector3)
 signal water_fill_splash(impact_position: Vector3)
@@ -19,6 +21,7 @@ var camera_controlled = false:
 			if is_instance_valid(move_tween): move_tween.kill()
 			moving = false
 			position = grid.world_position(cell) # Finish the already committed grid step.
+			emit_step_contact()
 var require_release = false
 var move_tween: Tween
 var _screen_directions: Dictionary = {}
@@ -209,11 +212,14 @@ func try_move(direction: Vector2i) -> bool:
 	if not grid.traversable(target):
 		return false
 	moving = true
+	_step_contact_pending = true
 	cell = target
 	cell_entered.emit(cell)
 	move_tween = create_tween()
 	move_tween.tween_property(self, "position", grid.world_position(cell), 0.16).set_trans(Tween.TRANS_SINE)
-	move_tween.finished.connect(func(): moving = false)
+	move_tween.finished.connect(func():
+		moving = false
+		emit_step_contact())
 	return true
 
 # Grid collision occupies one tile; include the astronaut's interpolating body
@@ -229,3 +235,9 @@ func growth_occupied_cells() -> Array[Vector2i]:
 			if grid.in_bounds(candidate) and absf(offset.x) < half_width and absf(offset.z) < half_width and not occupied.has(candidate):
 				occupied.append(candidate)
 	return occupied
+
+# Animation contact is preferred; tween completion covers low frame rates.
+func emit_step_contact():
+	if not _step_contact_pending: return
+	_step_contact_pending = false
+	step_contact.emit(cell)

@@ -91,6 +91,7 @@ func _ready():
 	$HUD.add_child(hud)
 	hud.world = self
 	$GridPlayer.cell_entered.connect(_on_cell_entered)
+	$GridPlayer.step_contact.connect(_on_step_contact)
 
 	farmland_container = get_node_or_null("Farmland")
 	if farmland_container == null:
@@ -318,14 +319,12 @@ func _try_interact(action_group: String):
 		elif interactions.action_kind == "tree_cut":
 			msg = "Ağaç kesiliyor... hareket etmek iptal eder"
 			$GridPlayer.start_chopping(target_pos)
-			audio_cue.emit("chop", $GridPlayer.position)
 		elif interactions.action_kind == "collect_seeds":
 			msg = "Tohum toplanıyor... hareket etmek iptal eder"
 			$GridPlayer.start_gathering(target_pos)
 		elif interactions.action_kind == "stump_removed":
 			msg = "Removing stump... moving cancels the action"
 			$GridPlayer.start_chopping(target_pos)
-			audio_cue.emit("chop", $GridPlayer.position)
 		hud.notify(msg)
 	else:
 		if action_group == "chop_gather":
@@ -363,7 +362,6 @@ func _on_cell_entered(cell: Vector2i):
 		return
 	_discover("region." + region_id, regions.region_name(region_id) + " surveyed")
 	climate.trample(cell)
-	audio_cue.emit("footstep", grid.world_position(cell))
 	var here = grid.cells[cell.y * grid.SIZE + cell.x]
 	if here.get("berry_bush", false):
 		_discover("food.berry_bush", "Berry bushes supply food")
@@ -1054,7 +1052,17 @@ func _update_or_create_crop_indicator(cell: Vector2i, type: String, progress_val
 	if indicator.has_method("update_state"):
 		indicator.update_state(type, progress_val)
 
+func _on_step_contact(cell: Vector2i):
+	if not transitioning and not ended and not get_tree().paused:
+		audio_cue.emit("footstep",grid.world_position(cell))
+
 func _on_chop_impact(pos: Vector3):
+	if get_tree().paused or ended or transitioning or not $GridPlayer.is_chopping: return
+	var target = interactions.target
+	if not grid.in_bounds(target) or interactions.action_kind not in ["tree_cut","stump_removed"]: return
+	if $GridPlayer.cell != interactions.origin or target != $GridPlayer.cell+$GridPlayer.facing: return
+	if interactions.kind_for(grid.cells[target.y*grid.SIZE+target.x]) != interactions.action_kind: return
+	audio_cue.emit("chop",grid.world_position(target))
 	if wood_chips != null:
 		wood_chips.position = pos
 		wood_chips.restart()

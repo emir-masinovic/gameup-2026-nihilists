@@ -133,6 +133,7 @@ func _update_animation(delta: float):
 			# Foot plant & impact cushion phase (t >= 0.72)
 			if not _step_planted:
 				_step_planted = true
+				if get_parent().has_method("emit_step_contact"): get_parent().emit_step_contact()
 				if _step_dust != null:
 					var boot_offset_x = -0.13 if (_step_count % 2 == 1) else 0.13
 					_step_dust.position = Vector3(boot_offset_x, 0.02, 0.0)

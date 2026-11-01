@@ -13,6 +13,8 @@ var detail_clock = 12.0
 var detail_voice: AudioStreamPlayer
 var rng = RandomNumberGenerator.new()
 var output = false
+var camera_presence = 0.5
+var detail_level = -29.0
 
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -41,9 +43,32 @@ func load_optional(id: String):
 static func surface(data: Dictionary) -> String:
 	if (data.get("water",false) or data.get("terrain","") == "water") and maxf(data.get("water_depth",0.0),data.get("water_level",0.0)) > 0.02: return "wet"
 	var moisture: float = data.get("moisture",0.5)
-	if moisture >= 0.8: return "mud"
-	if data.get("tilled",false) or data.get("terrain","") == "soil" or moisture < 0.35 or data.get("health",1.0) < 0.35: return "dry"
-	return "grass"
+	var terrain: String = data.get("terrain","grass")
+	if data.get("tilled",false) or data.get("prepared",false): return "mud"
+	# Match the renderer's vegetation vitality and eligibility, not wetness alone.
+	var vitality = minf(data.get("health",1.0),moisture*1.65)
+	var grass = terrain == "grass" and not data.get("burning",false) and (not data.get("burned",false) or data.get("burn_recovery",0.0) >= 0.2)
+	if grass and vitality >= 0.55: return "grass"
+	if moisture >= 0.8 and (not grass or vitality < 0.4): return "mud"
+	if terrain in ["sand","soil"] or moisture < 0.35 or vitality < 0.35: return "dry"
+	return "grass" if grass and vitality >= 0.4 else "dry"
+
+static func presence(framing: float) -> float:
+	return 1.0-smoothstep(7.0,56.0,framing)
+
+static func camera_framing(camera: Camera3D, player: Node3D) -> float:
+	var distance = camera.global_position.distance_to(player.global_position)/1.4
+	var mode = camera.get_parent().get("mode")
+	if mode is String and mode == "Free Camera":
+		return maxf(camera.size,distance) if camera.projection == Camera3D.PROJECTION_ORTHOGONAL else distance
+	return camera.size if camera.projection == Camera3D.PROJECTION_ORTHOGONAL else distance
+
+func category_gain(category: String) -> float:
+	if category == "footstep": return lerpf(0.55,1.10,camera_presence)
+	if category == "detail": return lerpf(0.50,1.15,camera_presence)
+	if category == "chop" or category == "tree_fall": return lerpf(0.70,1.05,camera_presence)
+	if category == "ambience": return lerpf(0.80,1.05,camera_presence)
+	return 1.0
 
 static func mix(strength: float, rain: bool, canopy: float, exposure: float, health: float) -> Vector3:
 	return Vector3(0.035+0.055*clampf(health,0,1), 0.14*pow(clampf(strength,0,1),1.5)*lerpf(0.4,1.0,clampf(exposure,0,1)), (0.12*(1.0-0.5*clampf(canopy,0,1))) if rain else 0.0)
@@ -66,6 +91,12 @@ func _process(delta):
 	for voice in voices: voice.stream_paused = suspended
 	detail_voice.stream_paused = suspended
 	if suspended: return
+	if is_instance_valid(world):
+		var camera = get_viewport().get_camera_3d()
+		var player = world.get_node_or_null("GridPlayer")
+		if camera != null and player != null:
+			camera_presence = lerpf(camera_presence,presence(camera_framing(camera,player)),1.0-exp(-delta*4.0))
+	detail_voice.volume_db = detail_level+linear_to_db(category_gain("detail"))
 	poll -= delta
 	if poll <= 0.0:
 		poll = 0.2
@@ -87,7 +118,8 @@ func _process(delta):
 		if id == "SoundFrog" and world.grid.cells[world.get_node("GridPlayer").cell.y*world.grid.SIZE+world.get_node("GridPlayer").cell.x].health < 0.35: return
 		if streams.get(id) != null and not detail_voice.playing:
 			detail_voice.stream = streams[id]
-			detail_voice.volume_db = rng.randf_range(-31,-27)
+			detail_level = rng.randf_range(-31,-27)
+			detail_voice.volume_db = detail_level+linear_to_db(category_gain("detail"))
 			if output: detail_voice.play()
 
 func _sample(world):
@@ -110,9 +142,9 @@ func _sample(world):
 		voices[active_biome].volume_db = SILENT
 		voices[active_biome].stream = streams.get(next)
 		biome = next
-	targets[active_biome] = linear_to_db(levels.x)
+	targets[active_biome] = linear_to_db(levels.x*category_gain("ambience"))
 	for i in range(2,4):
 		var stream = streams.get("wind" if i == 2 else "rain")
 		if voices[i].stream != stream: voices[i].stream = stream
 		var gain = levels.y if i == 2 else levels.z
-		targets[i] = linear_to_db(gain) if gain > 0.0001 else SILENT
+		targets[i] = linear_to_db(gain*category_gain("ambience")) if gain > 0.0001 else SILENT

@@ -25,6 +25,8 @@ var _last_played: Dictionary = {}
 var _variation: Dictionary = {}
 var _ui_voices: Array[AudioStreamPlayer] = []
 var _world_voices: Array[AudioStreamPlayer3D] = []
+var _voice_levels: Array[float] = []
+var _voice_categories: Array[String] = []
 var _world_ref: WeakRef
 var ambience: Node
 var footstep_surface = "grass"
@@ -106,6 +108,8 @@ func attach_world(world: Node3D):
 		voice.panning_strength = 0.55
 		world.add_child(voice)
 		_world_voices.append(voice)
+		_voice_levels.append(-80.0)
+		_voice_categories.append("")
 
 func _detach_world():
 	if is_instance_valid(ambience): ambience.attach_world(null)
@@ -122,6 +126,8 @@ func _detach_world():
 			voice.stream = null
 			voice.queue_free()
 	_world_voices.clear()
+	_voice_levels.clear()
+	_voice_categories.clear()
 	_world_ref = null
 	_world_index = 0
 
@@ -161,6 +167,11 @@ func play_cue(cue: String, at: Vector3 = Vector3.ZERO) -> bool:
 			_step_variation += 1
 			voice.pitch_scale = 0.97+0.015*(_step_variation%5)
 			voice.volume_db -= float(_step_variation%3)*0.5
+		var slot = (_world_index-1)%WORLD_VOICE_LIMIT
+		if cue == "footstep" and footstep_surface == "mud": voice.volume_db -= 4.0
+		_voice_levels[slot] = voice.volume_db
+		_voice_categories[slot] = cue
+		voice.volume_db += linear_to_db(ambience.category_gain(cue))
 		if _has_audio_output:
 			voice.play()
 	else:
@@ -174,3 +185,10 @@ func play_cue(cue: String, at: Vector3 = Vector3.ZERO) -> bool:
 	_last_played[cue] = now
 	played_counts[cue] = played_counts.get(cue, 0) + 1
 	return true
+
+func _process(delta):
+	if get_tree().paused: return
+	for i in range(_world_voices.size()):
+		var voice = _world_voices[i]
+		var target = _voice_levels[i]+linear_to_db(ambience.category_gain(_voice_categories[i]))
+		voice.volume_db = lerpf(voice.volume_db,target,1.0-exp(-delta*4.0))
