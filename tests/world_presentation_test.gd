@@ -66,6 +66,8 @@ func run():
 
 	var clouds = world.effects.clouds
 	check(clouds.batches.size() == 4 and clouds.batches.all(func(batch): return batch.multimesh.instance_count == 8),"Four reusable cloud types keep the pool at32 slots")
+	check(clouds.batches.all(func(batch): return batch.multimesh.mesh.get_faces().size() == 1084*3),"Imported c2Gaming cloud geometry retains source triangles")
+	check(clouds.batches[1].multimesh.mesh == clouds.batches[3].multimesh.mesh,"Rain and puff batches reuse the same cached imported mesh")
 	var cloud_pool = clouds.batches[0].multimesh.get_instance_id()
 	clouds.weather = "clear"
 	clouds._process(20.0)

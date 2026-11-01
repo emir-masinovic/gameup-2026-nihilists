@@ -40,27 +40,7 @@ func configure(world_seed: int):
 	coverage = DEFAULTS.count*DEFAULTS.clear_density
 
 func _make_cloud(variant: int) -> ArrayMesh:
-	var shapes = [
-		[Vector3(-0.7,0,0),Vector3(0.3,0.25,0),Vector3(1,0,0)],
-		[Vector3(-1,0,0),Vector3(0,0.5,0),Vector3(1,0,0),Vector3(0,0,0.6)],
-		[Vector3(-1.7,0,0),Vector3(-0.6,0.2,0),Vector3(0.7,0.1,0),Vector3(1.8,0,0)],
-		[Vector3(-1.2,0,0),Vector3(0,0.35,0),Vector3(1.2,0,0),Vector3(0,0,-0.65)]]
-	var sphere = SphereMesh.new()
-	sphere.radius = 0.9
-	sphere.height = 1.8
-	sphere.radial_segments = 7
-	sphere.rings = 3
-	var faces = sphere.get_faces()
-	var mesh = SurfaceTool.new()
-	mesh.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for offset in shapes[variant]:
-		for i in range(0,faces.size(),3):
-			var a = faces[i]*Vector3(1,0.6,0.8)+offset
-			var b = faces[i+1]*Vector3(1,0.6,0.8)+offset
-			var c = faces[i+2]*Vector3(1,0.6,0.8)+offset
-			mesh.set_normal((b-a).cross(c-a).normalized())
-			for at in [a,b,c]: mesh.add_vertex(at)
-	return mesh.commit()
+	return preload("res://features/assets/c2gaming/MeshCloudLibrary.gd").mesh_for(variant)
 
 func value(key: String):
 	return preview.get(key,DEFAULTS.get(key))

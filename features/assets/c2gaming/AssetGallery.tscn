@@ -1,0 +1,917 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Cloud_01.fbx" id="1_8svkh"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Cloud_02.fbx" id="2_vbyx4"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Cloud_03.fbx" id="3_pqoeg"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Tree01.fbx" id="4_p0vkc"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Tree02.fbx" id="5_6j0qb"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Tree03.fbx" id="6_t5446"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Tree04.fbx" id="7_l2b6s"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/DeadTree01.fbx" id="8_w6fmc"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/DeadTree02.fbx" id="9_prvp2"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/DeadTree03.fbx" id="10_7dj35"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/DeadTree04.fbx" id="11_u300k"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Flower01.fbx" id="12_7jpi4"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Flower02.fbx" id="13_rg5u8"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Flower03.fbx" id="14_8l6y7"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Flower04.fbx" id="15_nx3cv"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Flower05.fbx" id="16_01tsx"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Grass01.fbx" id="17_ffqn6"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Log01.fbx" id="18_cv20i"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Log02.fbx" id="19_03784"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Log03.fbx" id="20_b112b"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Log04.fbx" id="21_xeaaw"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Log05.fbx" id="22_px8eg"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Log06.fbx" id="23_p5sdw"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Log07.fbx" id="24_k7whg"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Log08.fbx" id="25_kocsv"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Log09.fbx" id="26_ab0sl"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Rock01.fbx" id="27_aho6v"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Rock02.fbx" id="28_erquk"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Rock03.fbx" id="29_h0mha"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Rock04.fbx" id="30_7uxr3"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Rock05.fbx" id="31_o1nav"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Rock06.fbx" id="32_gqirs"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Rock07.fbx" id="33_c237u"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Rock08.fbx" id="34_4is5o"]
+[ext_resource type="PackedScene" path="res://features/assets/c2gaming/Rock09.fbx" id="35_k15i5"]
+
+[sub_resource type="Environment" id="Environment_5jays"]
+background_mode = 1
+background_color = Color(0.14, 0.17, 0.2, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.85, 0.88, 0.92, 1)
+ambient_light_energy = 0.35
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bm5jl"]
+albedo_color = Color(0.22, 0.25, 0.28, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_t52vc"]
+material = SubResource("StandardMaterial3D_bm5jl")
+size = Vector3(70, 0.12, 61)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ch8vh"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_kk4sw"]
+material = SubResource("StandardMaterial3D_ch8vh")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wtl0w"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_veujc"]
+material = SubResource("StandardMaterial3D_wtl0w")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0kvij"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_mc2wn"]
+material = SubResource("StandardMaterial3D_0kvij")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_axbwn"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_vmaio"]
+material = SubResource("StandardMaterial3D_axbwn")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_uneng"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_iap36"]
+material = SubResource("StandardMaterial3D_uneng")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_k5ts7"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_gglk0"]
+material = SubResource("StandardMaterial3D_k5ts7")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_vbvql"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_gcxtf"]
+material = SubResource("StandardMaterial3D_vbvql")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6i3ng"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_mfgok"]
+material = SubResource("StandardMaterial3D_6i3ng")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_us18g"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_snxpn"]
+material = SubResource("StandardMaterial3D_us18g")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ld52q"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ftkea"]
+material = SubResource("StandardMaterial3D_ld52q")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_osggq"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_s2efs"]
+material = SubResource("StandardMaterial3D_osggq")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0ydd7"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_8jlsm"]
+material = SubResource("StandardMaterial3D_0ydd7")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_f2gf3"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_q4gqt"]
+material = SubResource("StandardMaterial3D_f2gf3")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_il1vx"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ocjcw"]
+material = SubResource("StandardMaterial3D_il1vx")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3yxar"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_8n6eu"]
+material = SubResource("StandardMaterial3D_3yxar")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fb856"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_pmv5k"]
+material = SubResource("StandardMaterial3D_fb856")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_grelx"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_5wkue"]
+material = SubResource("StandardMaterial3D_grelx")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0iscv"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_q48pr"]
+material = SubResource("StandardMaterial3D_0iscv")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_honh5"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_owv4h"]
+material = SubResource("StandardMaterial3D_honh5")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_s6e12"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_lpyo4"]
+material = SubResource("StandardMaterial3D_s6e12")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_0tpmp"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_23j4k"]
+material = SubResource("StandardMaterial3D_0tpmp")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_n0gqd"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_idaup"]
+material = SubResource("StandardMaterial3D_n0gqd")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bo576"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_kqexa"]
+material = SubResource("StandardMaterial3D_bo576")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ewlop"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_oa535"]
+material = SubResource("StandardMaterial3D_ewlop")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_oa6cp"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_c7ggf"]
+material = SubResource("StandardMaterial3D_oa6cp")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3u3tv"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_vkdyn"]
+material = SubResource("StandardMaterial3D_3u3tv")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_jtij4"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ajn38"]
+material = SubResource("StandardMaterial3D_jtij4")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_b86wi"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_af4q2"]
+material = SubResource("StandardMaterial3D_b86wi")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ym0ed"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_xrcyb"]
+material = SubResource("StandardMaterial3D_ym0ed")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_x1ogf"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_100cs"]
+material = SubResource("StandardMaterial3D_x1ogf")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_32367"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_352qc"]
+material = SubResource("StandardMaterial3D_32367")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ggrfa"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ugsba"]
+material = SubResource("StandardMaterial3D_ggrfa")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_c0evp"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wa10k"]
+material = SubResource("StandardMaterial3D_c0evp")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_vhayy"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_71l77"]
+material = SubResource("StandardMaterial3D_vhayy")
+size = Vector3(5.7, 0.1, 5.7)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xmg3l"]
+albedo_color = Color(0.3, 0.33, 0.36, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_xo8qv"]
+material = SubResource("StandardMaterial3D_xmg3l")
+size = Vector3(5.7, 0.1, 5.7)
+
+[node name="AssetGallery" type="Node3D" unique_id=474513564]
+
+[node name="Environment" type="WorldEnvironment" parent="." unique_id=106699588]
+environment = SubResource("Environment_5jays")
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=125619100]
+transform = Transform3D(0.8660254, 0.40957603, -0.28678823, 0, 0.57357645, 0.81915206, 0.5, -0.7094065, 0.49673176, 0, 0, 0)
+light_energy = 0.65
+
+[node name="Floor" type="MeshInstance3D" parent="." unique_id=834417399]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23, -0.12, 23)
+mesh = SubResource("BoxMesh_t52vc")
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1693839120]
+transform = Transform3D(1, 0, 0, 0, 0.6733297, 0.73934233, 0, -0.73934233, 0.6733297, 25, 56, 74)
+projection = 1
+current = true
+size = 66.0
+far = 180.0
+
+[node name="Clouds" type="Node3D" parent="." unique_id=623441074]
+
+[node name="@Label3D@9" type="Label3D" parent="Clouds" unique_id=2050146589]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 1, 0)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Clouds"
+font_size = 42
+outline_size = 6
+
+[node name="Cloud_01Stand" type="MeshInstance3D" parent="Clouds" unique_id=852874043]
+mesh = SubResource("BoxMesh_kk4sw")
+
+[node name="Cloud_01" type="Node3D" parent="Clouds" unique_id=999677857 instance=ExtResource("1_8svkh")]
+transform = Transform3D(0.20589177, 0, 0, 0, 0.20589177, 0, 0, 0, 0.20589177, 0.006696054, 0.38759893, -0.036622614)
+
+[node name="Cloud_01Label" type="Label3D" parent="Clouds" unique_id=1928562264]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 3)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Cloud_01.fbx"
+outline_size = 6
+
+[node name="Cloud_02Stand" type="MeshInstance3D" parent="Clouds" unique_id=2035295095]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 0, 0)
+mesh = SubResource("BoxMesh_veujc")
+
+[node name="Cloud_02" type="Node3D" parent="Clouds" unique_id=209090159 instance=ExtResource("2_vbyx4")]
+transform = Transform3D(0.25611946, 0, 0, 0, 0.25611946, 0, 0, 0, 0.25611946, 6.550044, 0.461408, 0.015747823)
+
+[node name="Cloud_02Label" type="Label3D" parent="Clouds" unique_id=301092882]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 0.25, 3)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Cloud_02.fbx"
+outline_size = 6
+
+[node name="Cloud_03Stand" type="MeshInstance3D" parent="Clouds" unique_id=244063882]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 0, 0)
+mesh = SubResource("BoxMesh_mc2wn")
+
+[node name="Cloud_03" type="Node3D" parent="Clouds" unique_id=78956170 instance=ExtResource("3_pqoeg")]
+transform = Transform3D(0.32852894, 0, 0, 0, 0.32852894, 0, 0, 0, 0.32852894, 13.057018, 0.6263424, 0.020147689)
+
+[node name="Cloud_03Label" type="Label3D" parent="Clouds" unique_id=672859235]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 0.25, 3)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Cloud_03.fbx"
+outline_size = 6
+
+[node name="Trees" type="Node3D" parent="." unique_id=554671790]
+
+[node name="@Label3D@10" type="Label3D" parent="Trees" unique_id=236667720]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 1, 8)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Trees"
+font_size = 42
+outline_size = 6
+
+[node name="Tree01Stand" type="MeshInstance3D" parent="Trees" unique_id=1181475628]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 8)
+mesh = SubResource("BoxMesh_vmaio")
+
+[node name="Tree01" type="Node3D" parent="Trees" unique_id=545043653 instance=ExtResource("4_p0vkc")]
+transform = Transform3D(0.5818704, 0, 0, 0, 0.5818704, 0, 0, 0, 0.5818704, 0.349764, 0.20546767, 7.7808256)
+
+[node name="Tree01Label" type="Label3D" parent="Trees" unique_id=1957067131]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 11)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Tree01.fbx"
+outline_size = 6
+
+[node name="Tree02Stand" type="MeshInstance3D" parent="Trees" unique_id=1372336581]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 0, 8)
+mesh = SubResource("BoxMesh_iap36")
+
+[node name="Tree02" type="Node3D" parent="Trees" unique_id=272056822 instance=ExtResource("5_6j0qb")]
+transform = Transform3D(0.58152753, 0, 0, 0, 0.58152753, 0, 0, 0, 0.58152753, 6.809427, 0.20538202, 8.023152)
+
+[node name="Tree02Label" type="Label3D" parent="Trees" unique_id=960823192]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 0.25, 11)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Tree02.fbx"
+outline_size = 6
+
+[node name="Tree03Stand" type="MeshInstance3D" parent="Trees" unique_id=210513670]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 0, 8)
+mesh = SubResource("BoxMesh_gglk0")
+
+[node name="Tree03" type="Node3D" parent="Trees" unique_id=55438187 instance=ExtResource("6_t5446")]
+transform = Transform3D(0.6903064, 0, 0, 0, 0.6903064, 0, 0, 0, 0.6903064, 12.832495, 0.23257677, 7.6853747)
+
+[node name="Tree03Label" type="Label3D" parent="Trees" unique_id=761287736]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 0.25, 11)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Tree03.fbx"
+outline_size = 6
+
+[node name="Tree04Stand" type="MeshInstance3D" parent="Trees" unique_id=886658433]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 19.5, 0, 8)
+mesh = SubResource("BoxMesh_gcxtf")
+
+[node name="Tree04" type="Node3D" parent="Trees" unique_id=1527282463 instance=ExtResource("7_l2b6s")]
+transform = Transform3D(0.61062247, 0, 0, 0, 0.61062247, 0, 0, 0, 0.61062247, 19.602499, 0.21265577, 7.949977)
+
+[node name="Tree04Label" type="Label3D" parent="Trees" unique_id=1858476999]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 19.5, 0.25, 11)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Tree04.fbx"
+outline_size = 6
+
+[node name="DeadTrees" type="Node3D" parent="." unique_id=176749613]
+
+[node name="@Label3D@11" type="Label3D" parent="DeadTrees" unique_id=2069844189]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 1, 16)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Dead Trees"
+font_size = 42
+outline_size = 6
+
+[node name="DeadTree01Stand" type="MeshInstance3D" parent="DeadTrees" unique_id=10137694]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 16)
+mesh = SubResource("BoxMesh_mfgok")
+
+[node name="DeadTree01" type="Node3D" parent="DeadTrees" unique_id=1814931282 instance=ExtResource("8_w6fmc")]
+transform = Transform3D(0.8378279, 0, 0, 0, 0.8378279, 0, 0, 0, 0.8378279, 0.038825937, 0.25898427, 15.55237)
+
+[node name="DeadTree01Label" type="Label3D" parent="DeadTrees" unique_id=947250284]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 19)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "DeadTree01.fbx"
+outline_size = 6
+
+[node name="DeadTree02Stand" type="MeshInstance3D" parent="DeadTrees" unique_id=1393755373]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 0, 16)
+mesh = SubResource("BoxMesh_snxpn")
+
+[node name="DeadTree02" type="Node3D" parent="DeadTrees" unique_id=2119629191 instance=ExtResource("9_prvp2")]
+transform = Transform3D(0.80877733, 0, 0, 0, 0.80877733, 0, 0, 0, 0.80877733, 6.5312853, 0.2621944, 16.005754)
+
+[node name="DeadTree02Label" type="Label3D" parent="DeadTrees" unique_id=21120552]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 0.25, 19)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "DeadTree02.fbx"
+outline_size = 6
+
+[node name="DeadTree03Stand" type="MeshInstance3D" parent="DeadTrees" unique_id=1678975710]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 0, 16)
+mesh = SubResource("BoxMesh_ftkea")
+
+[node name="DeadTree03" type="Node3D" parent="DeadTrees" unique_id=1355301107 instance=ExtResource("10_7dj35")]
+transform = Transform3D(0.7844779, 0, 0, 0, 0.7844779, 0, 0, 0, 0.7844779, 13.139784, 0.25611955, 16.036354)
+
+[node name="DeadTree03Label" type="Label3D" parent="DeadTrees" unique_id=1517214345]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 0.25, 19)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "DeadTree03.fbx"
+outline_size = 6
+
+[node name="DeadTree04Stand" type="MeshInstance3D" parent="DeadTrees" unique_id=159227469]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 19.5, 0, 16)
+mesh = SubResource("BoxMesh_s2efs")
+
+[node name="DeadTree04" type="Node3D" parent="DeadTrees" unique_id=1905741685 instance=ExtResource("11_u300k")]
+transform = Transform3D(0.8624045, 0, 0, 0, 0.8624045, 0, 0, 0, 0.8624045, 19.576056, 0.27560127, 16.329546)
+
+[node name="DeadTree04Label" type="Label3D" parent="DeadTrees" unique_id=692988785]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 19.5, 0.25, 19)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "DeadTree04.fbx"
+outline_size = 6
+
+[node name="Flowers" type="Node3D" parent="." unique_id=254262914]
+
+[node name="@Label3D@12" type="Label3D" parent="Flowers" unique_id=2011343729]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 1, 24)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Flowers"
+font_size = 42
+outline_size = 6
+
+[node name="Flower01Stand" type="MeshInstance3D" parent="Flowers" unique_id=1718707288]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 24)
+mesh = SubResource("BoxMesh_8jlsm")
+
+[node name="Flower01" type="Node3D" parent="Flowers" unique_id=1663216188 instance=ExtResource("12_7jpi4")]
+transform = Transform3D(3.7194643, 0, 0, 0, 3.7194643, 0, 0, 0, 3.7194643, -0.0459823, 0.29591817, 24.006102)
+
+[node name="Flower01Label" type="Label3D" parent="Flowers" unique_id=305643642]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 27)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Flower01.fbx"
+outline_size = 6
+
+[node name="Flower02Stand" type="MeshInstance3D" parent="Flowers" unique_id=1570983220]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 0, 24)
+mesh = SubResource("BoxMesh_q4gqt")
+
+[node name="Flower02" type="Node3D" parent="Flowers" unique_id=1665742669 instance=ExtResource("13_rg5u8")]
+transform = Transform3D(4.0668063, 0, 0, 0, 4.0668063, 0, 0, 0, 4.0668063, 6.411177, 0.16014832, 23.948719)
+
+[node name="Flower02Label" type="Label3D" parent="Flowers" unique_id=469150106]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 0.25, 27)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Flower02.fbx"
+outline_size = 6
+
+[node name="Flower03Stand" type="MeshInstance3D" parent="Flowers" unique_id=926621487]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 0, 24)
+mesh = SubResource("BoxMesh_ocjcw")
+
+[node name="Flower03" type="Node3D" parent="Flowers" unique_id=421201173 instance=ExtResource("14_8l6y7")]
+transform = Transform3D(5.223702, 0, 0, 0, 5.223702, 0, 0, 0, 5.223702, 13, 0.18219753, 23.938301)
+
+[node name="Flower03Label" type="Label3D" parent="Flowers" unique_id=116737246]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 0.25, 27)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Flower03.fbx"
+outline_size = 6
+
+[node name="Flower04Stand" type="MeshInstance3D" parent="Flowers" unique_id=517922389]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 19.5, 0, 24)
+mesh = SubResource("BoxMesh_8n6eu")
+
+[node name="Flower04" type="Node3D" parent="Flowers" unique_id=1887178196 instance=ExtResource("15_nx3cv")]
+transform = Transform3D(4.129938, 0, 0, 0, 4.129938, 0, 0, 0, 4.129938, 19.50148, 0.26432598, 24.004793)
+
+[node name="Flower04Label" type="Label3D" parent="Flowers" unique_id=1725937304]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 19.5, 0.25, 27)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Flower04.fbx"
+outline_size = 6
+
+[node name="Flower05Stand" type="MeshInstance3D" parent="Flowers" unique_id=475654889]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 0, 24)
+mesh = SubResource("BoxMesh_pmv5k")
+
+[node name="Flower05" type="Node3D" parent="Flowers" unique_id=1549099742 instance=ExtResource("16_01tsx")]
+transform = Transform3D(4.2292724, 0, 0, 0, 4.2292724, 0, 0, 0, 4.2292724, 26.016876, 0.14734502, 24.055614)
+
+[node name="Flower05Label" type="Label3D" parent="Flowers" unique_id=715406525]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 0.25, 27)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Flower05.fbx"
+outline_size = 6
+
+[node name="Grass" type="Node3D" parent="." unique_id=1316497499]
+
+[node name="@Label3D@13" type="Label3D" parent="Grass" unique_id=1589530014]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 1, 32)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Grass"
+font_size = 42
+outline_size = 6
+
+[node name="Grass01Stand" type="MeshInstance3D" parent="Grass" unique_id=50979321]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 32)
+mesh = SubResource("BoxMesh_5wkue")
+
+[node name="Grass01" type="Node3D" parent="Grass" unique_id=668592440 instance=ExtResource("17_ffqn6")]
+transform = Transform3D(2.5474432, 0, 0, 0, 2.5474432, 0, 0, 0, 2.5474432, -0.0518679, 0.09142141, 31.945078)
+
+[node name="Grass01Label" type="Label3D" parent="Grass" unique_id=2008387479]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 35)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Grass01.fbx"
+outline_size = 6
+
+[node name="Logs" type="Node3D" parent="." unique_id=1022053704]
+
+[node name="@Label3D@14" type="Label3D" parent="Logs" unique_id=1165111580]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 1, 40)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Logs"
+font_size = 42
+outline_size = 6
+
+[node name="Log01Stand" type="MeshInstance3D" parent="Logs" unique_id=445228837]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 40)
+mesh = SubResource("BoxMesh_q48pr")
+
+[node name="Log01" type="Node3D" parent="Logs" unique_id=1736933591 instance=ExtResource("18_cv20i")]
+transform = Transform3D(1.9684545, 0, 0, 0, 1.9684545, 0, 0, 0, 1.9684545, -0.094301626, 0.27221933, 40.025394)
+
+[node name="Log01Label" type="Label3D" parent="Logs" unique_id=846948037]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 43)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Log01.fbx"
+outline_size = 6
+
+[node name="Log02Stand" type="MeshInstance3D" parent="Logs" unique_id=1281309279]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 0, 40)
+mesh = SubResource("BoxMesh_owv4h")
+
+[node name="Log02" type="Node3D" parent="Logs" unique_id=339248819 instance=ExtResource("19_03784")]
+transform = Transform3D(2.017859, 0, 0, 0, 2.017859, 0, 0, 0, 2.017859, 6.4002843, 0.44591555, 39.916477)
+
+[node name="Log02Label" type="Label3D" parent="Logs" unique_id=720490424]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 0.25, 43)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Log02.fbx"
+outline_size = 6
+
+[node name="Log03Stand" type="MeshInstance3D" parent="Logs" unique_id=593357023]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 0, 40)
+mesh = SubResource("BoxMesh_lpyo4")
+
+[node name="Log03" type="Node3D" parent="Logs" unique_id=1612981117 instance=ExtResource("20_b112b")]
+transform = Transform3D(2.9430556, 0, 0, 0, 2.9430556, 0, 0, 0, 2.9430556, 12.894045, 0.7101026, 40)
+
+[node name="Log03Label" type="Label3D" parent="Logs" unique_id=1090742949]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 0.25, 43)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Log03.fbx"
+outline_size = 6
+
+[node name="Log04Stand" type="MeshInstance3D" parent="Logs" unique_id=1156163719]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 19.5, 0, 40)
+mesh = SubResource("BoxMesh_23j4k")
+
+[node name="Log04" type="Node3D" parent="Logs" unique_id=1153423176 instance=ExtResource("21_xeaaw")]
+transform = Transform3D(1.0663863, 0, 0, 0, 1.0663863, 0, 0, 0, 1.0663863, 19.76097, 1.4174683, 40.26461)
+
+[node name="Log04Label" type="Label3D" parent="Logs" unique_id=299256462]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 19.5, 0.25, 43)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Log04.fbx"
+outline_size = 6
+
+[node name="Log05Stand" type="MeshInstance3D" parent="Logs" unique_id=2068392965]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 0, 40)
+mesh = SubResource("BoxMesh_idaup")
+
+[node name="Log05" type="Node3D" parent="Logs" unique_id=703255540 instance=ExtResource("22_px8eg")]
+transform = Transform3D(1.2022676, 0, 0, 0, 1.2022676, 0, 0, 0, 1.2022676, 25.86662, 1.2057502, 39.93867)
+
+[node name="Log05Label" type="Label3D" parent="Logs" unique_id=169543893]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 0.25, 43)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Log05.fbx"
+outline_size = 6
+
+[node name="Log06Stand" type="MeshInstance3D" parent="Logs" unique_id=895664478]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.5, 0, 40)
+mesh = SubResource("BoxMesh_kqexa")
+
+[node name="Log06" type="Node3D" parent="Logs" unique_id=530368239 instance=ExtResource("23_p5sdw")]
+transform = Transform3D(1.229518, 0, 0, 0, 1.229518, 0, 0, 0, 1.229518, 32.57236, 1.2791119, 40.114513)
+
+[node name="Log06Label" type="Label3D" parent="Logs" unique_id=1324873295]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.5, 0.25, 43)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Log06.fbx"
+outline_size = 6
+
+[node name="Log07Stand" type="MeshInstance3D" parent="Logs" unique_id=1408735484]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39, 0, 40)
+mesh = SubResource("BoxMesh_oa535")
+
+[node name="Log07" type="Node3D" parent="Logs" unique_id=961050328 instance=ExtResource("24_k7whg")]
+transform = Transform3D(1.6552188, 0, 0, 0, 1.6552188, 0, 0, 0, 1.6552188, 39.38415, 1.1349202, 39.86187)
+
+[node name="Log07Label" type="Label3D" parent="Logs" unique_id=1224384752]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39, 0.25, 43)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Log07.fbx"
+outline_size = 6
+
+[node name="Log08Stand" type="MeshInstance3D" parent="Logs" unique_id=1390973361]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.5, 0, 40)
+mesh = SubResource("BoxMesh_c7ggf")
+
+[node name="Log08" type="Node3D" parent="Logs" unique_id=1025166106 instance=ExtResource("25_kocsv")]
+transform = Transform3D(1.1763119, 0, 0, 0, 1.1763119, 0, 0, 0, 1.1763119, 45.751274, 1.2034167, 39.954365)
+
+[node name="Log08Label" type="Label3D" parent="Logs" unique_id=591134656]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.5, 0.25, 43)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Log08.fbx"
+outline_size = 6
+
+[node name="Log09Stand" type="MeshInstance3D" parent="Logs" unique_id=445935503]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52, 0, 40)
+mesh = SubResource("BoxMesh_vkdyn")
+
+[node name="Log09" type="Node3D" parent="Logs" unique_id=939184229 instance=ExtResource("26_ab0sl")]
+transform = Transform3D(2.571815, 0, 0, 0, 2.571815, 0, 0, 0, 2.571815, 51.8642, 0.045717526, 40.0663)
+
+[node name="Log09Label" type="Label3D" parent="Logs" unique_id=419079811]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52, 0.25, 43)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Log09.fbx"
+outline_size = 6
+
+[node name="Rocks" type="Node3D" parent="." unique_id=1757292753]
+
+[node name="@Label3D@15" type="Label3D" parent="Rocks" unique_id=133820413]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 1, 48)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Rocks"
+font_size = 42
+outline_size = 6
+
+[node name="Rock01Stand" type="MeshInstance3D" parent="Rocks" unique_id=792200670]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 48)
+mesh = SubResource("BoxMesh_ajn38")
+
+[node name="Rock01" type="Node3D" parent="Rocks" unique_id=1491016629 instance=ExtResource("27_aho6v")]
+transform = Transform3D(2.481975, 0, 0, 0, 2.481975, 0, 0, 0, 2.481975, -0.117806196, 0.6699174, 48.08659)
+
+[node name="Rock01Label" type="Label3D" parent="Rocks" unique_id=1472045437]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 51)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Rock01.fbx"
+outline_size = 6
+
+[node name="Rock02Stand" type="MeshInstance3D" parent="Rocks" unique_id=1478388924]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 0, 48)
+mesh = SubResource("BoxMesh_af4q2")
+
+[node name="Rock02" type="Node3D" parent="Rocks" unique_id=214667512 instance=ExtResource("28_erquk")]
+transform = Transform3D(3.6801116, 0, 0, 0, 3.6801116, 0, 0, 0, 3.6801116, 6.489576, 0.77132106, 48.04006)
+
+[node name="Rock02Label" type="Label3D" parent="Rocks" unique_id=863505871]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.5, 0.25, 51)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Rock02.fbx"
+outline_size = 6
+
+[node name="Rock03Stand" type="MeshInstance3D" parent="Rocks" unique_id=1792803890]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 0, 48)
+mesh = SubResource("BoxMesh_xrcyb")
+
+[node name="Rock03" type="Node3D" parent="Rocks" unique_id=101009585 instance=ExtResource("29_h0mha")]
+transform = Transform3D(4.37053, 0, 0, 0, 4.37053, 0, 0, 0, 4.37053, 13.038934, 0.19722617, 47.8494)
+
+[node name="Rock03Label" type="Label3D" parent="Rocks" unique_id=1330739523]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 0.25, 51)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Rock03.fbx"
+outline_size = 6
+
+[node name="Rock04Stand" type="MeshInstance3D" parent="Rocks" unique_id=742922240]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 19.5, 0, 48)
+mesh = SubResource("BoxMesh_100cs")
+
+[node name="Rock04" type="Node3D" parent="Rocks" unique_id=1101223238 instance=ExtResource("30_7uxr3")]
+transform = Transform3D(2.134282, 0, 0, 0, 2.134282, 0, 0, 0, 2.134282, 19.419548, 1.0655926, 48.049076)
+
+[node name="Rock04Label" type="Label3D" parent="Rocks" unique_id=363034464]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 19.5, 0.25, 51)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Rock04.fbx"
+outline_size = 6
+
+[node name="Rock05Stand" type="MeshInstance3D" parent="Rocks" unique_id=1644743412]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 0, 48)
+mesh = SubResource("BoxMesh_352qc")
+
+[node name="Rock05" type="Node3D" parent="Rocks" unique_id=295278029 instance=ExtResource("31_o1nav")]
+transform = Transform3D(1.867375, 0, 0, 0, 1.867375, 0, 0, 0, 1.867375, 25.92707, 0.89340836, 48.088886)
+
+[node name="Rock05Label" type="Label3D" parent="Rocks" unique_id=497083453]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 26, 0.25, 51)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Rock05.fbx"
+outline_size = 6
+
+[node name="Rock06Stand" type="MeshInstance3D" parent="Rocks" unique_id=1163128025]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.5, 0, 48)
+mesh = SubResource("BoxMesh_ugsba")
+
+[node name="Rock06" type="Node3D" parent="Rocks" unique_id=1118525375 instance=ExtResource("32_gqirs")]
+transform = Transform3D(2.8756096, 0, 0, 0, 2.8756096, 0, 0, 0, 2.8756096, 32.577133, 0.19075896, 47.907326)
+
+[node name="Rock06Label" type="Label3D" parent="Rocks" unique_id=618008725]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32.5, 0.25, 51)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Rock06.fbx"
+outline_size = 6
+
+[node name="Rock07Stand" type="MeshInstance3D" parent="Rocks" unique_id=2090022933]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39, 0, 48)
+mesh = SubResource("BoxMesh_wa10k")
+
+[node name="Rock07" type="Node3D" parent="Rocks" unique_id=1156185389 instance=ExtResource("33_c237u")]
+transform = Transform3D(2.787192, 0, 0, 0, 2.787192, 0, 0, 0, 2.787192, 39.08965, 0.52273774, 48.030025)
+
+[node name="Rock07Label" type="Label3D" parent="Rocks" unique_id=976250856]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39, 0.25, 51)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Rock07.fbx"
+outline_size = 6
+
+[node name="Rock08Stand" type="MeshInstance3D" parent="Rocks" unique_id=2056908261]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.5, 0, 48)
+mesh = SubResource("BoxMesh_71l77")
+
+[node name="Rock08" type="Node3D" parent="Rocks" unique_id=917828102 instance=ExtResource("34_4is5o")]
+transform = Transform3D(2.479109, 0, 0, 0, 2.479109, 0, 0, 0, 2.479109, 45.58927, 0.4030341, 48.115685)
+
+[node name="Rock08Label" type="Label3D" parent="Rocks" unique_id=767905921]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45.5, 0.25, 51)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Rock08.fbx"
+outline_size = 6
+
+[node name="Rock09Stand" type="MeshInstance3D" parent="Rocks" unique_id=1088945245]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52, 0, 48)
+mesh = SubResource("BoxMesh_xo8qv")
+
+[node name="Rock09" type="Node3D" parent="Rocks" unique_id=1085158502 instance=ExtResource("35_k15i5")]
+transform = Transform3D(2.7984495, 0, 0, 0, 2.7984495, 0, 0, 0, 2.7984495, 52.047638, 0.40327948, 48.006126)
+
+[node name="Rock09Label" type="Label3D" parent="Rocks" unique_id=2129699050]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 52, 0.25, 51)
+pixel_size = 0.023
+billboard = 1
+no_depth_test = true
+text = "Rock09.fbx"
+outline_size = 6
