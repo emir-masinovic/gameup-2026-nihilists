@@ -6,6 +6,8 @@ var material: ShaderMaterial
 var batches: Array[MultiMeshInstance3D] = []
 var wind_direction = Vector2.RIGHT
 var wind_strength = 0.0
+var heading = 0.0
+var _heading_initialized = false
 var weather = "clear"
 var player_position = Vector3.ZERO
 var travel = Vector2.ZERO
@@ -72,6 +74,9 @@ func set_weather(next_weather: String, sun_height: float, rainbow: MeshInstance3
 func set_wind(state: Dictionary):
 	wind_direction = state.direction
 	wind_strength = state.strength
+	if not _heading_initialized and wind_direction.length_squared() > 0.000001:
+		heading = wind_direction.angle()
+		_heading_initialized = true
 
 func _process(delta: float):
 	visible = value("enabled")
@@ -81,6 +86,10 @@ func _process(delta: float):
 		var size = viewport.get_visible_rect().size
 		material.set_shader_parameter("player_screen_uv",camera.unproject_position(player_position)/size)
 		material.set_shader_parameter("screen_aspect",size.x/maxf(size.y,1.0))
+	# Smooth shortest-arc yaw, without altering authoritative drift or placement.
+	if wind_direction.length_squared() > 0.000001:
+		heading = lerp_angle(heading,wind_direction.angle(),1.0-exp(-2.0*maxf(delta,0.0)))
+	material.set_shader_parameter("cloud_heading",heading)
 	travel += wind_direction*(0.18+0.55*wind_strength)*float(value("speed_multiplier"))*delta
 	var density = float(value("rain_density")) if weather == "rain" else float(value("heat_density")) if weather == "heat" else 0.65 if weather == "cool" else float(value("clear_density"))
 	coverage = move_toward(coverage,clampf(float(value("count"))*density,0,CAPACITY),delta*2.0)

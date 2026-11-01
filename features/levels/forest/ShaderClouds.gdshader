@@ -1,6 +1,7 @@
 shader_type spatial;
 render_mode unshaded,depth_prepass_alpha;
 uniform vec2 travel = vec2(0.0);
+uniform float cloud_heading = 0.0;
 uniform float extent = 23.0;
 uniform float altitude = 7.0;
 uniform float cloud_scale = 1.5;
@@ -21,6 +22,12 @@ void vertex() {
  float gap = mix(1.0,smoothstep(4.0,8.0,distance(center,rainbow_position)),rainbow_clearance);
  visibility = smoothstep(INSTANCE_CUSTOM.r,INSTANCE_CUSTOM.r+1.0,coverage)*edge*gap;
  shade = INSTANCE_CUSTOM.a;
+ // Existing seeded custom.b provides stable +/-12-degree variety; no new RNG.
+ float angle = cloud_heading+(INSTANCE_CUSTOM.b*2.0-1.0)*0.20943951;
+ float c = cos(angle);
+ float s = sin(angle);
+ VERTEX.xz = vec2(c*VERTEX.x-s*VERTEX.z,s*VERTEX.x+c*VERTEX.z);
+ NORMAL.xz = vec2(c*NORMAL.x-s*NORMAL.z,s*NORMAL.x+c*NORMAL.z);
  VERTEX *= cloud_scale*INSTANCE_CUSTOM.g;
  VERTEX.xz += center-original;
  VERTEX.y += altitude+(INSTANCE_CUSTOM.b-0.5)*1.5;
